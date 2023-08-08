@@ -1,0 +1,42 @@
+GET https://localhost:5000/
+Content-Type: application/json
+
+{}
+
+###
+
+GET https://localhost:5000/clob/markets?chain=kujira&network=testnet&connector=kujira&market=KUJI-DEMO
+Content-Type: application/json
+
+{}
+
+###
+
+POST https://localhost:5000/chain/balances
+Content-Type: application/json
+
+{
+  "chain": "kujira",
+  "network": "mainnet",
+  "connector": "kujira",
+  "address": "<wallet address>"
+}
+
+###
+
+POST https://localhost:5000/clob/orders
+Content-Type: application/json
+
+{
+    "chain": "kujira",
+    "network": "testnet",
+    "connector": "kujira",
+    "price": "999.99",
+    "amount": "1.0",
+    "orderType": "LIMIT",
+    "side": "SELL",
+    "market": "KUJI-USK",
+    "address": "kujira1d6ld7s0edsh5qsmt3lq4tnrqgvxc3jdrk9z3km"
+}
+
+###

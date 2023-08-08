@@ -1,0 +1,154 @@
+POST https://localhost:5000/strategy/start
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id"
+}
+
+###
+
+POST https://localhost:5000/strategy/stop
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id"
+}
+
+###
+
+POST https://localhost:5000/strategy/status
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id"
+}
+
+###
+
+POST https://localhost:5000/strategy/worker/start
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id",
+    "worker": "worker-id"
+}
+
+###
+
+POST https://localhost:5000/strategy/worker/stop
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id",
+    "worker": "worker-id"
+}
+
+###
+
+POST https://localhost:5000/strategy/worker/status
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id",
+    "worker": "worker-id"
+}
+
+###
+
+POST https://localhost:5000/strategy/task/start
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id",
+    "task": "task-id"
+}
+
+###
+
+POST https://localhost:5000/strategy/task/stop
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id",
+    "task": "task-id"
+}
+
+###
+
+POST https://localhost:5000/strategy/task/status
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id",
+    "task": "task-id"
+}
+
+###
+
+POST https://localhost:5000/strategy/worker/task/start
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id",
+    "worker": "worker-id",
+    "task": "task-id"
+}
+
+###
+
+POST https://localhost:5000/strategy/worker/task/stop
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id",
+    "worker": "worker-id",
+    "task": "task-id"
+}
+
+###
+
+POST https://localhost:5000/strategy/worker/task/status
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id",
+    "worker": "worker-id",
+    "task": "task-id"
+}
+
+###
+
+POST https://localhost:5000/strategy/statistics
+Content-Type: application/json
+
+{
+    "strategy": "pure_market_making",
+	"version": "1.0.0",
+    "id": "id"
+}
+
+###
