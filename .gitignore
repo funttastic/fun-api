@@ -3,8 +3,7 @@ resources/configuration/staging.yml
 resources/configuration/production.yml
 resources/certificates/
 resources/requests/http-client.private.env.json
-resources/strategies/
-!resources/strategies/templates/
+resources/strategies/*
 resources/logs/
 
 *.iml
