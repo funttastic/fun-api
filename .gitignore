@@ -1,11 +1,11 @@
 resources/configuration/development.yml
 resources/configuration/staging.yml
 resources/configuration/production.yml
-resources/certificates/**.*
+resources/certificates/
 resources/requests/http-client.private.env.json
-resources/strategies
-!resources/strategies/templates/**.*
-resources/logs/**.*
+resources/strategies/
+!resources/strategies/templates/
+resources/logs/
 
 *.iml
 __pycache__/
