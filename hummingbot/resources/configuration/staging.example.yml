@@ -1,3 +1,0 @@
-server:
-  environment: staging
-  debug: false
