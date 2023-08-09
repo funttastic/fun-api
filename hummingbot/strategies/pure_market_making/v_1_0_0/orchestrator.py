@@ -116,7 +116,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 				await self.exit()
 
 			if self._is_busy or (self._refresh_timestamp > current_timestamp()):
-				return
+				continue
 
 			if self._tasks.on_tick is None:
 				try:

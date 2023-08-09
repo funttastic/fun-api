@@ -97,6 +97,7 @@ class Worker(WorkerBase):
 			self._refresh_timestamp = waiting_time + current_timestamp()
 
 			self.initialized = True
+			self._can_run = True
 		except Exception as exception:
 			self.ignore_exception(exception)
 
@@ -112,7 +113,7 @@ class Worker(WorkerBase):
 				await self.exit()
 
 			if self._is_busy or (self._refresh_timestamp > current_timestamp()):
-				return
+				continue
 
 			if self._tasks.on_tick is None:
 				try:
