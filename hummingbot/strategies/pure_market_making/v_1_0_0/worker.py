@@ -10,7 +10,7 @@ import traceback
 from decimal import Decimal
 from dotmap import DotMap
 from pathlib import Path
-from typing import Any, List, Union
+from typing import Any, List, Union, Dict
 
 from hummingbot.constants import DECIMAL_NAN
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, VWAP_THRESHOLD, \
@@ -58,6 +58,52 @@ class Worker(WorkerBase):
 				"orders": None,
 				"balances": None,
 			}, _dynamic=False)
+			self.summary: DotMap[str, Any] = DotMap({
+				"orders": {
+					"replaced": DotMap({}),
+					"canceled": DotMap({}),
+				},
+				"wallet": {
+					"current_initial_pnl": None,
+					"initial_value": None,
+					"previous_value": None,
+					"current_value": None,
+					"current_previous_pnl": None,
+				},
+				"token": {
+					"initial_price": None,
+					"previous_price": None,
+					"current_price": None,
+					"current_initial_pnl": None,
+					"current_previous_pnl": None,
+				},
+				"price": {
+					"used_price": None,
+					"ticker_price": None,
+					"last_filled_order_price": None,
+					"expected_price": None,
+					"adjusted_market_price": None,
+					"sap": None,
+					"wap": None,
+					"vwap": None,
+				},
+				"balance": {
+					"wallet": {
+						"base": None,
+						"quote": None,
+						"WRAPPED_SOL": None,
+						"UNWRAPPED_SOL": None,
+						"ALL_SOL": None,
+					},
+					"orders": {
+						"quote": {
+							"bids": None,
+							"asks": None,
+							"total": None,
+						}
+					}
+				}
+			})
 		finally:
 			self.log(DEBUG, "end")
 
@@ -987,3 +1033,158 @@ class Worker(WorkerBase):
 		result = number - (current_timestamp_in_milliseconds % number)
 
 		return result
+
+
+	def _show_summary(self):
+		replaced_orders_summary = ""
+		canceled_orders_summary = ""
+
+		if len(self.summary["orders"]["replaced"]):
+			orders: List[Dict[str, Any]] = list(dict(self.summary["orders"]["replaced"]).values())
+			orders.sort(key=lambda item: item["price"])
+	#
+	#		groups: array[array[str]] = [[], [], [], [], [], [], []]
+				# for order in orders:
+				# groups[0].append(str(order["type"]).lower())
+				# groups[1].append(str(order["side"]).lower())
+				# groups[2].append(format_currency(order["amount"], 3))
+				# groups[2].append(format_currency(order["amount"], 3))
+				# groups[3].append(self._base_token)
+				# groups[4].append("by")
+				# groups[5].append(format_currency(order["price"], 3))
+				# groups[5].append(format_currency(order["price"], 3))
+				# groups[6].append(self._quote_token)
+	#
+	# 		replaced_orders_summary = format_lines(groups)
+	#
+	# 	if len(self.summary["orders"]["canceled"]):
+	# 		orders: List[Dict[str, Any]] = list(dict(self.summary["orders"]["canceled"]).values())
+	# 		orders.sort(key=lambda item: item["price"])
+	#
+	# 		groups: array[array[str]] = [[], [], [], [], [], []]
+	# 		for order in orders:
+	# 			groups[0].append(str(order["side"]).lower())
+	# 			# groups[1].append(format_currency(order["amount"], 3))
+	# 			groups[1].append(format_currency(order["amount"], 3))
+	# 			groups[2].append(self._base_token)
+	# 			groups[3].append("by")
+	# 			# groups[4].append(format_currency(order["price"], 3))
+	# 			groups[4].append(format_currency(order["price"], 3))
+	# 			groups[5].append(self._quote_token)
+	#
+	# 		canceled_orders_summary = format_lines(groups)
+	#
+	# 	sot = self.configuration["strategy"].get("serum_order_type", "LIMIT")
+	# 	ps = self.configuration["strategy"]["price_strategy"]
+	# 	uap = self.configuration["strategy"]["use_adjusted_price"]
+	# 	mps = self.configuration["strategy"].get("middle_price_strategy", "VWAP")
+	#
+	# 	self._log(
+	# 		INFO,
+	# 		textwrap.dedent(
+	# 			f"""\
+	#                 <b>Settings</b>:
+	#                 {format_line("OrderType: ", sot)}\
+	#                 {format_line("PriceStrategy: ", ps)}\
+	#                 {format_line("UseAdjusted$: ", uap)}\
+	#                 {format_line("Mid$Strategy: ", mps)}\
+	#                 """
+	# 		),
+	# 		True
+	# 	)
+	#
+	# 	self._log(
+	# 		INFO,
+	# 		textwrap.dedent(
+	# 			f"""\
+	#                 <b>Market</b>: <b>{self._market}</b>
+	#                 <b>PnL</b>: {format_line("", format_percentage(self.summary["wallet"]["current_initial_pnl"]), alignment_column - 4)}
+	#                 <b>Wallet</b>:
+	#                 {format_line(" Wo:", format_currency(self.summary["wallet"]["initial_value"], 4))}
+	#                 {format_line(" Wp:", format_currency(self.summary["wallet"]["previous_value"], 4))}
+	#                 {format_line(" Wc:", format_currency(self.summary["wallet"]["current_value"], 4))}
+	#                 {format_line(" Wc/Wo:", (format_percentage(self.summary["wallet"]["current_initial_pnl"])))}
+	#                 {format_line(" Wc/Wp:", format_percentage(self.summary["wallet"]["current_previous_pnl"]))}
+	#                 <b>Token</b>:
+	#                 {format_line(" To:", format_currency(self.summary["token"]["initial_price"], 6))}
+	#                 {format_line(" Tp:", format_currency(self.summary["token"]["previous_price"], 6))}
+	#                 {format_line(" Tc:", format_currency(self.summary["token"]["current_price"], 6))}
+	#                 {format_line(" Tc/To:", format_percentage(self.summary["token"]["current_initial_pnl"]))}
+	#                 {format_line(" Tc/Tp:", format_percentage(self.summary["token"]["current_previous_pnl"]))}
+	#                 <b>Price</b>:
+	#                 {format_line(" Used:", format_currency(self.summary["price"]["used_price"], 6))}
+	#                 {format_line(" External:", format_currency(self.summary["price"]["ticker_price"], 6))}
+	#                 {format_line(" Last fill:", format_currency(self.summary["price"]["last_filled_order_price"], 6))}
+	#                 {format_line(" Expected:", format_currency(self.summary["price"]["expected_price"], 6))}
+	#                 {format_line(" Adjusted:", format_currency(self.summary["price"]["adjusted_market_price"], 6))}
+	#                 {format_line(" SAP:", format_currency(self.summary["price"]["sap"], 6))}
+	#                 {format_line(" WAP:", format_currency(self.summary["price"]["wap"], 6))}
+	#                 {format_line(" VWAP:", format_currency(self.summary["price"]["vwap"], 6))}
+	#                 <b>Balance</b>:
+	#                  <b>Wallet</b>:
+	#                 {format_line(f"  {self._base_token}:", format_currency(self.summary["balance"]["wallet"]["base"], 4))}
+	#                 {format_line(f"  {self._quote_token}:", format_currency(self.summary["balance"]["wallet"]["quote"], 4))}
+	#                 {format_line(f"  W SOL:", format_currency(self.summary["balance"]["wallet"]["WRAPPED_SOL"], 4))}
+	#                 {format_line(f"  UW SOL:", format_currency(self.summary["balance"]["wallet"]["UNWRAPPED_SOL"], 4))}
+	#                 {format_line(f"  ALL SOL:", format_currency(self.summary["balance"]["wallet"]["ALL_SOL"], 4))}
+	#                  <b>Orders (in {self._quote_token})</b>:
+	#                 {format_line(f"  Bids:", format_currency(self.summary["balance"]["orders"]["quote"]["bids"], 4))}
+	#                 {format_line(f"  Asks:", format_currency(self.summary["balance"]["orders"]["quote"]["asks"], 4))}
+	#                 {format_line(f"  Total:", format_currency(self.summary["balance"]["orders"]["quote"]["total"], 4))}
+	#                 <b>Orders</b>:
+	#                 {format_line(" Replaced:", str(len(self.summary["orders"]["replaced"])))}
+	#                 {format_line(" Canceled:", str(len(self.summary["orders"]["canceled"])))}\
+	#                 """
+	# 		),
+	# 		True
+	# 	)
+	#
+	# 	if replaced_orders_summary:
+	# 		self._log(
+	# 			INFO,
+	# 			f"""<b>Replaced Orders:</b>\n{replaced_orders_summary}""",
+	# 			True
+	# 		)
+	#
+	# 	if canceled_orders_summary:
+	# 		self._log(
+	# 			INFO,
+	# 			f"""<b>Canceled Orders:</b>\n{canceled_orders_summary}""",
+	# 			True
+	# 		)
+
+# def _show_summary(self):
+# 	if len(self._summary["global"]["balances"]):
+# 		groups: array[array[str]] = [[], []]
+# 		for (token, balance) in dict(self._summary["global"]["balances"]).items():
+# 			groups[0].append(token)
+# 			# groups[1].append(format_currency(balance, 4))
+# 			groups[1].append(format_currency(balance, 4))
+#
+# 		balances_summary = format_lines(groups, align="left")
+# 	else:
+# 		balances_summary = ""
+#
+# 	self._log(
+# 		INFO,
+# 		textwrap.dedent(
+# 			f"""\
+#                 <b>GLOBAL</b>
+#                 <b>PnL</b>: {format_line("", format_percentage(self._summary["global"]["wallet"]["current_initial_pnl"]), alignment_column - 4)}
+#                 <b>Wallet</b>:
+#                 {format_line(" Wo:", format_currency(self._summary["global"]["wallet"]["initial_value"], 4))}
+#                 {format_line(" Wp:", format_currency(self._summary["global"]["wallet"]["previous_value"], 4))}
+#                 {format_line(" Wc:", format_currency(self._summary["global"]["wallet"]["current_value"], 4))}
+#                 {format_line(" Wc/Wo:", (format_percentage(self._summary["global"]["wallet"]["current_initial_pnl"])))}
+#                 {format_line(" Wc/Wp:", format_percentage(self._summary["global"]["wallet"]["current_previous_pnl"]))}\
+#                 """
+# 		),
+# 		True
+# 	)
+#
+# 	if balances_summary:
+# 		self._log(
+# 			INFO,
+# 			f"""<b>Balances:</b>\n{balances_summary}""",
+# 			True
+# 		)
