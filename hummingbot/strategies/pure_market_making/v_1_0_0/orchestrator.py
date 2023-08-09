@@ -6,13 +6,12 @@ from logging import DEBUG, INFO
 import asyncio
 import copy
 import os
-import time
 import yaml
 from dotmap import DotMap
 from typing import Dict, Any
 
 from hummingbot.gateway import Gateway
-from hummingbot.strategies.pure_market_making.version.v_1_0_0.worker import Worker
+from hummingbot.strategies.pure_market_making.v_1_0_0.worker import Worker
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.worker_base import WorkerBase
 from hummingbot.utils import current_timestamp

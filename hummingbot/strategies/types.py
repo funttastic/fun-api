@@ -1,6 +1,6 @@
 from enum import Enum
 
-from hummingbot.strategies.pure_market_making.version.v_1_0_0.orchestrator import PureMarketMaking_1_0_0
+from hummingbot.strategies.pure_market_making.v_1_0_0.orchestrator import PureMarketMaking_1_0_0
 
 
 class Strategy(Enum):
