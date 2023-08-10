@@ -29,14 +29,19 @@ from hummingbot.types import (
 	MiddlePriceStrategy,
 	PriceStrategy
 )
-from hummingbot.utils import current_timestamp
-from utils import dump
-
-from .helpers import (
-	MiddlePriceStrategy,
+from hummingbot.utils import (
 	alignment_column,
-	helpers
+	current_timestamp,
+	parse_order_book,
+	calculate_middle_price,
+	format_line,
+	format_currency,
+	format_percentage,
+	format_lines,
+	calculate_waiting_time,
 )
+
+from utils import dump
 
 
 class Worker(WorkerBase):
@@ -85,49 +90,53 @@ class Worker(WorkerBase):
 				"balances": None,
 			}, _dynamic=False)
 			self.summary: DotMap[str, Any] = DotMap({
+				"configurations": {
+					"kujira_order_type": str,
+					"price_strategy": str,
+					"middle_price_strategy": str,
+					"use_adjusted_price": bool
+				},
+				"balance": {
+					"wallet": {
+						"base": DECIMAL_ZERO,
+						"quote": DECIMAL_ZERO
+					},
+					"orders": {
+						"quote": {
+							"bids": DECIMAL_ZERO,
+							"asks": DECIMAL_ZERO,
+							"total": DECIMAL_ZERO,
+						}
+					}
+				},
 				"orders": {
 					"replaced": DotMap({}),
 					"canceled": DotMap({}),
 				},
 				"wallet": {
-					"current_initial_pnl": None,
-					"initial_value": None,
-					"previous_value": None,
-					"current_value": None,
-					"current_previous_pnl": None,
+					"initial_value": DECIMAL_ZERO,
+					"previous_value": DECIMAL_ZERO,
+					"current_value": DECIMAL_ZERO,
+					"current_initial_pnl": DECIMAL_ZERO,
+					"current_previous_pnl": DECIMAL_ZERO,
 				},
 				"token": {
-					"initial_price": None,
-					"previous_price": None,
-					"current_price": None,
-					"current_initial_pnl": None,
-					"current_previous_pnl": None,
+					"initial_price": DECIMAL_ZERO,
+					"previous_price": DECIMAL_ZERO,
+					"current_price": DECIMAL_ZERO,
+					"current_initial_pnl": DECIMAL_ZERO,
+					"current_previous_pnl": DECIMAL_ZERO,
 				},
 				"price": {
-					"used_price": None,
-					"ticker_price": None,
-					"last_filled_order_price": None,
-					"expected_price": None,
-					"adjusted_market_price": None,
-					"sap": None,
-					"wap": None,
-					"vwap": None,
-				},
-				"balance": {
-					"wallet": {
-						"base": None,
-						"quote": None,
-						"WRAPPED_SOL": None,
-						"UNWRAPPED_SOL": None,
-						"ALL_SOL": None,
-					},
-					"orders": {
-						"quote": {
-							"bids": None,
-							"asks": None,
-							"total": None,
-						}
-					}
+					"used_price": DECIMAL_ZERO,
+					"ticker_price": DECIMAL_ZERO,
+					"last_filled_order_price": DECIMAL_ZERO,
+					"expected_price": DECIMAL_ZERO,
+					"adjusted_market_price": DECIMAL_ZERO,
+					"sap": DECIMAL_ZERO,
+					"wap": DECIMAL_ZERO,
+					"vwap": DECIMAL_ZERO,
+
 				}
 			})
 		finally:
@@ -164,7 +173,7 @@ class Worker(WorkerBase):
 				except Exception as exception:
 					self.ignore_exception(exception)
 
-			waiting_time = helpers.calculate_waiting_time(self._configuration.strategy.tick_interval)
+			waiting_time = calculate_waiting_time(self._configuration.strategy.tick_interval)
 			self.log(DEBUG, f"""Waiting for {waiting_time}s.""")
 			self._refresh_timestamp = waiting_time + current_timestamp()
 
@@ -177,6 +186,7 @@ class Worker(WorkerBase):
 		finally:
 			self.log(DEBUG, "end")
 
+	# noinspection DuplicatedCode
 	async def start(self):
 		self.log(INFO, "start")
 
@@ -249,7 +259,7 @@ class Worker(WorkerBase):
 		except Exception as exception:
 			self.ignore_exception(exception)
 		finally:
-			waiting_time = helpers.calculate_waiting_time(self._configuration.strategy.tick_interval)
+			waiting_time = calculate_waiting_time(self._configuration.strategy.tick_interval)
 
 			self._refresh_timestamp = waiting_time + current_timestamp()
 			self._is_busy = False
@@ -261,6 +271,7 @@ class Worker(WorkerBase):
 			if self._configuration.strategy.run_only_once:
 				await self.exit()
 
+	# noinspection DuplicatedCode
 			await asyncio.sleep(waiting_time)
 
 	async def _create_proposal(self) -> List[Order]:
@@ -268,7 +279,7 @@ class Worker(WorkerBase):
 			self.log(DEBUG, "start")
 
 			order_book = await self._get_order_book()
-			bids, asks = helpers.parse_order_book(order_book)
+			bids, asks = parse_order_book(order_book)
 
 			ticker_price = await self._get_market_price()
 			try:
@@ -442,16 +453,16 @@ class Worker(WorkerBase):
 			self.log(DEBUG, "start")
 
 			if strategy:
-				return helpers.calculate_middle_price(bids, asks, strategy)
+				return calculate_middle_price(bids, asks, strategy)
 
 			try:
-				return helpers.calculate_middle_price(bids, asks, MiddlePriceStrategy.VWAP)
+				return calculate_middle_price(bids, asks, MiddlePriceStrategy.VWAP)
 			except (Exception,):
 				try:
-					return helpers.calculate_middle_price(bids, asks, MiddlePriceStrategy.WAP)
+					return calculate_middle_price(bids, asks, MiddlePriceStrategy.WAP)
 				except (Exception,):
 					try:
-						return helpers.calculate_middle_price(bids, asks, MiddlePriceStrategy.SAP)
+						return calculate_middle_price(bids, asks, MiddlePriceStrategy.SAP)
 					except (Exception,):
 						return await self._get_market_price()
 		finally:
@@ -477,6 +488,7 @@ class Worker(WorkerBase):
 		finally:
 			self.log(DEBUG, "start")
 
+	# noinspection DuplicatedCode
 	async def _get_balances(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
 			self.log(DEBUG, "start")
@@ -615,6 +627,7 @@ class Worker(WorkerBase):
 		finally:
 			self.log(DEBUG, "end")
 
+	# noinspection DuplicatedCode
 	async def _get_open_orders(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
 			self.log(DEBUG, "start")
@@ -664,6 +677,7 @@ class Worker(WorkerBase):
 		finally:
 			self.log(DEBUG, "end")
 
+	# noinspection DuplicatedCode
 	async def _get_filled_orders(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
 			self.log(DEBUG, "start")
@@ -903,15 +917,13 @@ class Worker(WorkerBase):
 			for order in orders:
 				groups[0].append(str(order["type"]).lower())
 				groups[1].append(str(order["side"]).lower())
-				# groups[2].append(helpers.format_currency(order["amount"], 3))
-				groups[2].append(helpers.format_currency(order["amount"], 3))
+				groups[2].append(format_currency(order["amount"], 3))
 				groups[3].append(self._base_token)
 				groups[4].append("by")
-				# groups[5].append(helpers.format_currency(order["price"], 3))
-				groups[5].append(helpers.format_currency(order["price"], 3))
+				groups[5].append(format_currency(order["price"], 3))
 				groups[6].append(self._quote_token)
 
-			replaced_orders_summary = helpers.format_lines(groups)
+			replaced_orders_summary = format_lines(groups)
 
 		if len(self.summary["orders"]["canceled"]):
 			orders: List[Dict[str, Any]] = list(dict(self.summary["orders"]["canceled"]).values())
@@ -920,17 +932,15 @@ class Worker(WorkerBase):
 			groups: array[array[str]] = [[], [], [], [], [], []]
 			for order in orders:
 				groups[0].append(str(order["side"]).lower())
-				# groups[1].append(helpers.format_currency(order["amount"], 3))
-				groups[1].append(helpers.format_currency(order["amount"], 3))
+				groups[1].append(format_currency(order["amount"], 3))
 				groups[2].append(self._base_token)
 				groups[3].append("by")
-				# groups[4].append(helpers.format_currency(order["price"], 3))
-				groups[4].append(helpers.format_currency(order["price"], 3))
+				groups[4].append(format_currency(order["price"], 3))
 				groups[5].append(self._quote_token)
 
-			canceled_orders_summary = helpers.format_lines(groups)
+			canceled_orders_summary = format_lines(groups)
 
-		sot = self._configuration["strategy"].get("kujira_order_type", "LIMIT")
+		kot = self._configuration["strategy"].get("kujira_order_type", "LIMIT")
 		ps = self._configuration["strategy"]["price_strategy"]
 		uap = self._configuration["strategy"]["use_adjusted_price"]
 		mps = self._configuration["strategy"].get("middle_price_strategy", "SAP")
@@ -940,10 +950,10 @@ class Worker(WorkerBase):
 			textwrap.dedent(
 				f"""\
 					<b>Settings</b>:
-					{helpers.format_line("OrderType: ", sot)}\
-					{helpers.format_line("PriceStrategy: ", ps)}\
-					{helpers.format_line("UseAdjusted$: ", uap)}\
-					{helpers.format_line("Mid$Strategy: ", mps)}\
+					{format_line("OrderType: ", kot)}\
+					{format_line("PriceStrategy: ", ps)}\
+					{format_line("UseAdjusted$: ", uap)}\
+					{format_line("Mid$Strategy: ", mps)}\
 					"""
 			),
 			True
@@ -954,42 +964,39 @@ class Worker(WorkerBase):
 			textwrap.dedent(
 				f"""\
 					<b>Market</b>: <b>{self._market}</b>
-					<b>PnL</b>: {helpers.format_line("", helpers.format_percentage(self.summary["wallet"]["current_initial_pnl"]), alignment_column - 4)}
-					<b>Wallet</b>:
-					{helpers.format_line(" Wo:", helpers.format_currency(self.summary["wallet"]["initial_value"], 4))}
-					{helpers.format_line(" Wp:", helpers.format_currency(self.summary["wallet"]["previous_value"], 4))}
-					{helpers.format_line(" Wc:", helpers.format_currency(self.summary["wallet"]["current_value"], 4))}
-					{helpers.format_line(" Wc/Wo:", (helpers.format_percentage(self.summary["wallet"]["current_initial_pnl"])))}
-					{helpers.format_line(" Wc/Wp:", helpers.format_percentage(self.summary["wallet"]["current_previous_pnl"]))}
-					<b>Token</b>:
-					{helpers.format_line(" To:", helpers.format_currency(self.summary["token"]["initial_price"], 6))}
-					{helpers.format_line(" Tp:", helpers.format_currency(self.summary["token"]["previous_price"], 6))}
-					{helpers.format_line(" Tc:", helpers.format_currency(self.summary["token"]["current_price"], 6))}
-					{helpers.format_line(" Tc/To:", helpers.format_percentage(self.summary["token"]["current_initial_pnl"]))}
-					{helpers.format_line(" Tc/Tp:", helpers.format_percentage(self.summary["token"]["current_previous_pnl"]))}
-					<b>Price</b>:
-					{helpers.format_line(" Used:", helpers.format_currency(self.summary["price"]["used_price"], 6))}
-					{helpers.format_line(" External:", helpers.format_currency(self.summary["price"]["ticker_price"], 6))}
-					{helpers.format_line(" Last fill:", helpers.format_currency(self.summary["price"]["last_filled_order_price"], 6))}
-					{helpers.format_line(" Expected:", helpers.format_currency(self.summary["price"]["expected_price"], 6))}
-					{helpers.format_line(" Adjusted:", helpers.format_currency(self.summary["price"]["adjusted_market_price"], 6))}
-					{helpers.format_line(" SAP:", helpers.format_currency(self.summary["price"]["sap"], 6))}
-					{helpers.format_line(" WAP:", helpers.format_currency(self.summary["price"]["wap"], 6))}
-					{helpers.format_line(" VWAP:", helpers.format_currency(self.summary["price"]["vwap"], 6))}
-					<b>Balance</b>:
-					 <b>Wallet</b>:
-					{helpers.format_line(f"  {self._base_token}:", helpers.format_currency(self.summary["balance"]["wallet"]["base"], 4))}
-					{helpers.format_line(f"  {self._quote_token}:", helpers.format_currency(self.summary["balance"]["wallet"]["quote"], 4))}
-					{helpers.format_line(f"  W SOL:", helpers.format_currency(self.summary["balance"]["wallet"]["WRAPPED_SOL"], 4))}
-					{helpers.format_line(f"  UW SOL:", helpers.format_currency(self.summary["balance"]["wallet"]["UNWRAPPED_SOL"], 4))}
-					{helpers.format_line(f"  ALL SOL:", helpers.format_currency(self.summary["balance"]["wallet"]["ALL_SOL"], 4))}
+					<b>PnL</b>: {format_line("", format_percentage(self.summary["wallet"]["current_initial_pnl"]), alignment_column - 4)}
+					 <b>Balances</b>:
+					{format_line(f"  {self._base_token}:", format_currency(self.summary["balance"]["wallet"]["base"], 4))}
+					{format_line(f"  {self._quote_token}:", format_currency(self.summary["balance"]["wallet"]["quote"], 4))}
 					 <b>Orders (in {self._quote_token})</b>:
-					{helpers.format_line(f"  Bids:", helpers.format_currency(self.summary["balance"]["orders"]["quote"]["bids"], 4))}
-					{helpers.format_line(f"  Asks:", helpers.format_currency(self.summary["balance"]["orders"]["quote"]["asks"], 4))}
-					{helpers.format_line(f"  Total:", helpers.format_currency(self.summary["balance"]["orders"]["quote"]["total"], 4))}
+					{format_line(f"  Bids:", format_currency(self.summary["balance"]["orders"]["quote"]["bids"], 4))}
+					{format_line(f"  Asks:", format_currency(self.summary["balance"]["orders"]["quote"]["asks"], 4))}
+					{format_line(f"  Total:", format_currency(self.summary["balance"]["orders"]["quote"]["total"], 4))}
 					<b>Orders</b>:
-					{helpers.format_line(" Replaced:", str(len(self.summary["orders"]["replaced"])))}
-					{helpers.format_line(" Canceled:", str(len(self.summary["orders"]["canceled"])))}\
+					{format_line(" Replaced:", str(len(self.summary["orders"]["replaced"])))}
+					{format_line(" Canceled:", str(len(self.summary["orders"]["canceled"])))}
+					<b>Wallet</b>:
+					{format_line(" Wo:", format_currency(self.summary["wallet"]["initial_value"], 4))}
+					{format_line(" Wp:", format_currency(self.summary["wallet"]["previous_value"], 4))}
+					{format_line(" Wc:", format_currency(self.summary["wallet"]["current_value"], 4))}
+					{format_line(" Wc/Wo:", (format_percentage(self.summary["wallet"]["current_initial_pnl"])))}
+					{format_line(" Wc/Wp:", format_percentage(self.summary["wallet"]["current_previous_pnl"]))}
+					<b>Token</b>:
+					{format_line(" To:", format_currency(self.summary["token"]["initial_price"], 6))}
+					{format_line(" Tp:", format_currency(self.summary["token"]["previous_price"], 6))}
+					{format_line(" Tc:", format_currency(self.summary["token"]["current_price"], 6))}
+					{format_line(" Tc/To:", format_percentage(self.summary["token"]["current_initial_pnl"]))}
+					{format_line(" Tc/Tp:", format_percentage(self.summary["token"]["current_previous_pnl"]))}
+					<b>Price</b>:
+					{format_line(" Used:", format_currency(self.summary["price"]["used_price"], 6))}
+					{format_line(" External:", format_currency(self.summary["price"]["ticker_price"], 6))}
+					{format_line(" Last fill:", format_currency(self.summary["price"]["last_filled_order_price"], 6))}
+					{format_line(" Expected:", format_currency(self.summary["price"]["expected_price"], 6))}
+					{format_line(" Adjusted:", format_currency(self.summary["price"]["adjusted_market_price"], 6))}
+					{format_line(" SAP:", format_currency(self.summary["price"]["sap"], 6))}
+					{format_line(" WAP:", format_currency(self.summary["price"]["wap"], 6))}
+					{format_line(" VWAP:", format_currency(self.summary["price"]["vwap"], 6))}
+					<b>Balance</b>:
 					"""
 			),
 			True
