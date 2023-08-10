@@ -1,23 +1,22 @@
-import traceback
-
-from _decimal import Decimal
-from logging import DEBUG, INFO
-
 import asyncio
 import copy
 import os
+import traceback
+from _decimal import Decimal
+from logging import DEBUG, INFO
+from typing import Dict, Any
+
 import yaml
 from dotmap import DotMap
-from typing import Dict, Any
 
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.pure_market_making.v_1_0_0.worker import Worker
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.worker_base import WorkerBase
 from hummingbot.utils import current_timestamp
-from utils import dump
 from properties import properties
 from utils import deep_merge
+from utils import dump
 
 
 class PureMarketMaking_1_0_0(StrategyBase):
@@ -32,7 +31,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			self.id = f"""{self.ID}:{self.VERSION}:{self._client_id}"""
 			self.logger_prefix = self.id
 
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			super().__init__()
 
@@ -51,15 +50,15 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			}, _dynamic=False)
 
 			self._events: DotMap[str, asyncio.Event] = DotMap({
-				"on_tick": asyncio.Event(),
+				"on_tick": None,
 			}, _dynamic=False)
 
 			self._initialized = False
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	def _load_configuration(self):
-		self.log(DEBUG, "start")
+		self.log(INFO, "start")
 
 		root_path = properties.get('app_root_path')
 		base_path = os.path.join(root_path, "resources", "strategies", self.ID, self.VERSION)
@@ -89,16 +88,20 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 		self._configuration = DotMap(configuration, _dynamic=False)
 
-		self.log(DEBUG, "end")
+		self.log(INFO, "end")
 
 	def get_status(self) -> Dict[str, Any]:
 		return {}
 
 	async def initialize(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			self._initialized = False
+
+			await self.clock.start()
+			self._refresh_timestamp = self.clock.now()
+			(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 
 			for worker_id, worker_configuration in self._configuration.workers.items():
 				self._workers[worker_id] = Worker(self, worker_configuration)
@@ -110,7 +113,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 			await self.exit()
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def start(self):
 		self.log(INFO, "start")
@@ -149,7 +152,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			self.log(INFO, "end")
 
 	async def stop_worker(self, worker_id: str):
-		self.log(DEBUG, "start")
+		self.log(INFO, "start")
 
 		if self._tasks.workers[worker_id]:
 			await self._workers[worker_id].stop()
@@ -157,22 +160,15 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			# await self._tasks.workers[worker_id]
 			self._tasks.workers[worker_id] = None
 
-		self.log(DEBUG, "end")
+		self.log(INFO, "end")
 
 	async def exit(self):
-		self.log(DEBUG, "start")
-		self.log(DEBUG, "end")
+		self.log(INFO, "start")
+		self.log(INFO, "end")
 
 	async def on_tick(self):
 		while self._can_run:
-			if (not self._is_busy) and (not self._can_run):
-				await self.exit()
-
-				return
-
-			now = current_timestamp()
-			if self._is_busy or (self._refresh_timestamp > now):
-				continue
+			await self._events.on_tick.wait()
 
 			try:
 				self.log(INFO, "start")
@@ -185,6 +181,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 				# noinspection PyAttributeOutsideInit
 				self._refresh_timestamp = waiting_time + current_timestamp()
+				(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 				self._is_busy = False
 
 				self.log(INFO, f"""Waiting for {waiting_time}s.""")
@@ -195,8 +192,6 @@ class PureMarketMaking_1_0_0(StrategyBase):
 					await self.exit()
 
 					return
-
-				await asyncio.sleep(waiting_time)
 
 	async def get_statistics(self) -> DotMap[str, Any]:
 		balances = await self._get_balances(False)
@@ -213,7 +208,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 	async def _get_balances(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			response = None
 			try:
@@ -251,4 +246,4 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_get_balances: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")

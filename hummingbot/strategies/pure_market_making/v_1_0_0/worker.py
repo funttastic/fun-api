@@ -30,7 +30,7 @@ class Worker(WorkerBase):
 			self.id = f"""{self._parent.id}:worker:{configuration.id}"""
 			self.logger_prefix = self.id
 
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			super().__init__()
 
@@ -57,15 +57,22 @@ class Worker(WorkerBase):
 				"orders": None,
 				"balances": None,
 			}, _dynamic=False)
+			self._events: DotMap[str, asyncio.Event] = DotMap({
+				"on_tick": None,
+			}, _dynamic=False)
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	# noinspection PyAttributeOutsideInit
 	async def initialize(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			self.initialized = False
+
+			await self.clock.start()
+			self._refresh_timestamp = self.clock.now()
+			(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 
 			self._market_name = self._configuration.market
 
@@ -102,7 +109,7 @@ class Worker(WorkerBase):
 
 			await self.exit()
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def start(self):
 		self.log(INFO, "start")
@@ -145,19 +152,12 @@ class Worker(WorkerBase):
 			self.log(INFO, "end")
 
 	async def exit(self):
-		self.log(DEBUG, "start")
-		self.log(DEBUG, "end")
+		self.log(INFO, "start")
+		self.log(INFO, "end")
 
 	async def on_tick(self):
 		while self._can_run:
-			if (not self._is_busy) and (not self._can_run):
-				await self.exit()
-
-				return
-
-			now = current_timestamp()
-			if self._is_busy or (self._refresh_timestamp > now):
-				continue
+			await self._events.on_tick.wait()
 
 			try:
 				self.log(INFO, "start")
@@ -187,6 +187,7 @@ class Worker(WorkerBase):
 				waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
 
 				self._refresh_timestamp = waiting_time + current_timestamp()
+				(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 				self._is_busy = False
 
 				self.log(INFO, f"""Waiting for {waiting_time}s.""")
@@ -200,7 +201,7 @@ class Worker(WorkerBase):
 
 	async def _create_proposal(self) -> List[Order]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			order_book = await self._get_order_book()
 			bids, asks = self._parse_order_book(order_book)
@@ -298,11 +299,11 @@ class Worker(WorkerBase):
 
 			return proposal
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _adjust_proposal_to_budget(self, candidate_proposal: List[Order]) -> List[Order]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			adjusted_proposal: List[Order] = []
 
@@ -332,19 +333,19 @@ class Worker(WorkerBase):
 
 			return adjusted_proposal
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_base_ticker_price(self) -> Decimal:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			return Decimal((await self._get_ticker(use_cache=False)).price)
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_last_filled_order_price(self) -> Decimal:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			last_filled_order = await self._get_last_filled_order()
 
@@ -353,14 +354,14 @@ class Worker(WorkerBase):
 			else:
 				return DECIMAL_NAN
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_market_price(self) -> Decimal:
 		return await self._get_base_ticker_price()
 
 	async def _get_market_middle_price(self, bids, asks, strategy: MiddlePriceStrategy = None) -> Decimal:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			if strategy:
 				return self._calculate_middle_price(bids, asks, strategy)
@@ -376,31 +377,31 @@ class Worker(WorkerBase):
 					except (Exception,):
 						return await self._get_market_price()
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_base_balance(self) -> Decimal:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			base_balance = Decimal((await self._get_balances())[self._base_token.id].free)
 
 			return base_balance
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_quote_balance(self) -> Decimal:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			quote_balance = Decimal((await self._get_balances())[self._quote_token.id].free)
 
 			return quote_balance
 		finally:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 	async def _get_balances(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			response = None
 			try:
@@ -438,11 +439,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_get_balances: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_market(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -466,11 +467,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_get_market: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_order_book(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -494,11 +495,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_get_order_books: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_ticker(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -528,11 +529,11 @@ class Worker(WorkerBase):
 				self.log(DEBUG, f"""gateway.kujira_get_ticker: response:\n{dump(response)}""")
 
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_open_orders(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -562,11 +563,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_get_open_orders: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_last_filled_order(self) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			filled_orders = await self._get_filled_orders()
 
@@ -577,11 +578,11 @@ class Worker(WorkerBase):
 
 			return last_filled_order
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_filled_orders(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -612,11 +613,11 @@ class Worker(WorkerBase):
 				self.log(DEBUG, f"""gateway.kujira_get_filled_orders: response:\n{dump(response)}""")
 
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _replace_orders(self, proposal: List[Order]) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			response = None
 			try:
@@ -660,11 +661,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_post_orders: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _cancel_currently_untracked_orders(self, open_orders_ids: List[str]):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -697,11 +698,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_delete_orders: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _cancel_all_orders(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -724,11 +725,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.clob_delete_orders: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _market_withdraw(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			response = None
 			try:
@@ -750,10 +751,10 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_post_market_withdraw: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_remaining_orders_ids(self, candidate_orders, created_orders) -> List[str]:
-		self.log(DEBUG, "end")
+		self.log(INFO, "end")
 
 		try:
 			candidate_orders_client_ids = [order.client_id for order in candidate_orders] if len(candidate_orders) else []
@@ -767,10 +768,10 @@ class Worker(WorkerBase):
 
 			return remaining_orders_ids
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_duplicated_orders_ids(self) -> List[str]:
-		self.log(DEBUG, "start")
+		self.log(INFO, "start")
 
 		try:
 			open_orders = (await self._get_open_orders()).values()
@@ -798,7 +799,7 @@ class Worker(WorkerBase):
 
 			return duplicated_orders_ids
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	# noinspection PyMethodMayBeStatic
 	def _parse_order_book(self, orderbook: DotMap[str, Any]) -> List[Union[List[DotMap[str, Any]], List[DotMap[str, Any]]]]:

@@ -1,24 +1,25 @@
-import ssl
-
 import asyncio
 import atexit
 import logging
-import nest_asyncio
 import os
 import signal
+import ssl
+from typing import Any, Dict
+
+import nest_asyncio
 import uvicorn
 from dotmap import DotMap
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
-from typing import Any, Dict
 
 from constants import constants
+from hummingbot.clock import clock
 from hummingbot.router import router
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
-from utils import HttpMethod
 from properties import properties
+from utils import HttpMethod
 
 nest_asyncio.apply()
 root_path = os.path.dirname(__file__)
@@ -99,9 +100,7 @@ async def strategy_start(request: Request) -> Dict[str, Any]:
 		processes[full_id] = None
 		tasks[full_id] = None
 
-		return {
-			"message": f"An error has occurred: {exception}"
-		}
+		raise exception
 
 
 @app.post("/strategy/status")
@@ -128,9 +127,7 @@ async def strategy_status(request: Request) -> Dict[str, Any]:
 		processes[full_id] = None
 		tasks[full_id] = None
 
-		return {
-			"message": f"An error has occurred: {exception}"
-		}
+		raise exception
 
 
 @app.post("/strategy/stop")
@@ -161,9 +158,7 @@ async def strategy_stop(request: Request) -> Dict[str, Any]:
 			tasks[full_id].cancel()
 			await tasks[full_id]
 
-		return {
-			"message": f"An error has occurred: {exception}"
-		}
+		raise exception
 	finally:
 		processes[full_id] = None
 		tasks[full_id] = None
@@ -191,6 +186,8 @@ def start():
 		"server_private_key": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.server_private_key")}"""),
 		"certificate_authority_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.certificate_authority_certificate")}""")
 	}, _dynamic=False)
+
+	clock.start()
 
 	uvicorn.run(
 		app,
