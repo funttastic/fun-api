@@ -59,7 +59,7 @@ class Worker(WorkerBase):
 			self.final_url: str = self.url.replace("{token}", self.token)
 
 			from telegram import telegram
-			self.telegram = telegram.__init__(self.url, self.token, self.chat_id, self.parse_mode, self.final_url)
+			self.telegram = telegram.__init__()
 
 			self.log(DEBUG, "start")
 
