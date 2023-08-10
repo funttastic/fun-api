@@ -5,6 +5,7 @@ resources/certificates/
 resources/requests/http-client.private.env.json
 resources/strategies/*
 resources/logs/
+resources/temporary/
 
 *.iml
 __pycache__/

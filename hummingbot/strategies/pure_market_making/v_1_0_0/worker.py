@@ -1,16 +1,16 @@
-from logging import DEBUG, INFO, WARNING
-from os import path
-
 import asyncio
 import copy
 import traceback
 import textwrap
-from array import array
+
 from decimal import Decimal
-from dotmap import DotMap
+from array import array
 from pathlib import Path
+from logging import DEBUG, INFO, WARNING
+from os import path
 from typing import Any, List, Dict
 from properties import properties
+from dotmap import DotMap
 
 from hummingbot.constants import (
 	DECIMAL_NAN,
@@ -178,35 +178,28 @@ class Worker(WorkerBase):
 			self.log(DEBUG, "end")
 
 	async def start(self):
+		self.log(INFO, "start")
+
 		await self.initialize()
 
-		while self._can_run:
-			if (not self._can_run) and (not self._is_busy):
-				await self.exit()
+		self._tasks.on_tick = asyncio.create_task(self.on_tick())
 
-			if self._is_busy or (self._refresh_timestamp > current_timestamp()):
-				continue
-
-			if self._tasks.on_tick is None:
-				try:
-					self._tasks.on_tick = asyncio.create_task(self.on_tick())
-					await self._tasks.on_tick
-				finally:
-					self._tasks.on_tick = None
+		self.log(INFO, "end")
 
 	async def stop(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			self._can_run = False
 
 			try:
-				self._tasks.on_tick.cancel()
-				await self._tasks.on_tick
+				if self._tasks.on_tick:
+					self._tasks.on_tick.cancel()
+					await self._tasks.on_tick
+			except asyncio.exceptions.CancelledError:
+				pass
 			except Exception as exception:
 				self.ignore_exception(exception)
-			finally:
-				self._tasks.on_tick = None
 
 			if self._configuration.strategy.cancel_all_orders_on_stop:
 				try:
@@ -222,7 +215,7 @@ class Worker(WorkerBase):
 		finally:
 			await self.exit()
 
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def exit(self):
 		self.log(DEBUG, "start")
@@ -261,12 +254,14 @@ class Worker(WorkerBase):
 			self._refresh_timestamp = waiting_time + current_timestamp()
 			self._is_busy = False
 
-			self.log(DEBUG, f"""Waiting for {waiting_time}s.""")
+			self.log(INFO, f"""Waiting for {waiting_time}s.""")
 
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 			if self._configuration.strategy.run_only_once:
 				await self.exit()
+
+			await asyncio.sleep(waiting_time)
 
 	async def _create_proposal(self) -> List[Order]:
 		try:
@@ -496,7 +491,7 @@ class Worker(WorkerBase):
 					"tokenIds": [KUJIRA_NATIVE_TOKEN.id, self._base_token.id, self._quote_token.id]
 				}
 
-				self.log(INFO, f"""gateway.kujira_get_balances: request:\n{dump(request)}""")
+				self.log(DEBUG, f"""gateway.kujira_get_balances: request:\n{dump(request)}""")
 
 				if use_cache and self._balances is not None:
 					response = self._balances
@@ -520,7 +515,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(INFO, f"""gateway.kujira_get_balances: response:\n{dump(response)}""")
+				self.log(DEBUG, f"""gateway.kujira_get_balances: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -538,10 +533,7 @@ class Worker(WorkerBase):
 					"name": self._market_name
 				}
 
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_market: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_market: request:\n{dump(request)}""")
 
 				response = await Gateway.kujira_get_market(request)
 
@@ -551,10 +543,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_market: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_market: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -606,10 +595,7 @@ class Worker(WorkerBase):
 					"marketId": self._market.id
 				}
 
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_ticker: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_ticker: request:\n{dump(request)}""")
 
 				if use_cache and self._tickers is not None:
 					response = self._tickers
@@ -624,10 +610,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_ticker: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_ticker: response:\n{dump(response)}""")
 
 		finally:
 			self.log(DEBUG, "end")
@@ -648,10 +631,7 @@ class Worker(WorkerBase):
 					"status": OrderStatus.OPEN.value[0]
 				}
 
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_open_orders: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_open_orders: request:\n{dump(request)}""")
 
 				if use_cache and self._open_orders is not None:
 					response = self._open_orders
@@ -665,10 +645,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_open_orders: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_open_orders: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -755,7 +732,7 @@ class Worker(WorkerBase):
 					"orders": orders
 				}
 
-				self.log(INFO, f"""gateway.kujira_post_orders: request:\n{dump(request)}""")
+				self.log(DEBUG, f"""gateway.kujira_post_orders: request:\n{dump(request)}""")
 
 				if len(orders):
 					response = await Gateway.kujira_post_orders(request)
@@ -772,7 +749,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(INFO, f"""gateway.kujira_post_orders: response:\n{dump(response)}""")
+				self.log(DEBUG, f"""gateway.kujira_post_orders: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -796,14 +773,11 @@ class Worker(WorkerBase):
 						"ownerAddress": self._wallet_address,
 					}
 
-					self.log(
-						INFO,
-						f"""gateway.kujira_delete_orders: request:\n{dump(request)}"""
-					)
+					self.log(DEBUG, f"""gateway.kujira_delete_orders: request:\n{dump(request)}""")
 
 					response = await Gateway.kujira_delete_orders(request)
 				else:
-					self.log(INFO, "No order needed to be canceled.")
+					self.log(DEBUG, "No order needed to be canceled.")
 					response = {}
 
 				return response
@@ -812,10 +786,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.kujira_delete_orders: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_delete_orders: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -834,10 +805,7 @@ class Worker(WorkerBase):
 					"ownerAddress": self._wallet_address,
 				}
 
-				self.log(
-					INFO,
-					f"""gateway.clob_delete_orders: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.clob_delete_orders: request:\n{dump(request)}""")
 
 				response = await Gateway.kujira_delete_orders_all(request)
 			except Exception as exception:
@@ -845,10 +813,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.clob_delete_orders: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.clob_delete_orders: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -866,7 +831,7 @@ class Worker(WorkerBase):
 					"ownerAddress": self._wallet_address,
 				}
 
-				self.log(INFO, f"""gateway.kujira_post_market_withdraw: request:\n{dump(request)}""")
+				self.log(DEBUG, f"""gateway.kujira_post_market_withdraw: request:\n{dump(request)}""")
 
 				response = await Gateway.kujira_post_market_withdraw(request)
 			except Exception as exception:
@@ -874,10 +839,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.kujira_post_market_withdraw: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_post_market_withdraw: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -892,7 +854,7 @@ class Worker(WorkerBase):
 			remaining_orders_ids = list(
 				filter(lambda order: (order.clientId in remaining_orders_client_ids), created_orders.values()))
 
-			self.log(INFO, f"""remaining_orders_ids:\n{dump(remaining_orders_ids)}""")
+			self.log(DEBUG, f"""remaining_orders_ids:\n{dump(remaining_orders_ids)}""")
 
 			return remaining_orders_ids
 		finally:
@@ -923,7 +885,7 @@ class Worker(WorkerBase):
 					*[order.id for order in orders[:-1]]
 				]
 
-			self.log(INFO, f"""duplicated_orders_ids:\n{dump(duplicated_orders_ids)}""")
+			self.log(DEBUG, f"""duplicated_orders_ids:\n{dump(duplicated_orders_ids)}""")
 
 			return duplicated_orders_ids
 		finally:
