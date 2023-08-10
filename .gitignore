@@ -9,3 +9,4 @@ resources/temporary/
 
 *.iml
 __pycache__/
+.idea
