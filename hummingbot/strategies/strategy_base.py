@@ -1,9 +1,7 @@
-import time
 from abc import abstractmethod
 from typing import Any, Dict
 
 from hummingbot.strategies.base import Base
-from hummingbot.utils import current_timestamp
 
 
 class StrategyBase(Base):

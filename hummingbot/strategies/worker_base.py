@@ -1,5 +1,4 @@
 from hummingbot.strategies.base import Base
-from hummingbot.utils import current_timestamp
 
 
 class WorkerBase(Base):
