@@ -8,3 +8,4 @@ resources/logs/
 
 *.iml
 __pycache__/
+.idea
