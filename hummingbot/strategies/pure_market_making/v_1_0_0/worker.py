@@ -109,19 +109,7 @@ class Worker(WorkerBase):
 
 		await self.initialize()
 
-		while self._can_run:
-			if (not self._can_run) and (not self._is_busy):
-				await self.exit()
-
-			if self._is_busy or (self._refresh_timestamp > current_timestamp()):
-				continue
-
-			if self._tasks.on_tick is None:
-				try:
-					self._tasks.on_tick = asyncio.create_task(self.on_tick())
-					await self._tasks.on_tick
-				finally:
-					self._tasks.on_tick = None
+		self._tasks.on_tick = asyncio.create_task(self.on_tick())
 
 		self.log(INFO, "end")
 
@@ -132,12 +120,13 @@ class Worker(WorkerBase):
 			self._can_run = False
 
 			try:
-				self._tasks.on_tick.cancel()
-				await self._tasks.on_tick
+				if self._tasks.on_tick:
+					self._tasks.on_tick.cancel()
+					await self._tasks.on_tick
+			except asyncio.exceptions.CancelledError:
+				pass
 			except Exception as exception:
 				self.ignore_exception(exception)
-			finally:
-				self._tasks.on_tick = None
 
 			if self._configuration.strategy.cancel_all_orders_on_stop:
 				try:
@@ -160,42 +149,54 @@ class Worker(WorkerBase):
 		self.log(DEBUG, "end")
 
 	async def on_tick(self):
-		try:
-			self.log(INFO, "start")
-
-			self._is_busy = True
-
-			if self._configuration.strategy.withdraw_market_on_tick:
-				try:
-					await self._market_withdraw()
-				except Exception as exception:
-					self.ignore_exception(exception)
-
-			open_orders = await self._get_open_orders(use_cache=False)
-			await self._get_filled_orders(use_cache=False)
-			await self._get_balances(use_cache=False)
-
-			open_orders_ids = list(open_orders.keys())
-			await self._cancel_currently_untracked_orders(open_orders_ids)
-
-			proposed_orders: List[Order] = await self._create_proposal()
-			candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
-
-			await self._replace_orders(candidate_orders)
-		except Exception as exception:
-			self.ignore_exception(exception)
-		finally:
-			waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
-
-			self._refresh_timestamp = waiting_time + current_timestamp()
-			self._is_busy = False
-
-			self.log(INFO, f"""Waiting for {waiting_time}s.""")
-
-			self.log(INFO, "end")
-
-			if self._configuration.strategy.run_only_once:
+		while self._can_run:
+			if (not self._is_busy) and (not self._can_run):
 				await self.exit()
+
+				return
+
+			now = current_timestamp()
+			if self._is_busy or (self._refresh_timestamp > now):
+				continue
+
+			try:
+				self.log(INFO, "start")
+
+				self._is_busy = True
+
+				if self._configuration.strategy.withdraw_market_on_tick:
+					try:
+						await self._market_withdraw()
+					except Exception as exception:
+						self.ignore_exception(exception)
+
+				open_orders = await self._get_open_orders(use_cache=False)
+				await self._get_filled_orders(use_cache=False)
+				await self._get_balances(use_cache=False)
+
+				open_orders_ids = list(open_orders.keys())
+				await self._cancel_currently_untracked_orders(open_orders_ids)
+
+				proposed_orders: List[Order] = await self._create_proposal()
+				candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
+
+				await self._replace_orders(candidate_orders)
+			except Exception as exception:
+				self.ignore_exception(exception)
+			finally:
+				waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
+
+				self._refresh_timestamp = waiting_time + current_timestamp()
+				self._is_busy = False
+
+				self.log(INFO, f"""Waiting for {waiting_time}s.""")
+
+				self.log(INFO, "end")
+
+				if self._configuration.strategy.run_only_once:
+					await self.exit()
+
+				await asyncio.sleep(waiting_time)
 
 	async def _create_proposal(self) -> List[Order]:
 		try:

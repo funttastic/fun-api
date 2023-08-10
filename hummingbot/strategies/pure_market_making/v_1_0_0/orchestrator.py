@@ -50,6 +50,10 @@ class PureMarketMaking_1_0_0(StrategyBase):
 				}
 			}, _dynamic=False)
 
+			self._events: DotMap[str, asyncio.Event] = DotMap({
+				"on_tick": asyncio.Event(),
+			}, _dynamic=False)
+
 			self._initialized = False
 		finally:
 			self.log(DEBUG, "end")
@@ -113,20 +117,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 		await self.initialize()
 
-		while self._can_run:
-			if (not self._is_busy) and (not self._can_run):
-				await self.exit()
-
-			now = current_timestamp()
-			if self._is_busy or (self._refresh_timestamp > now):
-				continue
-
-			if self._tasks.on_tick is None:
-				try:
-					self._tasks.on_tick = asyncio.create_task(self.on_tick())
-					await self._tasks.on_tick
-				finally:
-					self._tasks.on_tick = None
+		self._tasks.on_tick = asyncio.create_task(self.on_tick())
 
 		self.log(INFO, "end")
 
@@ -140,12 +131,16 @@ class PureMarketMaking_1_0_0(StrategyBase):
 				if self._tasks.on_tick:
 					self._tasks.on_tick.cancel()
 					await self._tasks.on_tick
+			except asyncio.exceptions.CancelledError:
+				pass
 			except Exception as exception:
 				self.ignore_exception(exception)
 
 			try:
 				coroutines = [self.stop_worker(worker_id) for worker_id in self._configuration.workers.keys()]
 				await asyncio.gather(*coroutines)
+			except asyncio.exceptions.CancelledError:
+				pass
 			except Exception as exception:
 				self.ignore_exception(exception)
 		finally:
@@ -169,26 +164,39 @@ class PureMarketMaking_1_0_0(StrategyBase):
 		self.log(DEBUG, "end")
 
 	async def on_tick(self):
-		try:
-			self.log(INFO, "start")
-
-			self._is_busy = True
-
-		except Exception as exception:
-			self.ignore_exception(exception)
-		finally:
-			waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
-
-			# noinspection PyAttributeOutsideInit
-			self._refresh_timestamp = waiting_time + current_timestamp()
-			self._is_busy = False
-
-			self.log(INFO, f"""Waiting for {waiting_time}s.""")
-
-			self.log(INFO, "end")
-
-			if self._configuration.strategy.run_only_once:
+		while self._can_run:
+			if (not self._is_busy) and (not self._can_run):
 				await self.exit()
+
+				return
+
+			now = current_timestamp()
+			if self._is_busy or (self._refresh_timestamp > now):
+				continue
+
+			try:
+				self.log(INFO, "start")
+
+				self._is_busy = True
+			except Exception as exception:
+				self.ignore_exception(exception)
+			finally:
+				waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
+
+				# noinspection PyAttributeOutsideInit
+				self._refresh_timestamp = waiting_time + current_timestamp()
+				self._is_busy = False
+
+				self.log(INFO, f"""Waiting for {waiting_time}s.""")
+
+				self.log(INFO, "end")
+
+				if self._configuration.strategy.run_only_once:
+					await self.exit()
+
+					return
+
+				await asyncio.sleep(waiting_time)
 
 	async def get_statistics(self) -> DotMap[str, Any]:
 		balances = await self._get_balances(False)
