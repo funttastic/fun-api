@@ -1,16 +1,15 @@
-from logging import DEBUG, INFO, WARNING
-from os import path
-
 import asyncio
 import copy
 import math
-import numpy as np
-import time
 import traceback
 from decimal import Decimal
-from dotmap import DotMap
+from logging import DEBUG, INFO, WARNING
+from os import path
 from pathlib import Path
 from typing import Any, List, Union
+
+import numpy as np
+from dotmap import DotMap
 
 from hummingbot.constants import DECIMAL_NAN
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, VWAP_THRESHOLD, \
@@ -106,6 +105,8 @@ class Worker(WorkerBase):
 			self.log(DEBUG, "end")
 
 	async def start(self):
+		self.log(INFO, "start")
+
 		await self.initialize()
 
 		while self._can_run:
@@ -122,9 +123,11 @@ class Worker(WorkerBase):
 				finally:
 					self._tasks.on_tick = None
 
+		self.log(INFO, "end")
+
 	async def stop(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			self._can_run = False
 
@@ -150,7 +153,7 @@ class Worker(WorkerBase):
 		finally:
 			await self.exit()
 
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def exit(self):
 		self.log(DEBUG, "start")
@@ -158,7 +161,7 @@ class Worker(WorkerBase):
 
 	async def on_tick(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			self._is_busy = True
 
@@ -187,9 +190,9 @@ class Worker(WorkerBase):
 			self._refresh_timestamp = waiting_time + current_timestamp()
 			self._is_busy = False
 
-			self.log(DEBUG, f"""Waiting for {waiting_time}s.""")
+			self.log(INFO, f"""Waiting for {waiting_time}s.""")
 
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 			if self._configuration.strategy.run_only_once:
 				await self.exit()
@@ -244,15 +247,9 @@ class Worker(WorkerBase):
 				bid_size = bid_max_liquidity_in_dollars / bid_market_price / bid_quantity if bid_quantity > 0 else 0
 
 				if bid_market_price < minimum_price_increment:
-					self.log(
-						WARNING,
-						f"""Skipping orders placement from layer {index}, bid price too low:\n\n{'{:^30}'.format(round(bid_market_price, 6))}"""
-					)
+					self.log(WARNING, f"""Skipping orders placement from layer {index}, bid price too low:\n\n{'{:^30}'.format(round(bid_market_price, 6))}""")
 				elif bid_size < minimum_order_size:
-					self.log(
-						WARNING,
-						f"""Skipping orders placement from layer {index}, bid size too low:\n\n{'{:^30}'.format(round(bid_size, 9))}"""
-					)
+					self.log(WARNING, f"""Skipping orders placement from layer {index}, bid size too low:\n\n{'{:^30}'.format(round(bid_size, 9))}""")
 				else:
 					for i in range(bid_quantity):
 						bid_order = Order()
@@ -277,17 +274,9 @@ class Worker(WorkerBase):
 				ask_size = ask_max_liquidity_in_dollars / ask_market_price / ask_quantity if ask_quantity > 0 else 0
 
 				if ask_market_price < minimum_price_increment:
-					self.log(
-						WARNING,
-						f"""Skipping orders placement from layer {index}, ask price too low:\n\n{'{:^30}'.format(round(ask_market_price, 9))}""",
-						True
-					)
+					self.log(WARNING, f"""Skipping orders placement from layer {index}, ask price too low:\n\n{'{:^30}'.format(round(ask_market_price, 9))}""", True)
 				elif ask_size < minimum_order_size:
-					self.log(
-						WARNING,
-						f"""Skipping orders placement from layer {index}, ask size too low:\n\n{'{:^30}'.format(round(ask_size, 9))}""",
-						True
-					)
+					self.log(WARNING, f"""Skipping orders placement from layer {index}, ask size too low:\n\n{'{:^30}'.format(round(ask_size, 9))}""", True)
 				else:
 					for i in range(ask_quantity):
 						ask_order = Order()
@@ -422,7 +411,7 @@ class Worker(WorkerBase):
 					"tokenIds": [KUJIRA_NATIVE_TOKEN.id, self._base_token.id, self._quote_token.id]
 				}
 
-				self.log(INFO, f"""gateway.kujira_get_balances: request:\n{dump(request)}""")
+				self.log(DEBUG, f"""gateway.kujira_get_balances: request:\n{dump(request)}""")
 
 				if use_cache and self._balances is not None:
 					response = self._balances
@@ -446,7 +435,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(INFO, f"""gateway.kujira_get_balances: response:\n{dump(response)}""")
+				self.log(DEBUG, f"""gateway.kujira_get_balances: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -464,10 +453,7 @@ class Worker(WorkerBase):
 					"name": self._market_name
 				}
 
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_market: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_market: request:\n{dump(request)}""")
 
 				response = await Gateway.kujira_get_market(request)
 
@@ -477,10 +463,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_market: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_market: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -498,10 +481,7 @@ class Worker(WorkerBase):
 					"marketId": self._market.id
 				}
 
-				self.log(
-					DEBUG,
-					f"""gateway.kujira_get_order_books: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_order_books: request:\n{dump(request)}""")
 
 				response = await Gateway.kujira_get_order_book(request)
 
@@ -511,10 +491,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					DEBUG,
-					f"""gateway.kujira_get_order_books: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_order_books: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -532,10 +509,7 @@ class Worker(WorkerBase):
 					"marketId": self._market.id
 				}
 
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_ticker: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_ticker: request:\n{dump(request)}""")
 
 				if use_cache and self._tickers is not None:
 					response = self._tickers
@@ -550,10 +524,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_ticker: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_ticker: response:\n{dump(response)}""")
 
 		finally:
 			self.log(DEBUG, "end")
@@ -574,10 +545,7 @@ class Worker(WorkerBase):
 					"status": OrderStatus.OPEN.value[0]
 				}
 
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_open_orders: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_open_orders: request:\n{dump(request)}""")
 
 				if use_cache and self._open_orders is not None:
 					response = self._open_orders
@@ -591,10 +559,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.kujira_get_open_orders: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_open_orders: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -629,10 +594,7 @@ class Worker(WorkerBase):
 					"status": OrderStatus.FILLED.value[0]
 				}
 
-				self.log(
-					DEBUG,
-					f"""gateway.kujira_get_filled_orders: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_filled_orders: request:\n{dump(request)}""")
 
 				if use_cache and self._filled_orders is not None:
 					response = self._filled_orders
@@ -646,10 +608,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					DEBUG,
-					f"""gateway.kujira_get_filled_orders: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_filled_orders: response:\n{dump(response)}""")
 
 		finally:
 			self.log(DEBUG, "end")
@@ -681,7 +640,7 @@ class Worker(WorkerBase):
 					"orders": orders
 				}
 
-				self.log(INFO, f"""gateway.kujira_post_orders: request:\n{dump(request)}""")
+				self.log(DEBUG, f"""gateway.kujira_post_orders: request:\n{dump(request)}""")
 
 				if len(orders):
 					response = await Gateway.kujira_post_orders(request)
@@ -698,7 +657,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(INFO, f"""gateway.kujira_post_orders: response:\n{dump(response)}""")
+				self.log(DEBUG, f"""gateway.kujira_post_orders: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -722,14 +681,11 @@ class Worker(WorkerBase):
 						"ownerAddress": self._wallet_address,
 					}
 
-					self.log(
-						INFO,
-						f"""gateway.kujira_delete_orders: request:\n{dump(request)}"""
-					)
+					self.log(DEBUG, f"""gateway.kujira_delete_orders: request:\n{dump(request)}""")
 
 					response = await Gateway.kujira_delete_orders(request)
 				else:
-					self.log(INFO, "No order needed to be canceled.")
+					self.log(DEBUG, "No order needed to be canceled.")
 					response = {}
 
 				return response
@@ -738,10 +694,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.kujira_delete_orders: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_delete_orders: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -760,10 +713,7 @@ class Worker(WorkerBase):
 					"ownerAddress": self._wallet_address,
 				}
 
-				self.log(
-					INFO,
-					f"""gateway.clob_delete_orders: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.clob_delete_orders: request:\n{dump(request)}""")
 
 				response = await Gateway.kujira_delete_orders_all(request)
 			except Exception as exception:
@@ -771,10 +721,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.clob_delete_orders: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.clob_delete_orders: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -792,7 +739,7 @@ class Worker(WorkerBase):
 					"ownerAddress": self._wallet_address,
 				}
 
-				self.log(INFO, f"""gateway.kujira_post_market_withdraw: request:\n{dump(request)}""")
+				self.log(DEBUG, f"""gateway.kujira_post_market_withdraw: request:\n{dump(request)}""")
 
 				response = await Gateway.kujira_post_market_withdraw(request)
 			except Exception as exception:
@@ -800,10 +747,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					INFO,
-					f"""gateway.kujira_post_market_withdraw: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_post_market_withdraw: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")
 
@@ -818,7 +762,7 @@ class Worker(WorkerBase):
 			remaining_orders_ids = list(
 				filter(lambda order: (order.clientId in remaining_orders_client_ids), created_orders.values()))
 
-			self.log(INFO, f"""remaining_orders_ids:\n{dump(remaining_orders_ids)}""")
+			self.log(DEBUG, f"""remaining_orders_ids:\n{dump(remaining_orders_ids)}""")
 
 			return remaining_orders_ids
 		finally:
@@ -849,7 +793,7 @@ class Worker(WorkerBase):
 					*[order.id for order in orders[:-1]]
 				]
 
-			self.log(INFO, f"""duplicated_orders_ids:\n{dump(duplicated_orders_ids)}""")
+			self.log(DEBUG, f"""duplicated_orders_ids:\n{dump(duplicated_orders_ids)}""")
 
 			return duplicated_orders_ids
 		finally:
@@ -980,10 +924,3 @@ class Worker(WorkerBase):
 				return DECIMAL_ZERO
 		else:
 			raise ValueError(f'Unrecognized mid price strategy "{strategy}".')
-
-	# noinspection PyMethodMayBeStatic
-	def _calculate_waiting_time(self, number: int) -> int:
-		current_timestamp_in_milliseconds = int(time.time() * 1000)
-		result = number - (current_timestamp_in_milliseconds % number)
-
-		return result

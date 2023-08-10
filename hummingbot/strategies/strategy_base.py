@@ -3,6 +3,7 @@ from abc import abstractmethod
 from typing import Any, Dict
 
 from hummingbot.strategies.base import Base
+from hummingbot.utils import current_timestamp
 
 
 class StrategyBase(Base):
@@ -20,7 +21,11 @@ class StrategyBase(Base):
 
 	@staticmethod
 	def _calculate_waiting_time(number: int) -> int:
-		current_timestamp_in_milliseconds = int(time.time() * 1000)
-		result = number - (current_timestamp_in_milliseconds % number)
+		current_timestamp_in_milliseconds = current_timestamp()
+
+		result = int(number - (current_timestamp_in_milliseconds % number))
+
+		if result == 0:
+			result = number
 
 		return result

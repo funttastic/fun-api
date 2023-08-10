@@ -109,13 +109,16 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			self.log(DEBUG, "end")
 
 	async def start(self):
+		self.log(INFO, "start")
+
 		await self.initialize()
 
 		while self._can_run:
 			if (not self._is_busy) and (not self._can_run):
 				await self.exit()
 
-			if self._is_busy or (self._refresh_timestamp > current_timestamp()):
+			now = current_timestamp()
+			if self._is_busy or (self._refresh_timestamp > now):
 				continue
 
 			if self._tasks.on_tick is None:
@@ -125,9 +128,11 @@ class PureMarketMaking_1_0_0(StrategyBase):
 				finally:
 					self._tasks.on_tick = None
 
+		self.log(INFO, "end")
+
 	async def stop(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			self._can_run = False
 
@@ -138,15 +143,15 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			except Exception as exception:
 				self.ignore_exception(exception)
 
-			for worker_id in self._configuration.workers.keys():
-				try:
-					await self.stop_worker(worker_id)
-				except Exception as exception:
-					self.ignore_exception(exception)
+			try:
+				coroutines = [self.stop_worker(worker_id) for worker_id in self._configuration.workers.keys()]
+				await asyncio.gather(*coroutines)
+			except Exception as exception:
+				self.ignore_exception(exception)
 		finally:
 			await self.exit()
 
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def stop_worker(self, worker_id: str):
 		self.log(DEBUG, "start")
@@ -154,7 +159,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 		if self._tasks.workers[worker_id]:
 			await self._workers[worker_id].stop()
 			self._tasks.workers[worker_id].cancel()
-			await self._tasks.workers[worker_id]
+			# await self._tasks.workers[worker_id]
 			self._tasks.workers[worker_id] = None
 
 		self.log(DEBUG, "end")
@@ -165,7 +170,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 	async def on_tick(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			self._is_busy = True
 
@@ -178,9 +183,9 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			self._refresh_timestamp = waiting_time + current_timestamp()
 			self._is_busy = False
 
-			self.log(DEBUG, f"""Waiting for {waiting_time}s.""")
+			self.log(INFO, f"""Waiting for {waiting_time}s.""")
 
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 			if self._configuration.strategy.run_only_once:
 				await self.exit()
@@ -211,7 +216,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 					"ownerAddresses": self._get_wallets(),
 				}
 
-				self.log(INFO, f"""gateway.kujira_get_balances: request:\n{dump(request)}""")
+				self.log(DEBUG, f"""gateway.kujira_get_balances: request:\n{dump(request)}""")
 
 				if use_cache and self._balances is not None:
 					response = self._balances
@@ -236,6 +241,6 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 				raise exception
 			finally:
-				self.log(INFO, f"""gateway.kujira_get_balances: response:\n{dump(response)}""")
+				self.log(DEBUG, f"""gateway.kujira_get_balances: response:\n{dump(response)}""")
 		finally:
 			self.log(DEBUG, "end")

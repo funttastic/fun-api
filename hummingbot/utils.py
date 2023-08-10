@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Any, List
 
 
-def current_timestamp() -> int:
-	return int(time.time() * 1000)
+def current_timestamp() -> float:
+	return time.time()
 
 
 def generate_hash(input: Any) -> str:
