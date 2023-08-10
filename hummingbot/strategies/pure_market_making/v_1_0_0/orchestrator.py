@@ -180,7 +180,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 				waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
 
 				# noinspection PyAttributeOutsideInit
-				self._refresh_timestamp = waiting_time + current_timestamp()
+				self._refresh_timestamp = waiting_time + self.clock.now()
 				(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 				self._is_busy = False
 
