@@ -120,7 +120,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 		await self.initialize()
 
-		self._tasks.on_tick = asyncio.create_task(self.on_tick())
+		# self._tasks.on_tick = asyncio.create_task(self.on_tick())
 
 		self.log(INFO, "end")
 
