@@ -15,7 +15,7 @@ class Clock(object):
 		self._events: Dict[float, asyncio.Event] = dict({})
 		self._tick: Optional[asyncio.Task] = None
 
-	def start(self):
+	async def start(self):
 		if not self._initialized:
 			self._can_run = True
 

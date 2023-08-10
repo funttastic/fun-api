@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
 from constants import constants
-from hummingbot.clock import clock
 from hummingbot.router import router
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
@@ -186,8 +185,6 @@ def start():
 		"server_private_key": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.server_private_key")}"""),
 		"certificate_authority_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.certificate_authority_certificate")}""")
 	}, _dynamic=False)
-
-	clock.start()
 
 	uvicorn.run(
 		app,
