@@ -197,8 +197,6 @@ class Worker(WorkerBase):
 				if self._configuration.strategy.run_only_once:
 					await self.exit()
 
-				await asyncio.sleep(waiting_time)
-
 	async def _create_proposal(self) -> List[Order]:
 		try:
 			self.log(INFO, "start")

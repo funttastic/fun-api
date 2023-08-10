@@ -19,9 +19,8 @@ class StrategyBase(Base):
 	def get_status(self) -> Dict[str, Any]:
 		pass
 
-	@staticmethod
-	def _calculate_waiting_time(number: int) -> int:
-		current_timestamp_in_milliseconds = current_timestamp()
+	def _calculate_waiting_time(self, number: int) -> int:
+		current_timestamp_in_milliseconds = self.clock.now()
 
 		result = int(number - (current_timestamp_in_milliseconds % number))
 
