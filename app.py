@@ -191,6 +191,7 @@ def start():
 		host=host,
 		port=port,
 		log_level=logging.DEBUG,
+		reload=debug,
 		app_dir=os.path.dirname(__file__),
 		ssl_certfile=certificates.server_certificate,
 		ssl_keyfile=certificates.server_private_key,
