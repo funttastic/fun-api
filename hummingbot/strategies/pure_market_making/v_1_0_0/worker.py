@@ -183,17 +183,17 @@ class Worker(WorkerBase):
 						except Exception as exception:
 							self.ignore_exception(exception)
 
-					open_orders = await self._get_open_orders(use_cache=False)
 					await self._get_filled_orders(use_cache=False)
 					await self._get_balances(use_cache=False)
-
-					open_orders_ids = list(open_orders.keys())
-					await self._cancel_currently_untracked_orders(open_orders_ids)
 
 					proposed_orders: List[Order] = await self._create_proposal()
 					candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
 
 					await self._replace_orders(candidate_orders)
+
+					open_orders = await self._get_open_orders(use_cache=False)
+					open_orders_ids = list(open_orders.keys())
+					await self._cancel_currently_untracked_orders(open_orders_ids)
 				except Exception as exception:
 					self.ignore_exception(exception)
 				finally:
