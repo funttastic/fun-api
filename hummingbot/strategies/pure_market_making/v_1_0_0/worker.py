@@ -52,8 +52,8 @@ class Worker(WorkerBase):
 			# Kill switch
 			self._wallet_previous_value: Optional[float] = None
 			self._token_previous_price: Optional[float] = None
-			self._wallet_current_value = Optional[float] = None
-			self._token_current_price = Optional[float] = None
+			self._wallet_current_value: Optional[float] = None
+			self._token_current_price: Optional[float] = None
 
 			self._tasks: DotMap[str, asyncio.Task] = DotMap({
 				"on_tick": None,
