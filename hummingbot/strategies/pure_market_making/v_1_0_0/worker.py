@@ -139,7 +139,7 @@ class Worker(WorkerBase):
 					"vwap": DECIMAL_ZERO,
 
 				}
-			})
+			}, _dynamic=False)
 		finally:
 			self.log(DEBUG, "end")
 
@@ -247,8 +247,10 @@ class Worker(WorkerBase):
 			open_orders = await self._get_open_orders(use_cache=False)
 			await self._get_filled_orders(use_cache=False)
 			balances = await self._get_balances(use_cache=False)
-			self.summary["balance"]["wallet"]["base"] = Decimal(balances.get("tokens").get(self._base_token["id"]).get('free'))
-			self.summary["balance"]["wallet"]["quote"] = Decimal(balances.get("tokens").get(self._quote_token["id"]).get('free'))
+			base_token_id = self._base_token["id"]
+			quote_token_id = self._quote_token["id"]
+			self.summary.balance.wallet.base = Decimal(balances.tokens.get(base_token_id).get("free"))
+			self.summary.balance.wallet.quote = Decimal(balances.tokens.get(quote_token_id).get("free"))
 
 			open_orders_ids = list(open_orders.keys())
 			await self._cancel_currently_untracked_orders(open_orders_ids)
@@ -520,11 +522,15 @@ class Worker(WorkerBase):
 					self._balances.total.free = Decimal(self._balances.total.free)
 					self._balances.total.lockedInOrders = Decimal(self._balances.total.lockedInOrders)
 					self._balances.total.unsettled = Decimal(self._balances.total.unsettled)
+					self._balances.total["total"] = \
+						self._balances.total.free + self._balances.total.lockedInOrders + self._balances.total.unsettled
 
 					for (token, balance) in DotMap(response.tokens).items():
 						balance.free = Decimal(balance.free)
 						balance.lockedInOrders = Decimal(balance.lockedInOrders)
 						balance.unsettled = Decimal(balance.unsettled)
+						balance["total"] = balance.free + balance.lockedInOrders + balance.unsettled
+
 
 				return response
 			except Exception as exception:
@@ -911,9 +917,9 @@ class Worker(WorkerBase):
 			self.log(DEBUG, "end")
 
 	async def _get_wallet_value(self):
-		free = self._balances.get("total").get("free")
-		locked_in_orders = self._balances.get("total").get("lockedInOrders")
-		unsettled = self._balances.get("total").get("unsettled")
+		free = self._balances.total.free
+		locked_in_orders = self._balances.total.lockedInOrders
+		unsettled = self._balances.total.unsettled
 		total = free + locked_in_orders + unsettled
 
 		return {"free": free, "lockedInOrders": locked_in_orders, "unsettled": unsettled, "total": total}
@@ -924,72 +930,64 @@ class Worker(WorkerBase):
 
 			total_balances = await self._get_wallet_value()
 
-			if self.summary["wallet"]["initial_value"] == DECIMAL_ZERO:
-				self.summary["token"]["initial_price"] = await self._get_market_price()
-				self.summary["token"]["previous_price"] = self.summary["token"]["initial_price"]
-				self.summary["token"]["current_price"] = self.summary["token"]["initial_price"]
+			if self.summary.wallet.initial_value == DECIMAL_ZERO:
+				self.summary.token.initial_price = await self._get_market_price()
+				self.summary.token.previous_price = self.summary.token.initial_price
+				self.summary.token.current_price = self.summary.token.initial_price
 
-				self.summary["wallet"]["initial_value"] = total_balances["total"]
-				self.summary["wallet"]["previous_value"] = self.summary["wallet"]["initial_value"]
-				self.summary["wallet"]["current_value"] = self.summary["wallet"]["initial_value"]
+				self.summary.wallet.initial_value = total_balances["total"]
+				self.summary.wallet.previous_value = self.summary.wallet.initial_value
+				self.summary.wallet.current_value = self.summary.wallet.initial_value
 			else:
-				max_wallet_loss_from_initial_value = round(
-					self._configuration["kill_switch"]["max_wallet_loss_from_initial_value"], 9)
-				max_wallet_loss_from_previous_value = round(
-					self._configuration["kill_switch"]["max_wallet_loss_from_previous_value"], 9)
+				max_wallet_loss_from_initial_value = round(self._configuration.kill_switch.max_wallet_loss_from_initial_value, 9)
+				max_wallet_loss_from_previous_value = round(self._configuration.kill_switch.max_wallet_loss_from_previous_value, 9)
 				max_wallet_loss_compared_to_token_variation = round(
-					self._configuration["kill_switch"]["max_wallet_loss_compared_to_token_variation"], 9)
-				max_token_loss_from_initial = round(
-					self._configuration["kill_switch"]["max_token_loss_from_initial_price"], 9)
+					self._configuration.kill_switch.max_wallet_loss_compared_to_token_variation, 9)
+				max_token_loss_from_initial = round(self._configuration.kill_switch.max_token_loss_from_initial_price, 9)
 
-				self.summary["token"]["previous_price"] = self.summary["token"]["current_price"]
-				self.summary["token"]["current_price"] = await self._get_market_price()
+				self.summary.token.previous_price = self.summary.token.current_price
+				self.summary.token.current_price = await self._get_market_price()
 
 				open_orders_balance = total_balances["lockedInOrders"]
-				self.summary["balance"]["orders"]["base"]["bids"] = open_orders_balance["quote"] / \
-																	self.summary["token"]["current_price"]
-				self.summary["balance"]["orders"]["base"]["asks"] = open_orders_balance["base"]
-				self.summary["balance"]["orders"]["base"]["total"] = self.summary["balance"]["orders"]["base"]["bids"] + \
-																	 self.summary["balance"]["orders"]["base"]["asks"]
-				self.summary["balance"]["orders"]["quote"]["bids"] = open_orders_balance["quote"]
-				self.summary["balance"]["orders"]["quote"]["asks"] = open_orders_balance["base"] * \
-																	 self.summary["token"]["current_price"]
-				self.summary["balance"]["orders"]["quote"]["total"] = self.summary["balance"]["orders"]["quote"][
-																		  "bids"] + \
-																	  self.summary["balance"]["orders"]["quote"]["asks"]
+				self.summary.balance.orders.base.bids = open_orders_balance["quote"] / self.summary.token.current_price
+				self.summary.balance.orders.base.asks = open_orders_balance["base"]
+				self.summary.balance.orders.base.total = self.summary.balance.orders.base.bids + self.summary.balance.orders.base.asks
+				self.summary.balance.orders.quote.bids = open_orders_balance["quote"]
+				self.summary.balance.orders.quote.asks = open_orders_balance["base"] * self.summary.token.current_price
+				self.summary.balance.orders.quote.total = self.summary.balance.orders.quote.bids + self.summary.balance.orders.quote.asks
 
-				self.summary["wallet"]["previous_value"] = self.summary["wallet"]["current_value"]
-				self.summary["wallet"]["current_value"] = (await self._get_wallet_value())["total"]
+				self.summary.wallet.previous_value = self.summary.wallet.current_value
+				self.summary.wallet.current_value = (await self._get_wallet_value())["total"]
 
 				wallet_previous_initial_pnl = Decimal(round(
-					100 * ((self.summary["wallet"]["previous_value"] / self.summary["wallet"]["initial_value"]) - 1),
+					100 * ((self.summary.wallet.previous_value / self.summary.wallet.initial_value) - 1),
 					9))
 				wallet_current_initial_pnl = Decimal(round(
-					100 * ((self.summary["wallet"]["current_value"] / self.summary["wallet"]["initial_value"]) - 1),
+					100 * ((self.summary.wallet.current_value / self.summary.wallet.initial_value) - 1),
 					9))
 				wallet_current_previous_pnl = Decimal(round(
-					100 * ((self.summary["wallet"]["current_value"] / self.summary["wallet"]["previous_value"]) - 1),
+					100 * ((self.summary.wallet.current_value / self.summary.wallet.previous_value) - 1),
 					9))
 				token_previous_initial_pnl = Decimal(round(
-					100 * ((self.summary["token"]["previous_price"] / self.summary["token"]["initial_price"]) - 1),
+					100 * ((self.summary.token.previous_price / self.summary.token.initial_price) - 1),
 					9))
 				token_current_initial_pnl = Decimal(round(
-					100 * ((self.summary["token"]["current_price"] / self.summary["token"]["initial_price"]) - 1), 9))
+					100 * ((self.summary.token.current_price / self.summary.token.initial_price) - 1), 9))
 				token_current_previous_pnl = Decimal(round(
-					100 * ((self.summary["token"]["current_price"] / self.summary["token"]["previous_price"]) - 1),
+					100 * ((self.summary.token.current_price / self.summary.token.previous_price) - 1),
 					9))
 
-				self.summary["wallet"]["previous_initial_pnl"] = wallet_previous_initial_pnl
-				self.summary["wallet"]["current_initial_pnl"] = wallet_current_initial_pnl
-				self.summary["wallet"]["current_previous_pnl"] = wallet_current_previous_pnl
-				self.summary["token"]["previous_initial_pnl"] = token_previous_initial_pnl
-				self.summary["token"]["current_initial_pnl"] = token_current_initial_pnl
-				self.summary["token"]["current_previous_pnl"] = token_current_previous_pnl
+				self.summary.wallet.previous_initial_pnl = wallet_previous_initial_pnl
+				self.summary.wallet.current_initial_pnl = wallet_current_initial_pnl
+				self.summary.wallet.current_previous_pnl = wallet_current_previous_pnl
+				self.summary.token.previous_initial_pnl = token_previous_initial_pnl
+				self.summary.token.current_initial_pnl = token_current_initial_pnl
+				self.summary.token.current_previous_pnl = token_current_previous_pnl
 
-				users = ', '.join(self._configuration["kill_switch"]["notify"]["telegram"]["users"])
+				users = ', '.join(self._configuration.kill_switch.notify.telegram.users)
 
 				if wallet_current_initial_pnl < 0:
-					if self._configuration["kill_switch"]["max_wallet_loss_from_initial_value"]:
+					if self._configuration.kill_switch.max_wallet_loss_from_initial_value:
 						if math.fabs(wallet_current_initial_pnl) >= math.fabs(max_wallet_loss_from_initial_value):
 							self._log(CRITICAL,
 									  f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_from_initial_value}% distant from the wallet initial value.\n/cc {users}""",
@@ -998,7 +996,7 @@ class Worker(WorkerBase):
 
 							return
 
-					if self._configuration["kill_switch"]["max_wallet_loss_from_previous_value"]:
+					if self._configuration.kill_switch.max_wallet_loss_from_previous_value:
 						if math.fabs(wallet_current_previous_pnl) >= math.fabs(max_wallet_loss_from_previous_value):
 							self._log(CRITICAL,
 									  f"""The bot has been stopped because the wallet lost {-wallet_current_previous_pnl}%, which is at least {max_wallet_loss_from_previous_value}% distant from the wallet previous value.\n/cc {users}""",
@@ -1007,7 +1005,7 @@ class Worker(WorkerBase):
 
 							return
 
-					if self._configuration["kill_switch"]["max_wallet_loss_compared_to_token_variation"]:
+					if self._configuration.kill_switch.max_wallet_loss_compared_to_token_variation:
 						if math.fabs(wallet_current_initial_pnl - token_current_initial_pnl) >= math.fabs(
 								max_wallet_loss_compared_to_token_variation):
 							self._log(CRITICAL,
@@ -1033,8 +1031,8 @@ class Worker(WorkerBase):
 		replaced_orders_summary = ""
 		canceled_orders_summary = ""
 
-		if len(self.summary["orders"]["replaced"]):
-			orders: List[Dict[str, Any]] = list(dict(self.summary["orders"]["replaced"]).values())
+		if len(self.summary.orders.replaced):
+			orders: List[Dict[str, Any]] = list(dict(self.summary.orders.replaced).values())
 			orders.sort(key=lambda item: item["price"])
 
 			groups: array[array[str]] = [[], [], [], [], [], [], []]
@@ -1049,8 +1047,8 @@ class Worker(WorkerBase):
 
 			replaced_orders_summary = format_lines(groups)
 
-		if len(self.summary["orders"]["canceled"]):
-			orders: List[Dict[str, Any]] = list(dict(self.summary["orders"]["canceled"]).values())
+		if len(self.summary.orders.canceled):
+			orders: List[Dict[str, Any]] = list(dict(self.summary.orders.canceled.values()))
 			orders.sort(key=lambda item: item["price"])
 
 			groups: array[array[str]] = [[], [], [], [], [], []]
@@ -1064,10 +1062,10 @@ class Worker(WorkerBase):
 
 			canceled_orders_summary = format_lines(groups)
 
-		kot = self._configuration["strategy"].get("kujira_order_type", "LIMIT")
-		ps = self._configuration["strategy"]["price_strategy"]
-		uap = self._configuration["strategy"]["use_adjusted_price"]
-		mps = self._configuration["strategy"].get("middle_price_strategy", "SAP")
+		kot = self._configuration.strategy.get("kujira_order_type", "LIMIT")
+		ps = self._configuration.strategy.price_strategy
+		uap = self._configuration.strategy.use_adjusted_price
+		mps = self._configuration.strategy.get("middle_price_strategy", "SAP")
 
 		self._log(
 			INFO,
@@ -1089,38 +1087,38 @@ class Worker(WorkerBase):
 				f"""\
 				
 					<b>Market</b>: <b>{self._market["name"]}</b>
-					<b>PnL</b>: {format_line("", format_percentage(self.summary["wallet"]["current_initial_pnl"]), alignment_column - 4)}
+					<b>PnL</b>: {format_line("", format_percentage(self.summary.wallet.current_initial_pnl), alignment_column - 4)}
 					 <b>Balances</b>:
-					{format_line(f"  {self._base_token['symbol']}:", format_currency(self.summary["balance"]["wallet"]["base"], 4))}
-					{format_line(f"  {self._quote_token['symbol']}:", format_currency(self.summary["balance"]["wallet"]["quote"], 4))}
+					{format_line(f"  {self._base_token['symbol']}:", format_currency(self.summary.balance.wallet.base, 4))}
+					{format_line(f"  {self._quote_token['symbol']}:", format_currency(self.summary.balance.wallet.quote, 4))}
 					 <b>Orders (in {self._quote_token['symbol']})</b>:
-					{format_line(f"  Bids:", format_currency(self.summary["balance"]["orders"]["quote"]["bids"], 4))}
-					{format_line(f"  Asks:", format_currency(self.summary["balance"]["orders"]["quote"]["asks"], 4))}
-					{format_line(f"  Total:", format_currency(self.summary["balance"]["orders"]["quote"]["total"], 4))}
+					{format_line(f"  Bids:", format_currency(self.summary.balance.orders.quote.bids, 4))}
+					{format_line(f"  Asks:", format_currency(self.summary.balance.orders.quote.asks, 4))}
+					{format_line(f"  Total:", format_currency(self.summary.balance.orders.quote.total, 4))}
 					<b>Orders</b>:
-					{format_line(" Replaced:", str(len(self.summary["orders"]["replaced"])))}
-					{format_line(" Canceled:", str(len(self.summary["orders"]["canceled"])))}
+					{format_line(" Replaced:", str(len(self.summary.orders.replaced)))}
+					{format_line(" Canceled:", str(len(self.summary.orders.canceled)))}
 					<b>Wallet</b>:
-					{format_line(" Wo:", format_currency(self.summary["wallet"]["initial_value"], 4))}
-					{format_line(" Wp:", format_currency(self.summary["wallet"]["previous_value"], 4))}
-					{format_line(" Wc:", format_currency(self.summary["wallet"]["current_value"], 4))}
-					{format_line(" Wc/Wo:", (format_percentage(self.summary["wallet"]["current_initial_pnl"])))}
-					{format_line(" Wc/Wp:", format_percentage(self.summary["wallet"]["current_previous_pnl"]))}
+					{format_line(" Wo:", format_currency(self.summary.wallet.initial_value, 4))}
+					{format_line(" Wp:", format_currency(self.summary.wallet.previous_value, 4))}
+					{format_line(" Wc:", format_currency(self.summary.wallet.current_value, 4))}
+					{format_line(" Wc/Wo:", (format_percentage(self.summary.wallet.current_initial_pnl)))}
+					{format_line(" Wc/Wp:", format_percentage(self.summary.wallet.current_previous_pnl))}
 					<b>Token</b>:
-					{format_line(" To:", format_currency(self.summary["token"]["initial_price"], 6))}
-					{format_line(" Tp:", format_currency(self.summary["token"]["previous_price"], 6))}
-					{format_line(" Tc:", format_currency(self.summary["token"]["current_price"], 6))}
-					{format_line(" Tc/To:", format_percentage(self.summary["token"]["current_initial_pnl"]))}
-					{format_line(" Tc/Tp:", format_percentage(self.summary["token"]["current_previous_pnl"]))}
+					{format_line(" To:", format_currency(self.summary.token.initial_price, 6))}
+					{format_line(" Tp:", format_currency(self.summary.token.previous_price, 6))}
+					{format_line(" Tc:", format_currency(self.summary.token.current_price, 6))}
+					{format_line(" Tc/To:", format_percentage(self.summary.token.current_initial_pnl))}
+					{format_line(" Tc/Tp:", format_percentage(self.summary.token.current_previous_pnl))}
 					<b>Price</b>:
-					{format_line(" Used:", format_currency(self.summary["price"]["used_price"], 6))}
-					{format_line(" External:", format_currency(self.summary["price"]["ticker_price"], 6))}
-					{format_line(" Last fill:", format_currency(self.summary["price"]["last_filled_order_price"], 6))}
-					{format_line(" Expected:", format_currency(self.summary["price"]["expected_price"], 6))}
-					{format_line(" Adjusted:", format_currency(self.summary["price"]["adjusted_market_price"], 6))}
-					{format_line(" SAP:", format_currency(self.summary["price"]["sap"], 6))}
-					{format_line(" WAP:", format_currency(self.summary["price"]["wap"], 6))}
-					{format_line(" VWAP:", format_currency(self.summary["price"]["vwap"], 6))}
+					{format_line(" Used:", format_currency(self.summary.price.used_price, 6))}
+					{format_line(" External:", format_currency(self.summary.price.ticker_price, 6))}
+					{format_line(" Last fill:", format_currency(self.summary.price.last_filled_order_price, 6))}
+					{format_line(" Expected:", format_currency(self.summary.price.expected_price, 6))}
+					{format_line(" Adjusted:", format_currency(self.summary.price.adjusted_market_price, 6))}
+					{format_line(" SAP:", format_currency(self.summary.price.sap, 6))}
+					{format_line(" WAP:", format_currency(self.summary.price.wap, 6))}
+					{format_line(" VWAP:", format_currency(self.summary.price.vwap, 6))}
 					<b>Balance</b>:
 					"""
 			),
