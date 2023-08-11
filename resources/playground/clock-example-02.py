@@ -21,7 +21,9 @@ class Worker:
 			print(f"""{now()} {self.name}: loop start""")
 			await asyncio.sleep(1)  # Doing async stuff
 			print(f"""{now()} {self.name}: loop end""")
+			print(f"""{now()} {self.name}: loop sleeping""")
 			await asyncio.sleep(self.waiting_time)
+			print(f"""{now()} {self.name}: loop awoke""")
 
 
 async def main():

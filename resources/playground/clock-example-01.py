@@ -26,12 +26,14 @@ class Clock(object):
 	async def _tick(self):
 		while self._can_run:
 			await self._has_new_events.wait()
+			print(f"{self.now()} clock: start")
 
 			pending_events: Dict[float, asyncio.Event] = dict({})
 
 			for timestamp, event in self._events.items():
 				if self.now() > timestamp:
 					event.set()
+					print(f"{self.now()} clock: event {timestamp} dispatched")
 				else:
 					pending_events[timestamp] = event
 
@@ -39,6 +41,8 @@ class Clock(object):
 
 			if not self._events:
 				self._has_new_events.clear()
+
+			await asyncio.sleep(1)
 
 	def register(self, timestamp: float):
 		if not self._events.get(timestamp):
@@ -60,7 +64,7 @@ class Worker:
 		self.event: Optional[asyncio.Event] = None
 
 	async def start(self):
-		self.timestamp, self.event = clock.register(clock.now())
+		self.timestamp, self.event = clock.register(clock.now() + self.waiting_time)
 
 		while True:
 			print(f"""{clock.now()} {self.name}: loop wait""")
@@ -68,8 +72,10 @@ class Worker:
 			print(f"""{clock.now()} {self.name}: loop start""")
 			await asyncio.sleep(1)  # Doing async stuff
 			self.timestamp, self.event = clock.register(clock.now() + self.waiting_time)
-			await asyncio.sleep(self.waiting_time)
 			print(f"""{clock.now()} {self.name}: loop end""")
+			print(f"""{clock.now()} {self.name}: loop sleeping""")
+			await asyncio.sleep(self.waiting_time)
+			print(f"""{clock.now()} {self.name}: loop awoke""")
 
 
 clock = Clock.instance()
