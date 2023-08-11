@@ -13,7 +13,6 @@ from hummingbot.gateway import Gateway
 from hummingbot.strategies.pure_market_making.v_1_0_0.worker import Worker
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.worker_base import WorkerBase
-from hummingbot.utils import current_timestamp
 from properties import properties
 from utils import deep_merge
 from utils import dump
@@ -22,14 +21,15 @@ from utils import dump
 class PureMarketMaking_1_0_0(StrategyBase):
 
 	ID = "pure_market_making"
+	SHORT_ID = "pmm"
 	VERSION = "1.0.0"
 	TITLE = "Pure Market Making"
 
 	def __init__(self, client_id):
 		try:
 			self._client_id = client_id
-			self.id = f"""{self.ID}:{self.VERSION}:{self._client_id}"""
-			self.logger_prefix = self.id
+			self.id = f"""{self.SHORT_ID}:{self.VERSION}:{self._client_id}"""
+			self.logger_prefix = f"""{self.id}:orchestrator"""
 
 			self.log(INFO, "start")
 
@@ -99,7 +99,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 			self._initialized = False
 
-			await self.clock.start()
+			self.clock.start()
 			self._refresh_timestamp = self.clock.now()
 			(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 
@@ -108,6 +108,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 				self._tasks.workers[worker_id] = asyncio.create_task(self._workers[worker_id].start())
 
 			self._initialized = True
+			self._can_run = True
 		except Exception as exception:
 			self.ignore_exception(exception)
 
@@ -120,7 +121,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 		await self.initialize()
 
-		# self._tasks.on_tick = asyncio.create_task(self.on_tick())
+		self._tasks.on_tick = asyncio.create_task(self.on_tick())
 
 		self.log(INFO, "end")
 
@@ -167,31 +168,40 @@ class PureMarketMaking_1_0_0(StrategyBase):
 		self.log(INFO, "end")
 
 	async def on_tick(self):
-		while self._can_run:
-			await self._events.on_tick.wait()
+		try:
+			self.log(INFO, "start")
 
-			try:
-				self.log(INFO, "start")
+			while self._can_run:
+				self.log(INFO, "loop - waiting")
 
-				self._is_busy = True
-			except Exception as exception:
-				self.ignore_exception(exception)
-			finally:
-				waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
+				await self._events.on_tick.wait()
 
-				# noinspection PyAttributeOutsideInit
-				self._refresh_timestamp = waiting_time + self.clock.now()
-				(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
-				self._is_busy = False
+				try:
+					self.log(INFO, "loop - start")
 
-				self.log(INFO, f"""Waiting for {waiting_time}s.""")
+					self._is_busy = True
+				except Exception as exception:
+					self.ignore_exception(exception)
+				finally:
+					waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
 
-				self.log(INFO, "end")
+					# noinspection PyAttributeOutsideInit
+					self._refresh_timestamp = waiting_time + self.clock.now()
+					(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
+					self._is_busy = False
 
-				if self._configuration.strategy.run_only_once:
-					await self.exit()
+					self.log(INFO, "loop - end")
 
-					return
+					if self._configuration.strategy.run_only_once:
+						await self.stop()
+
+						return
+
+					self.log(INFO, f"loop - sleeping for {waiting_time}...")
+					await asyncio.sleep(waiting_time)
+					self.log(INFO, "loop - awaken")
+		finally:
+			self.log(INFO, "end")
 
 	async def get_statistics(self) -> DotMap[str, Any]:
 		balances = await self._get_balances(False)

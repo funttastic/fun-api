@@ -18,7 +18,6 @@ from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
 from hummingbot.types import OrderSide, OrderType, Order, OrderStatus, \
 	MiddlePriceStrategy, PriceStrategy
-from hummingbot.utils import current_timestamp
 from utils import dump
 
 
@@ -70,7 +69,7 @@ class Worker(WorkerBase):
 
 			self.initialized = False
 
-			await self.clock.start()
+			self.clock.start()
 			self._refresh_timestamp = self.clock.now()
 			(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 
@@ -156,46 +155,55 @@ class Worker(WorkerBase):
 		self.log(INFO, "end")
 
 	async def on_tick(self):
-		while self._can_run:
-			await self._events.on_tick.wait()
+		try:
+			self.log(INFO, "start")
 
-			try:
-				self.log(INFO, "start")
+			while self._can_run:
+				try:
+					self.log(INFO, "loop - waiting")
 
-				self._is_busy = True
+					await self._events.on_tick.wait()
 
-				if self._configuration.strategy.withdraw_market_on_tick:
-					try:
-						await self._market_withdraw()
-					except Exception as exception:
-						self.ignore_exception(exception)
+					self.log(INFO, "loop - start")
 
-				open_orders = await self._get_open_orders(use_cache=False)
-				await self._get_filled_orders(use_cache=False)
-				await self._get_balances(use_cache=False)
+					self._is_busy = True
 
-				open_orders_ids = list(open_orders.keys())
-				await self._cancel_currently_untracked_orders(open_orders_ids)
+					if self._configuration.strategy.withdraw_market_on_tick:
+						try:
+							await self._market_withdraw()
+						except Exception as exception:
+							self.ignore_exception(exception)
 
-				proposed_orders: List[Order] = await self._create_proposal()
-				candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
+					open_orders = await self._get_open_orders(use_cache=False)
+					await self._get_filled_orders(use_cache=False)
+					await self._get_balances(use_cache=False)
 
-				await self._replace_orders(candidate_orders)
-			except Exception as exception:
-				self.ignore_exception(exception)
-			finally:
-				waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
+					open_orders_ids = list(open_orders.keys())
+					await self._cancel_currently_untracked_orders(open_orders_ids)
 
-				self._refresh_timestamp = waiting_time + self.clock.now()
-				(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
-				self._is_busy = False
+					proposed_orders: List[Order] = await self._create_proposal()
+					candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
 
-				self.log(INFO, f"""Waiting for {waiting_time}s.""")
+					await self._replace_orders(candidate_orders)
+				except Exception as exception:
+					self.ignore_exception(exception)
+				finally:
+					waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
 
-				self.log(INFO, "end")
+					self._refresh_timestamp = waiting_time + self.clock.now()
+					(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
+					self._is_busy = False
 
-				if self._configuration.strategy.run_only_once:
-					await self.exit()
+					self.log(INFO, "loop - end")
+
+					if self._configuration.strategy.run_only_once:
+						await self.stop()
+
+					self.log(INFO, f"loop - sleeping for {waiting_time}...")
+					await asyncio.sleep(waiting_time)
+					self.log(INFO, "loop - awaken")
+		finally:
+			self.log(INFO, "end")
 
 	async def _create_proposal(self) -> List[Order]:
 		try:
