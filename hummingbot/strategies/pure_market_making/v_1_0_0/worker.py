@@ -963,12 +963,13 @@ class Worker(WorkerBase):
 			INFO,
 			textwrap.dedent(
 				f"""\
-					<b>Market</b>: <b>{self._market}</b>
+				
+					<b>Market</b>: <b>{self._market["name"]}</b>
 					<b>PnL</b>: {format_line("", format_percentage(self.summary["wallet"]["current_initial_pnl"]), alignment_column - 4)}
 					 <b>Balances</b>:
-					{format_line(f"  {self._base_token}:", format_currency(self.summary["balance"]["wallet"]["base"], 4))}
-					{format_line(f"  {self._quote_token}:", format_currency(self.summary["balance"]["wallet"]["quote"], 4))}
-					 <b>Orders (in {self._quote_token})</b>:
+					{format_line(f"  {self._base_token['symbol']}:", format_currency(self.summary["balance"]["wallet"]["base"], 4))}
+					{format_line(f"  {self._quote_token['symbol']}:", format_currency(self.summary["balance"]["wallet"]["quote"], 4))}
+					 <b>Orders (in {self._quote_token['symbol']})</b>:
 					{format_line(f"  Bids:", format_currency(self.summary["balance"]["orders"]["quote"]["bids"], 4))}
 					{format_line(f"  Asks:", format_currency(self.summary["balance"]["orders"]["quote"]["asks"], 4))}
 					{format_line(f"  Total:", format_currency(self.summary["balance"]["orders"]["quote"]["total"], 4))}
@@ -1023,4 +1024,11 @@ class Worker(WorkerBase):
 		self.log(level, message, *args, **kwargs)
 
 		if use_telegram:
-			self.telegram.send(f"""{message}""")
+
+			try:
+				self.telegram.send(f"""{message}""")
+			except Exception as exception:
+				atribute_error = exception.args[0]
+				if "'NoneType' object has no attribute 'send'" in atribute_error:
+					self.log(DEBUG, f"""Instance of Telegram class not found.""")
+					self.log(DEBUG, f"""AttributeError: {atribute_error}""")

@@ -151,7 +151,7 @@ def calculate_middle_price(
 		asks: [DotMap[str, Any]],
 		strategy: MiddlePriceStrategy
 ) -> Decimal:
-	if strategy == MiddlePriceStrategy.SAP:
+	if strategy.__getattribute__("name") == MiddlePriceStrategy.SAP.__getattribute__("name"):
 		bid_prices = [float(item['price']) for item in bids]
 		ask_prices = [float(item['price']) for item in asks]
 
