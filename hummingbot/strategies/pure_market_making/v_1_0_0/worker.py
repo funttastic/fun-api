@@ -3,7 +3,7 @@ import copy
 import math
 import traceback
 from decimal import Decimal, ROUND_HALF_EVEN
-from logging import DEBUG, INFO, WARNING, CRITICAL
+from logging import DEBUG, INFO, WARNING
 from os import path
 from pathlib import Path
 from typing import Any, List, Union, Optional
@@ -174,6 +174,8 @@ class Worker(WorkerBase):
 					self.log(INFO, "loop - start")
 
 					self._is_busy = True
+
+					# await self._should_stop_loss()
 
 					if self._configuration.strategy.withdraw_market_on_tick:
 						try:
@@ -942,7 +944,7 @@ class Worker(WorkerBase):
 
 	async def _should_stop_loss(self):
 		try:
-			self._log(DEBUG, """_should_stop_loss... start""")
+			self.log(INFO, """_should_stop_loss... start""")
 
 			if self._wallet_previous_value is None:
 				self._wallet_previous_value = Decimal(await self._get_quote_balance())
@@ -968,11 +970,12 @@ class Worker(WorkerBase):
 					users = ', '.join(self._configuration["kill_switch"]["notify"]["telegram"]["users"])
 
 					if wallet_loss >= max_wallet_loss:
-						self._log(CRITICAL, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum limit of "{max_wallet_loss}%" in wallet loss.\n/cc {users}""", True)
+						self._log(DEBUG, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum limit of "{max_wallet_loss}%" in wallet loss.\n/cc {users}""", True)
 						await self.stop()
 
 					if wallet_loss >= (token_loss + max_wallet_comparison_loss):
-						self._log(CRITICAL, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum loss limit of "{max_wallet_comparison_loss}%" against the token value.\n/cc {users}""")
+						self._log(DEBUG, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum loss limit of "{max_wallet_comparison_loss}%" against the token value.\n/cc {users}""")
 						await self.stop()
 		finally:
-			self._log(DEBUG, """_should_stop_loss... end""")
+			self.log(INFO, """_should_stop_loss... end""")
+
