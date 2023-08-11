@@ -37,3 +37,10 @@ strategy:
   cancel_all_orders_on_stop: true
   withdraw_market_on_stop: true
   run_only_once: false
+  kill_switch:
+    max_wallet_loss: 5
+    max_wallet_comparison_loss: 2
+    notify:
+      telegram:
+        users:
+          - ""
