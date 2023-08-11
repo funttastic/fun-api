@@ -1,4 +1,5 @@
 import asyncio
+import math
 import copy
 import traceback
 import textwrap
@@ -6,7 +7,7 @@ import textwrap
 from decimal import Decimal
 from array import array
 from pathlib import Path
-from logging import DEBUG, INFO, WARNING
+from logging import DEBUG, INFO, WARNING, CRITICAL
 from os import path
 from typing import Any, List, Dict
 from properties import properties
@@ -245,7 +246,9 @@ class Worker(WorkerBase):
 
 			open_orders = await self._get_open_orders(use_cache=False)
 			await self._get_filled_orders(use_cache=False)
-			await self._get_balances(use_cache=False)
+			balances = await self._get_balances(use_cache=False)
+			self.summary["balance"]["wallet"]["base"] = Decimal(balances.get("tokens").get(self._base_token["id"]).get('free'))
+			self.summary["balance"]["wallet"]["quote"] = Decimal(balances.get("tokens").get(self._quote_token["id"]).get('free'))
 
 			open_orders_ids = list(open_orders.keys())
 			await self._cancel_currently_untracked_orders(open_orders_ids)
@@ -254,6 +257,8 @@ class Worker(WorkerBase):
 			candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
 
 			await self._replace_orders(candidate_orders)
+
+			await self._should_stop_loss()
 
 			self._show_summary()
 		except Exception as exception:
@@ -904,6 +909,125 @@ class Worker(WorkerBase):
 			return duplicated_orders_ids
 		finally:
 			self.log(DEBUG, "end")
+
+	async def _get_wallet_value(self):
+		free = self._balances.get("total").get("free")
+		locked_in_orders = self._balances.get("total").get("lockedInOrders")
+		unsettled = self._balances.get("total").get("unsettled")
+		total = free + locked_in_orders + unsettled
+
+		return {"free": free, "lockedInOrders": locked_in_orders, "unsettled": unsettled, "total": total}
+
+	async def _should_stop_loss(self):
+		try:
+			self._log(DEBUG, """_should_stop_loss... start""")
+
+			total_balances = await self._get_wallet_value()
+
+			if self.summary["wallet"]["initial_value"] == DECIMAL_ZERO:
+				self.summary["token"]["initial_price"] = await self._get_market_price()
+				self.summary["token"]["previous_price"] = self.summary["token"]["initial_price"]
+				self.summary["token"]["current_price"] = self.summary["token"]["initial_price"]
+
+				self.summary["wallet"]["initial_value"] = total_balances["total"]
+				self.summary["wallet"]["previous_value"] = self.summary["wallet"]["initial_value"]
+				self.summary["wallet"]["current_value"] = self.summary["wallet"]["initial_value"]
+			else:
+				max_wallet_loss_from_initial_value = round(
+					self._configuration["kill_switch"]["max_wallet_loss_from_initial_value"], 9)
+				max_wallet_loss_from_previous_value = round(
+					self._configuration["kill_switch"]["max_wallet_loss_from_previous_value"], 9)
+				max_wallet_loss_compared_to_token_variation = round(
+					self._configuration["kill_switch"]["max_wallet_loss_compared_to_token_variation"], 9)
+				max_token_loss_from_initial = round(
+					self._configuration["kill_switch"]["max_token_loss_from_initial_price"], 9)
+
+				self.summary["token"]["previous_price"] = self.summary["token"]["current_price"]
+				self.summary["token"]["current_price"] = await self._get_market_price()
+
+				open_orders_balance = total_balances["lockedInOrders"]
+				self.summary["balance"]["orders"]["base"]["bids"] = open_orders_balance["quote"] / \
+																	self.summary["token"]["current_price"]
+				self.summary["balance"]["orders"]["base"]["asks"] = open_orders_balance["base"]
+				self.summary["balance"]["orders"]["base"]["total"] = self.summary["balance"]["orders"]["base"]["bids"] + \
+																	 self.summary["balance"]["orders"]["base"]["asks"]
+				self.summary["balance"]["orders"]["quote"]["bids"] = open_orders_balance["quote"]
+				self.summary["balance"]["orders"]["quote"]["asks"] = open_orders_balance["base"] * \
+																	 self.summary["token"]["current_price"]
+				self.summary["balance"]["orders"]["quote"]["total"] = self.summary["balance"]["orders"]["quote"][
+																		  "bids"] + \
+																	  self.summary["balance"]["orders"]["quote"]["asks"]
+
+				self.summary["wallet"]["previous_value"] = self.summary["wallet"]["current_value"]
+				self.summary["wallet"]["current_value"] = (await self._get_wallet_value())["total"]
+
+				wallet_previous_initial_pnl = Decimal(round(
+					100 * ((self.summary["wallet"]["previous_value"] / self.summary["wallet"]["initial_value"]) - 1),
+					9))
+				wallet_current_initial_pnl = Decimal(round(
+					100 * ((self.summary["wallet"]["current_value"] / self.summary["wallet"]["initial_value"]) - 1),
+					9))
+				wallet_current_previous_pnl = Decimal(round(
+					100 * ((self.summary["wallet"]["current_value"] / self.summary["wallet"]["previous_value"]) - 1),
+					9))
+				token_previous_initial_pnl = Decimal(round(
+					100 * ((self.summary["token"]["previous_price"] / self.summary["token"]["initial_price"]) - 1),
+					9))
+				token_current_initial_pnl = Decimal(round(
+					100 * ((self.summary["token"]["current_price"] / self.summary["token"]["initial_price"]) - 1), 9))
+				token_current_previous_pnl = Decimal(round(
+					100 * ((self.summary["token"]["current_price"] / self.summary["token"]["previous_price"]) - 1),
+					9))
+
+				self.summary["wallet"]["previous_initial_pnl"] = wallet_previous_initial_pnl
+				self.summary["wallet"]["current_initial_pnl"] = wallet_current_initial_pnl
+				self.summary["wallet"]["current_previous_pnl"] = wallet_current_previous_pnl
+				self.summary["token"]["previous_initial_pnl"] = token_previous_initial_pnl
+				self.summary["token"]["current_initial_pnl"] = token_current_initial_pnl
+				self.summary["token"]["current_previous_pnl"] = token_current_previous_pnl
+
+				users = ', '.join(self._configuration["kill_switch"]["notify"]["telegram"]["users"])
+
+				if wallet_current_initial_pnl < 0:
+					if self._configuration["kill_switch"]["max_wallet_loss_from_initial_value"]:
+						if math.fabs(wallet_current_initial_pnl) >= math.fabs(max_wallet_loss_from_initial_value):
+							self._log(CRITICAL,
+									  f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_from_initial_value}% distant from the wallet initial value.\n/cc {users}""",
+									  True)
+							self.can_run = False
+
+							return
+
+					if self._configuration["kill_switch"]["max_wallet_loss_from_previous_value"]:
+						if math.fabs(wallet_current_previous_pnl) >= math.fabs(max_wallet_loss_from_previous_value):
+							self._log(CRITICAL,
+									  f"""The bot has been stopped because the wallet lost {-wallet_current_previous_pnl}%, which is at least {max_wallet_loss_from_previous_value}% distant from the wallet previous value.\n/cc {users}""",
+									  True)
+							self.can_run = False
+
+							return
+
+					if self._configuration["kill_switch"]["max_wallet_loss_compared_to_token_variation"]:
+						if math.fabs(wallet_current_initial_pnl - token_current_initial_pnl) >= math.fabs(
+								max_wallet_loss_compared_to_token_variation):
+							self._log(CRITICAL,
+									  f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_compared_to_token_variation}% distant from the token price variation ({token_current_initial_pnl}) from its initial price.\n/cc {users}""",
+									  True)
+							self.can_run = False
+
+							return
+
+				if token_current_initial_pnl < 0 and math.fabs(token_current_initial_pnl) >= math.fabs(
+						max_token_loss_from_initial):
+					self._log(CRITICAL,
+							  f"""The bot has been stopped because the token lost {-token_current_initial_pnl}%, which is at least {max_token_loss_from_initial}% distant from the token initial price.\n/cc {users}""",
+							  True)
+					self.can_run = False
+
+					return
+
+		finally:
+			self._log(DEBUG, """_should_stop_loss... end""")
 
 	def _show_summary(self):
 		replaced_orders_summary = ""
