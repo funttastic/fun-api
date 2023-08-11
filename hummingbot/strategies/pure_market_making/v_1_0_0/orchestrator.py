@@ -67,22 +67,22 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 		with open(os.path.join(base_path, "main.yml"), 'r') as stream:
 			target = yaml.safe_load(stream) or {}
-			configuration = deep_merge(configuration, target)
+			configuration = deep_merge(copy.deepcopy(configuration), target)
 
 		with open(os.path.join(base_path, "common.yml"), 'r') as stream:
 			target = yaml.safe_load(stream) or {}
-			configuration = deep_merge(configuration, target)
+			configuration = deep_merge(copy.deepcopy(configuration), target)
 
 		with open(os.path.join(base_path, "workers", "common.yml"), 'r') as stream:
 				worker_common = yaml.safe_load(stream) or {}
 
-		workers_ids = copy.copy(configuration["workers"])
+		workers_ids = copy.deepcopy(configuration["workers"])
 		configuration["workers"] = {}
 
 		for worker_id in workers_ids:
 			with open(os.path.join(base_path, "workers", f"{worker_id}.yml"), 'r') as stream:
 				target = yaml.safe_load(stream) or {}
-				worker = deep_merge(worker_common, target)
+				worker = deep_merge(copy.deepcopy(worker_common), target)
 
 				configuration["workers"][worker_id] = copy.deepcopy(worker)
 
