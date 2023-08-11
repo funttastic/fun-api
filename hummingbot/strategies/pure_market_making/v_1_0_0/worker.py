@@ -2,11 +2,11 @@ import asyncio
 import copy
 import math
 import traceback
-from decimal import Decimal
-from logging import DEBUG, INFO, WARNING
+from decimal import Decimal, ROUND_HALF_EVEN
+from logging import DEBUG, INFO, WARNING, CRITICAL
 from os import path
 from pathlib import Path
-from typing import Any, List, Union
+from typing import Any, List, Union, Optional
 
 import numpy as np
 from dotmap import DotMap
@@ -48,6 +48,13 @@ class Worker(WorkerBase):
 			self._tracked_orders_ids: [str] = []
 			self._open_orders: DotMap[str, Any]
 			self._filled_orders: DotMap[str, Any]
+
+			# Kill switch
+			self._wallet_previous_value: Optional[float] = None
+			self._token_previous_price: Optional[float] = None
+			self._wallet_current_value = Optional[float] = None
+			self._token_current_price = Optional[float] = None
+
 			self._tasks: DotMap[str, asyncio.Task] = DotMap({
 				"on_tick": None,
 				"markets": None,
@@ -933,69 +940,39 @@ class Worker(WorkerBase):
 		else:
 			raise ValueError(f'Unrecognized mid price strategy "{strategy}".')
 
-	# async def _should_stop_loss(self):
-	# 	try:
-	# 		self._log(DEBUG, """_should_stop_loss... start""")
-	#
-	# 		if self._wallet_previous_value is None:
-	# 			self._wallet_previous_value = Decimal(await self._get_quote_balance())
-	# 			self._token_previous_price = Decimal(await self._get_market_price())
-	#
-	# 			self._wallet_current_value = self._wallet_previous_value
-	# 			self._token_current_price = self._token_previous_price
-	# 		else:
-	# 			round_decimal = Decimal('0.01')
-	# 			max_wallet_loss = Decimal(self._configuration["kill_switch"]["max_wallet_loss"]).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
-	# 			max_wallet_comparison_loss = Decimal(self._configuration["kill_switch"]["max_wallet_comparison_loss"]).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
-	#
-	# 			self._wallet_current_value = Decimal(await self._get_quote_balance())
-	# 			wallet_loss = 100 * Decimal(1 - (self._wallet_current_value / self._wallet_previous_value)).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
-	#
-	# 			self._token_current_price = Decimal(await self._get_market_price())
-	# 			token_loss = 100 * Decimal(1 - (self._token_current_price / self._token_previous_price)).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
-	#
-	# 			self._wallet_previous_value = self._wallet_current_value
-	# 			self._token_previous_price = self._token_current_price
-	#
-	# 			if wallet_loss > 0:
-	# 				users = ', '.join(self._configuration["kill_switch"]["notify"]["telegram"]["users"])
-	#
-	# 				if wallet_loss >= max_wallet_loss:
-	# 					self._log(CRITICAL, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum limit of "{max_wallet_loss}%" in wallet loss.\n/cc {users}""", True)
-	# 					HummingbotApplication.main_application().stop()
-	#
-	# 				if wallet_loss >= (token_loss + max_wallet_comparison_loss):
-	# 					self._log(CRITICAL, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum loss limit of "{max_wallet_comparison_loss}%" against the token value.\n/cc {users}""")
-	# 					HummingbotApplication.main_application().stop()
-	# 	finally:
-	# 		self._log(DEBUG, """_should_stop_loss... end""")
+	async def _should_stop_loss(self):
+		try:
+			self._log(DEBUG, """_should_stop_loss... start""")
 
-	# async def _get_quote_balance(self) -> Decimal:
-	# 	try:
-	# 		self._log(DEBUG, """_get_quote_balance... start""")
-	#
-	# 		quote_balance = Decimal((await self._get_balances())["balances"][self._quote_token])
-	#
-	# 		return quote_balance
-	# 	finally:
-	# 		self._log(DEBUG, """_get_quote_balance... end""")
-	#
-	# async def _get_base_balance(self) -> Decimal:
-	# 	try:
-	# 		self._log(DEBUG, """_get_base_balance... start""")
-	#
-	# 		base_balance = Decimal((await self._get_balances())["balances"][self._base_token])
-	#
-	# 		return base_balance
-	# 	finally:
-	# 		self._log(DEBUG, """_get_base_balance... start""")
-	#
-	# async def _get_market_price(self) -> Decimal:
-	# 	try:
-	# 		self._log(DEBUG, """_get_market_price... start""")
-	#
-	# 		return Decimal((await self._get_last_filled_order())["price"])
-	# 	except (Exception,):
-	# 		return (await self._get_ticker())["price"]
-	# 	finally:
-	# 		self._log(DEBUG, """_get_market_price... end""")
+			if self._wallet_previous_value is None:
+				self._wallet_previous_value = Decimal(await self._get_quote_balance())
+				self._token_previous_price = Decimal(await self._get_market_price())
+
+				self._wallet_current_value = self._wallet_previous_value
+				self._token_current_price = self._token_previous_price
+			else:
+				round_decimal = Decimal('0.01')
+				max_wallet_loss = Decimal(self._configuration["kill_switch"]["max_wallet_loss"]).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
+				max_wallet_comparison_loss = Decimal(self._configuration["kill_switch"]["max_wallet_comparison_loss"]).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
+
+				self._wallet_current_value = Decimal(await self._get_quote_balance())
+				wallet_loss = 100 * Decimal(1 - (self._wallet_current_value / self._wallet_previous_value)).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
+
+				self._token_current_price = Decimal(await self._get_market_price())
+				token_loss = 100 * Decimal(1 - (self._token_current_price / self._token_previous_price)).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
+
+				self._wallet_previous_value = self._wallet_current_value
+				self._token_previous_price = self._token_current_price
+
+				if wallet_loss > 0:
+					users = ', '.join(self._configuration["kill_switch"]["notify"]["telegram"]["users"])
+
+					if wallet_loss >= max_wallet_loss:
+						self._log(CRITICAL, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum limit of "{max_wallet_loss}%" in wallet loss.\n/cc {users}""", True)
+						await self.stop()
+
+					if wallet_loss >= (token_loss + max_wallet_comparison_loss):
+						self._log(CRITICAL, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum loss limit of "{max_wallet_comparison_loss}%" against the token value.\n/cc {users}""")
+						await self.stop()
+		finally:
+			self._log(DEBUG, """_should_stop_loss... end""")
