@@ -2,4 +2,4 @@ chain: kujira
 network: mainnet
 connector: kujira
 logger:
-  level: DEBUG
+  level: INFO

@@ -14,26 +14,26 @@ strategy:
     - bid:
         quantity: 1
         spread_percentage: 25
-        max_liquidity_in_dollars: 100
+        max_liquidity_in_dollars: 1
       ask:
         quantity: 1
         spread_percentage: 25
-        max_liquidity_in_dollars: 100
+        max_liquidity_in_dollars: 1
     - bid:
         quantity: 1
         spread_percentage: 50
-        max_liquidity_in_dollars: 100
+        max_liquidity_in_dollars: 1
       ask:
         quantity: 1
         spread_percentage: 50
-        max_liquidity_in_dollars: 100
+        max_liquidity_in_dollars: 1
   tick_interval: 59
   kujira_order_type: LIMIT
   price_strategy: MIDDLE
   middle_price_strategy: SAP
   cancel_all_orders_on_start: true
   withdraw_market_on_start: true
-  withdraw_market_on_tick: true
+  withdraw_market_on_tick: false
   cancel_all_orders_on_stop: true
   withdraw_market_on_stop: true
   run_only_once: false
