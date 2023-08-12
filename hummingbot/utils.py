@@ -94,3 +94,31 @@ def log_function_call(func):
 			raise
 
 	return wrapper
+
+
+def log_function_exception(func):
+	@wraps(func)
+	def wrapper(*args, **kwargs):
+		from logger import logger
+
+		frame = inspect.currentframe().f_back
+		fully_qualified_name = func.__qualname__
+
+		try:
+			return func(*args, **kwargs)
+		except Exception as exception:
+			formatted_exception = traceback.format_exception(type(exception), exception, exception.__traceback__)
+			formatted_exception = "\n".join(formatted_exception)
+
+			logger.log(logging.DEBUG, f"{fully_qualified_name} input", {"args": args, "kwargs": kwargs}, frame=frame)
+			logger.log(logging.DEBUG, f"{fully_qualified_name} exception", formatted_exception, frame=frame)
+			raise
+
+	return wrapper
+
+
+def log_class_exceptions(cls):
+	for name, method in inspect.getmembers(cls, inspect.isfunction):
+		setattr(cls, name, log_function_exception(method))
+
+	return cls
