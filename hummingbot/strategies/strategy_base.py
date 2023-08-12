@@ -9,6 +9,7 @@ class StrategyBase(Base):
 	ID: str
 	VERSION: str
 	TITLE: str
+	CATEGORY: str
 
 	def __init__(self):
 		self.id: str

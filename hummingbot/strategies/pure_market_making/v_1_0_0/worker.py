@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import math
+import os
 import traceback
 from decimal import Decimal, ROUND_HALF_EVEN
 from logging import DEBUG, INFO, WARNING
@@ -9,6 +10,7 @@ from pathlib import Path
 from typing import Any, List, Union, Optional
 
 import numpy as np
+import yaml
 from dotmap import DotMap
 
 from hummingbot.constants import DECIMAL_NAN
@@ -18,15 +20,23 @@ from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
 from hummingbot.types import OrderSide, OrderType, Order, OrderStatus, \
 	MiddlePriceStrategy, PriceStrategy
-from utils import dump
+from properties import properties
+from utils import dump, deep_merge
 
 
 class Worker(WorkerBase):
 
-	def __init__(self, parent, configuration):
+	CATEGORY = "worker"
+
+	def __init__(self, parent: Any, client_id: str):
 		try:
 			self._parent = parent
-			self.id = f"""{self._parent.id}:worker:{configuration.id}"""
+			self._client_id = client_id
+
+			self._configuration: DotMap[str, Any]
+			self._reload_configuration()
+
+			self.id = f"""{self._parent.id}:{self.CATEGORY}:{self._configuration.id}"""
 			self.logger_prefix = self.id
 
 			self.log(INFO, "start")
@@ -35,7 +45,6 @@ class Worker(WorkerBase):
 
 			self._can_run: bool = True
 			self._script_name = path.basename(Path(__file__))
-			self._configuration = DotMap(configuration, _dynamic=False)
 			self._wallet_address = None
 			self._quote_token_name = None
 			self._base_token_name = None
@@ -69,12 +78,36 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
+	def _reload_configuration(self):
+		self.log(INFO, "start")
+
+		root_path = properties.get('app_root_path')
+		base_path = os.path.join(root_path, "resources", "strategies", self._parent.ID, self._parent.VERSION)
+
+		configuration = {}
+
+		with open(os.path.join(base_path, "common.yml"), 'r') as stream:
+			target = yaml.safe_load(stream) or {}
+			configuration = deep_merge(copy.deepcopy(configuration), target)
+
+		with open(os.path.join(base_path, "workers", "common.yml"), 'r') as stream:
+				target = yaml.safe_load(stream) or {}
+				configuration = deep_merge(copy.deepcopy(configuration), target)
+
+		with open(os.path.join(base_path, "workers", f"{self._client_id}.yml"), 'r') as stream:
+			target = yaml.safe_load(stream) or {}
+			configuration = deep_merge(copy.deepcopy(configuration), target)
+
+		self._configuration = DotMap(configuration, _dynamic=False)
+
+		self.log(INFO, "end")
+
 	# noinspection PyAttributeOutsideInit
 	async def initialize(self):
 		try:
 			self.log(INFO, "start")
 
-			self.initialized = False
+			self._initialized = False
 
 			self.clock.start()
 			self._refresh_timestamp = self.clock.now()
@@ -108,12 +141,12 @@ class Worker(WorkerBase):
 			self.log(DEBUG, f"""Waiting for {waiting_time}s.""")
 			self._refresh_timestamp = waiting_time + self.clock.now()
 
-			self.initialized = True
+			self._initialized = True
 			self._can_run = True
 		except Exception as exception:
 			self.ignore_exception(exception)
 
-			await self.exit()
+			raise exception
 		finally:
 			self.log(INFO, "end")
 
@@ -141,17 +174,19 @@ class Worker(WorkerBase):
 			except Exception as exception:
 				self.ignore_exception(exception)
 
-			if self._configuration.strategy.cancel_all_orders_on_stop:
-				try:
-					await self._cancel_all_orders()
-				except Exception as exception:
-					self.ignore_exception(exception)
 
-			if self._configuration.strategy.withdraw_market_on_stop:
-				try:
-					await self._market_withdraw()
-				except Exception as exception:
-					self.ignore_exception(exception)
+			if self._initialized:
+				if self._configuration.strategy.cancel_all_orders_on_stop:
+					try:
+						await self._cancel_all_orders()
+					except Exception as exception:
+						self.ignore_exception(exception)
+
+				if self._configuration.strategy.withdraw_market_on_stop:
+					try:
+						await self._market_withdraw()
+					except Exception as exception:
+						self.ignore_exception(exception)
 		finally:
 			await self.exit()
 
@@ -174,6 +209,8 @@ class Worker(WorkerBase):
 					self.log(INFO, "loop - start")
 
 					self._is_busy = True
+
+					self._reload_configuration()
 
 					# await self._should_stop_loss()
 

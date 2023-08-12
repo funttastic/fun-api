@@ -1,9 +1,0 @@
-id: pmm-01
-title: Pure Market Making - 01
-workers:
-  - "01"
-  - "02"
-  - "03"
-strategy:
-  tick_interval: 59
-  run_only_once: false

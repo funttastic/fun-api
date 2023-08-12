@@ -53,7 +53,10 @@ class Logger(object):
 			telegram.send(message)
 
 	def ignore_exception(self, exception: Exception, prefix: str = "", frame=inspect.currentframe().f_back):
-		message = f"""Ignored error: {type(exception).__name__} {str(exception)}:\n{traceback.format_exception(exception)}"""
+		formatted_exception = traceback.format_exception(type(exception), exception, exception.__traceback__)
+		formatted_exception = "\n".join(formatted_exception)
+
+		message = f"""Ignored exception: {type(exception).__name__} {str(exception)}:\n{formatted_exception}"""
 
 		self.log(logging.WARNING, prefix=prefix, message=message, frame=frame)
 
