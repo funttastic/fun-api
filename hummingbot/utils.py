@@ -1,5 +1,9 @@
 import asyncio
 import hashlib
+import inspect
+import logging
+from functools import wraps
+
 import jsonpickle
 import time
 import traceback
@@ -61,5 +65,32 @@ def automatic_retry_with_timeout(retries=1, delay=0, timeout=None):
 			error_message = f"Function failed after {retries} attempts. Here are the errors:\n" + "\n".join(errors)
 
 			raise Exception(error_message)
+
 		return wrapper
+
 	return decorator
+
+
+def log_function_call(func):
+	@wraps(func)
+	def wrapper(*args, **kwargs):
+		from logger import logger
+
+		frame = inspect.currentframe().f_back
+
+		# fully_qualified_name = f"{func.__module__}.{func.__qualname__}"
+		fully_qualified_name =func.__qualname__
+
+		logger.log(logging.DEBUG, f"{fully_qualified_name} input", {"args": args, "kwargs": kwargs}, frame=frame)
+
+		try:
+			output = func(*args, **kwargs)
+
+			logger.log(logging.DEBUG, f"{fully_qualified_name} output", output, frame=frame)
+			return output
+		except Exception as exception:
+			logger.log(logging.DEBUG, f"{fully_qualified_name} exception", exception, frame=frame)
+
+			raise
+
+	return wrapper
