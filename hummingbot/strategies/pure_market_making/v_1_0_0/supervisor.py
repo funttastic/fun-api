@@ -1,42 +1,44 @@
-import traceback
-
-from _decimal import Decimal
-from logging import DEBUG, INFO
-
 import asyncio
 import copy
 import os
+import traceback
+from _decimal import Decimal
+from logging import DEBUG, INFO
+from typing import Dict, Any
+
 import yaml
 from dotmap import DotMap
-from typing import Dict, Any
 
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.pure_market_making.v_1_0_0.worker import Worker
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.worker_base import WorkerBase
-from hummingbot.utils import current_timestamp
-from utils import dump
+from hummingbot.utils import log_class_exceptions
 from properties import properties
 from utils import deep_merge
+from utils import dump
 
 
-class PureMarketMaking_1_0_0(StrategyBase):
+@log_class_exceptions
+class Supervisor(StrategyBase):
 
 	ID = "pure_market_making"
+	SHORT_ID = "pmm"
 	VERSION = "1.0.0"
 	TITLE = "Pure Market Making"
+	CATEGORY = "supervisor"
 
 	def __init__(self, client_id):
 		try:
 			self._client_id = client_id
-			self.id = f"""{self.ID}:{self.VERSION}:{self._client_id}"""
-			self.logger_prefix = self.id
+			self.id = f"""{self.SHORT_ID}:{self.VERSION}:{self._client_id}"""
+			self.logger_prefix = f"""{self.id}:{self.CATEGORY}"""
 
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			super().__init__()
 
-			self._load_configuration()
+			self._reload_configuration()
 
 			self._is_busy: bool = False
 			self._can_run: bool = True
@@ -51,66 +53,75 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			}, _dynamic=False)
 
 			self._events: DotMap[str, asyncio.Event] = DotMap({
-				"on_tick": asyncio.Event(),
+				"on_tick": None,
 			}, _dynamic=False)
 
 			self._initialized = False
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
-	def _load_configuration(self):
-		self.log(DEBUG, "start")
+	def _reload_configuration(self):
+		self.log(INFO, "start")
 
 		root_path = properties.get('app_root_path')
 		base_path = os.path.join(root_path, "resources", "strategies", self.ID, self.VERSION)
 
 		configuration = {}
 
-		with open(os.path.join(base_path, "main.yml"), 'r') as stream:
+		with open(os.path.join(base_path, f"{self.CATEGORY}.yml"), 'r') as stream:
 			target = yaml.safe_load(stream) or {}
-			configuration = deep_merge(configuration, target)
+			configuration = deep_merge(copy.deepcopy(configuration), target)
 
 		with open(os.path.join(base_path, "common.yml"), 'r') as stream:
 			target = yaml.safe_load(stream) or {}
-			configuration = deep_merge(configuration, target)
+			configuration = deep_merge(copy.deepcopy(configuration), target)
 
 		with open(os.path.join(base_path, "workers", "common.yml"), 'r') as stream:
-				worker_common = yaml.safe_load(stream) or {}
+				configuration_worker_common = yaml.safe_load(stream) or {}
 
-		workers_ids = copy.copy(configuration["workers"])
+		workers_ids = copy.deepcopy(configuration["workers"])
 		configuration["workers"] = {}
 
 		for worker_id in workers_ids:
 			with open(os.path.join(base_path, "workers", f"{worker_id}.yml"), 'r') as stream:
 				target = yaml.safe_load(stream) or {}
-				worker = deep_merge(worker_common, target)
+				configuration_worker = deep_merge(copy.deepcopy(configuration_worker_common), target)
 
-				configuration["workers"][worker_id] = copy.deepcopy(worker)
+				configuration["workers"][worker_id] = copy.deepcopy(configuration_worker)
 
 		self._configuration = DotMap(configuration, _dynamic=False)
 
-		self.log(DEBUG, "end")
+		self.log(INFO, "end")
 
 	def get_status(self) -> Dict[str, Any]:
 		return {}
 
 	async def initialize(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			self._initialized = False
 
-			for worker_id, worker_configuration in self._configuration.workers.items():
-				self._workers[worker_id] = Worker(self, worker_configuration)
+			self.clock.start()
+			self._refresh_timestamp = self.clock.now()
+			(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
+
+			coroutines = []
+			for worker_id in self._configuration.workers.keys():
+				self._workers[worker_id] = Worker(self, worker_id)
 				self._tasks.workers[worker_id] = asyncio.create_task(self._workers[worker_id].start())
+				coroutines.append(self._tasks.workers[worker_id])
+
+			await asyncio.gather(*coroutines, return_exceptions=True)
 
 			self._initialized = True
+			self._can_run = True
 		except Exception as exception:
 			self.ignore_exception(exception)
 
-			await self.exit()
+			raise exception
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def start(self):
 		self.log(INFO, "start")
@@ -149,7 +160,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			self.log(INFO, "end")
 
 	async def stop_worker(self, worker_id: str):
-		self.log(DEBUG, "start")
+		self.log(INFO, "start")
 
 		if self._tasks.workers[worker_id]:
 			await self._workers[worker_id].stop()
@@ -157,46 +168,49 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			# await self._tasks.workers[worker_id]
 			self._tasks.workers[worker_id] = None
 
-		self.log(DEBUG, "end")
+		self.log(INFO, "end")
 
 	async def exit(self):
-		self.log(DEBUG, "start")
-		self.log(DEBUG, "end")
+		self.log(INFO, "start")
+		self.log(INFO, "end")
 
 	async def on_tick(self):
-		while self._can_run:
-			if (not self._is_busy) and (not self._can_run):
-				await self.exit()
+		try:
+			self.log(INFO, "start")
 
-				return
+			while self._can_run:
+				self.log(INFO, "loop - waiting")
 
-			now = current_timestamp()
-			if self._is_busy or (self._refresh_timestamp > now):
-				continue
+				await self._events.on_tick.wait()
 
-			try:
-				self.log(INFO, "start")
+				try:
+					self.log(INFO, "loop - start")
 
-				self._is_busy = True
-			except Exception as exception:
-				self.ignore_exception(exception)
-			finally:
-				waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
+					self._reload_configuration()
 
-				# noinspection PyAttributeOutsideInit
-				self._refresh_timestamp = waiting_time + current_timestamp()
-				self._is_busy = False
+					self._is_busy = True
+				except Exception as exception:
+					self.ignore_exception(exception)
+				finally:
+					waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
 
-				self.log(INFO, f"""Waiting for {waiting_time}s.""")
+					# noinspection PyAttributeOutsideInit
+					self._refresh_timestamp = waiting_time + self.clock.now()
+					(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
+					self._is_busy = False
 
-				self.log(INFO, "end")
+					self.log(INFO, "loop - end")
 
-				if self._configuration.strategy.run_only_once:
-					await self.exit()
+					if self._configuration.strategy.run_only_once:
+						await self.stop()
 
-					return
+						return
 
-				await asyncio.sleep(waiting_time)
+					self.log(INFO, f"loop - sleeping for {waiting_time}...")
+					await asyncio.sleep(waiting_time)
+					self.log(INFO, "loop - awaken")
+		finally:
+			self.log(INFO, "end")
 
 	async def get_statistics(self) -> DotMap[str, Any]:
 		balances = await self._get_balances(False)
@@ -213,7 +227,7 @@ class PureMarketMaking_1_0_0(StrategyBase):
 
 	async def _get_balances(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			response = None
 			try:
@@ -251,4 +265,4 @@ class PureMarketMaking_1_0_0(StrategyBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_get_balances: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")

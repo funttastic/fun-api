@@ -2,10 +2,14 @@ import inspect
 from abc import ABC
 from typing import Any
 
+from hummingbot.clock import Clock
+
 
 class Base(ABC):
 
 	logger_prefix = ""
+
+	clock: Clock = Clock.instance()
 
 	def log(self, level: int, message: str = "", object: Any = None):
 		# noinspection PyUnresolvedReferences

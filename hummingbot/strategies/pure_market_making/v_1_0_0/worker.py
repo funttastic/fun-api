@@ -1,16 +1,19 @@
 import asyncio
-import math
 import copy
-import traceback
+import math
+import os
 import textwrap
-
-from decimal import Decimal
+import traceback
 from array import array
-from pathlib import Path
+from decimal import Decimal
+from decimal import ROUND_HALF_EVEN
 from logging import DEBUG, INFO, WARNING, CRITICAL
 from os import path
+from pathlib import Path
 from typing import Any, List, Dict
-from properties import properties
+from typing import Optional
+
+import yaml
 from dotmap import DotMap
 
 from hummingbot.constants import (
@@ -32,7 +35,6 @@ from hummingbot.types import (
 )
 from hummingbot.utils import (
 	alignment_column,
-	current_timestamp,
 	parse_order_book,
 	calculate_middle_price,
 	format_line,
@@ -41,16 +43,26 @@ from hummingbot.utils import (
 	format_lines,
 	calculate_waiting_time,
 )
-
+from hummingbot.utils import log_class_exceptions
+from properties import properties
+from utils import deep_merge
 from utils import dump
 
 
+@log_class_exceptions
 class Worker(WorkerBase):
 
-	def __init__(self, parent, configuration):
+	CATEGORY = "worker"
+
+	def __init__(self, parent: Any, client_id: str):
 		try:
 			self._parent = parent
-			self.id = f"""{self._parent.id}:worker:{configuration.id}"""
+			self._client_id = client_id
+
+			self._configuration: DotMap[str, Any]
+			self._reload_configuration()
+
+			self.id = f"""{self._parent.id}:{self.CATEGORY}:{self._configuration.id}"""
 			self.logger_prefix = self.id
 
 			self.url: str = properties.get("telegram.url")
@@ -62,14 +74,12 @@ class Worker(WorkerBase):
 			from telegram import telegram
 			self.telegram = telegram.__init__()
 
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			super().__init__()
 
 			self._can_run: bool = True
 			self._script_name = path.basename(Path(__file__))
-			self._script_version = path.basename(path.dirname(path.abspath(__file__)))
-			self._configuration = DotMap(configuration, _dynamic=False)
 			self._wallet_address = None
 			self._quote_token_name = None
 			self._base_token_name = None
@@ -82,6 +92,13 @@ class Worker(WorkerBase):
 			self._tracked_orders_ids: [str] = []
 			self._open_orders: DotMap[str, Any]
 			self._filled_orders: DotMap[str, Any]
+
+			# Kill switch
+			self._wallet_previous_value: Optional[float] = None
+			self._token_previous_price: Optional[float] = None
+			self._wallet_current_value: Optional[float] = None
+			self._token_current_price: Optional[float] = None
+
 			self._tasks: DotMap[str, asyncio.Task] = DotMap({
 				"on_tick": None,
 				"markets": None,
@@ -140,15 +157,46 @@ class Worker(WorkerBase):
 
 				}
 			}, _dynamic=False)
+			self._events: DotMap[str, asyncio.Event] = DotMap({
+				"on_tick": None,
+			}, _dynamic=False)
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
+
+	def _reload_configuration(self):
+		self.log(INFO, "start")
+
+		root_path = properties.get('app_root_path')
+		base_path = os.path.join(root_path, "resources", "strategies", self._parent.ID, self._parent.VERSION)
+
+		configuration = {}
+
+		with open(os.path.join(base_path, "common.yml"), 'r') as stream:
+			target = yaml.safe_load(stream) or {}
+			configuration = deep_merge(copy.deepcopy(configuration), target)
+
+		with open(os.path.join(base_path, "workers", "common.yml"), 'r') as stream:
+				target = yaml.safe_load(stream) or {}
+				configuration = deep_merge(copy.deepcopy(configuration), target)
+
+		with open(os.path.join(base_path, "workers", f"{self._client_id}.yml"), 'r') as stream:
+			target = yaml.safe_load(stream) or {}
+			configuration = deep_merge(copy.deepcopy(configuration), target)
+
+		self._configuration = DotMap(configuration, _dynamic=False)
+
+		self.log(INFO, "end")
 
 	# noinspection PyAttributeOutsideInit
 	async def initialize(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
-			self.initialized = False
+			self._initialized = False
+
+			self.clock.start()
+			self._refresh_timestamp = self.clock.now()
+			(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 
 			self._market_name = self._configuration.market
 
@@ -176,16 +224,16 @@ class Worker(WorkerBase):
 
 			waiting_time = calculate_waiting_time(self._configuration.strategy.tick_interval)
 			self.log(DEBUG, f"""Waiting for {waiting_time}s.""")
-			self._refresh_timestamp = waiting_time + current_timestamp()
+			self._refresh_timestamp = waiting_time + self.clock.now()
 
-			self.initialized = True
+			self._initialized = True
 			self._can_run = True
 		except Exception as exception:
 			self.ignore_exception(exception)
 
-			await self.exit()
+			raise exception
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	# noinspection DuplicatedCode
 	async def start(self):
@@ -212,78 +260,90 @@ class Worker(WorkerBase):
 			except Exception as exception:
 				self.ignore_exception(exception)
 
-			if self._configuration.strategy.cancel_all_orders_on_stop:
-				try:
-					await self._cancel_all_orders()
-				except Exception as exception:
-					self.ignore_exception(exception)
+			if self._initialized:
+				if self._configuration.strategy.cancel_all_orders_on_stop:
+					try:
+						await self._cancel_all_orders()
+					except Exception as exception:
+						self.ignore_exception(exception)
 
-			if self._configuration.strategy.withdraw_market_on_stop:
-				try:
-					await self._market_withdraw()
-				except Exception as exception:
-					self.ignore_exception(exception)
+				if self._configuration.strategy.withdraw_market_on_stop:
+					try:
+						await self._market_withdraw()
+					except Exception as exception:
+						self.ignore_exception(exception)
 		finally:
 			await self.exit()
 
 			self.log(INFO, "end")
 
 	async def exit(self):
-		self.log(DEBUG, "start")
-		self.log(DEBUG, "end")
+		self.log(INFO, "start")
+		self.log(INFO, "end")
 
 	async def on_tick(self):
 		try:
 			self.log(DEBUG, "start")
 
-			self._is_busy = True
-
-			if self._configuration.strategy.withdraw_market_on_tick:
+			while self._can_run:
 				try:
-					await self._market_withdraw()
+					self.log(INFO, "loop - waiting")
+
+					await self._events.on_tick.wait()
+
+					self.log(INFO, "loop - start")
+
+					self._is_busy = True
+
+					self._reload_configuration()
+
+					try:
+						await self._market_withdraw()
+					except Exception as exception:
+						self.ignore_exception(exception)
+
+					await self._get_filled_orders(use_cache=False)
+					balances = await self._get_balances(use_cache=False)
+					base_token_id = self._base_token["id"]
+					quote_token_id = self._quote_token["id"]
+					self.summary.balance.wallet.base = Decimal(balances.tokens.get(base_token_id).get("free"))
+					self.summary.balance.wallet.quote = Decimal(balances.tokens.get(quote_token_id).get("free"))
+
+					proposed_orders: List[Order] = await self._create_proposal()
+					candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
+
+					await self._replace_orders(candidate_orders)
+
+					open_orders = await self._get_open_orders(use_cache=False)
+					open_orders_ids = list(open_orders.keys())
+					await self._cancel_currently_untracked_orders(open_orders_ids)
+
+					await self._should_stop_loss()
+
+					self._show_summary()
 				except Exception as exception:
 					self.ignore_exception(exception)
+				finally:
+					waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
 
-			open_orders = await self._get_open_orders(use_cache=False)
-			await self._get_filled_orders(use_cache=False)
-			balances = await self._get_balances(use_cache=False)
-			base_token_id = self._base_token["id"]
-			quote_token_id = self._quote_token["id"]
-			self.summary.balance.wallet.base = Decimal(balances.tokens.get(base_token_id).get("free"))
-			self.summary.balance.wallet.quote = Decimal(balances.tokens.get(quote_token_id).get("free"))
+					self._refresh_timestamp = waiting_time + self.clock.now()
+					(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
+					self._is_busy = False
 
-			open_orders_ids = list(open_orders.keys())
-			await self._cancel_currently_untracked_orders(open_orders_ids)
+					self.log(INFO, "loop - end")
 
-			proposed_orders: List[Order] = await self._create_proposal()
-			candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
+					if self._configuration.strategy.run_only_once:
+						await self.stop()
 
-			await self._replace_orders(candidate_orders)
-
-			await self._should_stop_loss()
-
-			self._show_summary()
-		except Exception as exception:
-			self.ignore_exception(exception)
+					self.log(INFO, f"loop - sleeping for {waiting_time}...")
+					await asyncio.sleep(waiting_time)
+					self.log(INFO, "loop - awaken")
 		finally:
-			waiting_time = calculate_waiting_time(self._configuration.strategy.tick_interval)
-
-			self._refresh_timestamp = waiting_time + current_timestamp()
-			self._is_busy = False
-
-			self.log(INFO, f"""Waiting for {waiting_time}s.""")
-
 			self.log(INFO, "end")
-
-			if self._configuration.strategy.run_only_once:
-				await self.exit()
-
-	# noinspection DuplicatedCode
-			await asyncio.sleep(waiting_time)
 
 	async def _create_proposal(self) -> List[Order]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			order_book = await self._get_order_book()
 			bids, asks = parse_order_book(order_book)
@@ -395,11 +455,11 @@ class Worker(WorkerBase):
 
 			return proposal
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _adjust_proposal_to_budget(self, candidate_proposal: List[Order]) -> List[Order]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			adjusted_proposal: List[Order] = []
 
@@ -429,19 +489,19 @@ class Worker(WorkerBase):
 
 			return adjusted_proposal
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_base_ticker_price(self) -> Decimal:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			return Decimal((await self._get_ticker(use_cache=False)).price)
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_last_filled_order_price(self) -> Decimal:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			last_filled_order = await self._get_last_filled_order()
 
@@ -450,14 +510,14 @@ class Worker(WorkerBase):
 			else:
 				return DECIMAL_NAN
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_market_price(self) -> Decimal:
 		return await self._get_base_ticker_price()
 
 	async def _get_market_middle_price(self, bids, asks, strategy: MiddlePriceStrategy = None) -> Decimal:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			if strategy:
 				return calculate_middle_price(bids, asks, strategy)
@@ -473,32 +533,32 @@ class Worker(WorkerBase):
 					except (Exception,):
 						return await self._get_market_price()
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_base_balance(self) -> Decimal:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			base_balance = Decimal((await self._get_balances())[self._base_token.id].free)
 
 			return base_balance
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_quote_balance(self) -> Decimal:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			quote_balance = Decimal((await self._get_balances())[self._quote_token.id].free)
 
 			return quote_balance
 		finally:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 	# noinspection DuplicatedCode
 	async def _get_balances(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			response = None
 			try:
@@ -540,11 +600,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_get_balances: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_market(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -568,11 +628,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_get_market: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_order_book(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -602,11 +662,11 @@ class Worker(WorkerBase):
 					f"""gateway.kujira_get_order_books: response:\n{dump(response)}"""
 				)
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_ticker(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -636,12 +696,12 @@ class Worker(WorkerBase):
 				self.log(DEBUG, f"""gateway.kujira_get_ticker: response:\n{dump(response)}""")
 
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	# noinspection DuplicatedCode
 	async def _get_open_orders(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -671,11 +731,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_get_open_orders: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_last_filled_order(self) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			filled_orders = await self._get_filled_orders()
 
@@ -686,12 +746,12 @@ class Worker(WorkerBase):
 
 			return last_filled_order
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	# noinspection DuplicatedCode
 	async def _get_filled_orders(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -728,11 +788,11 @@ class Worker(WorkerBase):
 				)
 
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _replace_orders(self, proposal: List[Order]) -> DotMap[str, Any]:
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			response = None
 			try:
@@ -776,11 +836,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_post_orders: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _cancel_currently_untracked_orders(self, open_orders_ids: List[str]):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -813,11 +873,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_delete_orders: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _cancel_all_orders(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			request = None
 			response = None
@@ -840,11 +900,11 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.clob_delete_orders: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _market_withdraw(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			response = None
 			try:
@@ -866,10 +926,10 @@ class Worker(WorkerBase):
 			finally:
 				self.log(DEBUG, f"""gateway.kujira_post_market_withdraw: response:\n{dump(response)}""")
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_remaining_orders_ids(self, candidate_orders, created_orders) -> List[str]:
-		self.log(DEBUG, "end")
+		self.log(INFO, "end")
 
 		try:
 			candidate_orders_client_ids = [order.client_id for order in candidate_orders] if len(candidate_orders) else []
@@ -883,10 +943,10 @@ class Worker(WorkerBase):
 
 			return remaining_orders_ids
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_duplicated_orders_ids(self) -> List[str]:
-		self.log(DEBUG, "start")
+		self.log(INFO, "start")
 
 		try:
 			open_orders = (await self._get_open_orders()).values()
@@ -914,7 +974,7 @@ class Worker(WorkerBase):
 
 			return duplicated_orders_ids
 		finally:
-			self.log(DEBUG, "end")
+			self.log(INFO, "end")
 
 	async def _get_wallet_value(self):
 		free = self._balances.total.free
@@ -1154,3 +1214,40 @@ class Worker(WorkerBase):
 				if "'NoneType' object has no attribute 'send'" in atribute_error:
 					self.log(DEBUG, f"""Instance of Telegram class not found.""")
 					self.log(DEBUG, f"""AttributeError: {atribute_error}""")
+
+	async def _should_stop_loss(self):
+		try:
+			self.log(INFO, """_should_stop_loss... start""")
+
+			if self._wallet_previous_value is None:
+				self._wallet_previous_value = Decimal(await self._get_quote_balance())
+				self._token_previous_price = Decimal(await self._get_market_price())
+
+				self._wallet_current_value = self._wallet_previous_value
+				self._token_current_price = self._token_previous_price
+			else:
+				round_decimal = Decimal('0.01')
+				max_wallet_loss = Decimal(self._configuration["kill_switch"]["max_wallet_loss"]).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
+				max_wallet_comparison_loss = Decimal(self._configuration["kill_switch"]["max_wallet_comparison_loss"]).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
+
+				self._wallet_current_value = Decimal(await self._get_quote_balance())
+				wallet_loss = 100 * Decimal(1 - (self._wallet_current_value / self._wallet_previous_value)).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
+
+				self._token_current_price = Decimal(await self._get_market_price())
+				token_loss = 100 * Decimal(1 - (self._token_current_price / self._token_previous_price)).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
+
+				self._wallet_previous_value = self._wallet_current_value
+				self._token_previous_price = self._token_current_price
+
+				if wallet_loss > 0:
+					users = ', '.join(self._configuration["kill_switch"]["notify"]["telegram"]["users"])
+
+					if wallet_loss >= max_wallet_loss:
+						self._log(DEBUG, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum limit of "{max_wallet_loss}%" in wallet loss.\n/cc {users}""", True)
+						await self.stop()
+
+					if wallet_loss >= (token_loss + max_wallet_comparison_loss):
+						self._log(DEBUG, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum loss limit of "{max_wallet_comparison_loss}%" against the token value.\n/cc {users}""")
+						await self.stop()
+		finally:
+			self.log(INFO, """_should_stop_loss... end""")

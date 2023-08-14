@@ -1,24 +1,24 @@
-import ssl
-
 import asyncio
 import atexit
 import logging
-import nest_asyncio
 import os
 import signal
+import ssl
+from typing import Any, Dict
+
+import nest_asyncio
 import uvicorn
 from dotmap import DotMap
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
-from typing import Any, Dict
 
 from constants import constants
 from hummingbot.router import router
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
-from utils import HttpMethod
 from properties import properties
+from utils import HttpMethod
 
 nest_asyncio.apply()
 root_path = os.path.dirname(__file__)
@@ -83,7 +83,7 @@ async def strategy_start(request: Request) -> Dict[str, Any]:
 		class_reference = Strategy.from_id_and_version(strategy, version).value
 		if not processes.get(full_id):
 			processes[full_id] = class_reference(id)
-			tasks[full_id] = asyncio.create_task(processes[full_id].start())
+			tasks[full_id].start = asyncio.create_task(processes[full_id].start())
 
 			return {
 				"message": "Successfully started"
@@ -94,14 +94,12 @@ async def strategy_start(request: Request) -> Dict[str, Any]:
 			}
 	except Exception as exception:
 		if tasks.get(full_id):
-			tasks[full_id].cancel()
-			await tasks[full_id]
+			tasks[full_id].start.cancel()
+			await tasks[full_id].start
 		processes[full_id] = None
-		tasks[full_id] = None
+		tasks[full_id].start = None
 
-		return {
-			"message": f"An error has occurred: {exception}"
-		}
+		raise exception
 
 
 @app.post("/strategy/status")
@@ -123,14 +121,12 @@ async def strategy_status(request: Request) -> Dict[str, Any]:
 			}
 	except Exception as exception:
 		if tasks.get(full_id):
-			tasks[full_id].cancel()
-			await tasks[full_id]
+			tasks[full_id].start.cancel()
+			await tasks[full_id].start
 		processes[full_id] = None
-		tasks[full_id] = None
+		tasks[full_id].start = None
 
-		return {
-			"message": f"An error has occurred: {exception}"
-		}
+		raise exception
 
 
 @app.post("/strategy/stop")
@@ -145,9 +141,9 @@ async def strategy_stop(request: Request) -> Dict[str, Any]:
 
 	try:
 		if processes.get(full_id):
-			await processes[full_id].stop()
-			tasks[full_id].cancel()
-			await tasks[full_id]
+			tasks[full_id].start.cancel()
+			tasks[full_id].stop = asyncio.create_task(processes[full_id].stop())
+			await tasks[full_id].stop
 
 			return {
 				"message": "Successfully stopped"
@@ -158,15 +154,13 @@ async def strategy_stop(request: Request) -> Dict[str, Any]:
 			}
 	except Exception as exception:
 		if tasks.get(full_id):
-			tasks[full_id].cancel()
-			await tasks[full_id]
+			tasks[full_id].start.cancel()
+			await tasks[full_id].start
 
-		return {
-			"message": f"An error has occurred: {exception}"
-		}
+		raise exception
 	finally:
 		processes[full_id] = None
-		tasks[full_id] = None
+		tasks[full_id].start = None
 
 
 def start():
@@ -197,6 +191,7 @@ def start():
 		host=host,
 		port=port,
 		log_level=logging.DEBUG,
+		reload=debug,
 		app_dir=os.path.dirname(__file__),
 		ssl_certfile=certificates.server_certificate,
 		ssl_keyfile=certificates.server_private_key,
