@@ -9,6 +9,7 @@ FLOAT_NAN = float('nan')
 DECIMAL_ZERO = Decimal(0)
 DECIMAL_INFINITY = Decimal("Infinity")
 DECIMAL_NAN = Decimal('NaN')
+ROUNDING_THRESHOLD = Decimal('0.01')
 
 KUJIRA_NATIVE_TOKEN = DotMap({
 	"id": "ukuji",

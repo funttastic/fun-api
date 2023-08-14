@@ -5,15 +5,13 @@ import os
 import traceback
 from decimal import Decimal, ROUND_HALF_EVEN
 from logging import DEBUG, INFO, WARNING
-from os import path
-from pathlib import Path
 from typing import Any, List, Union, Optional
 
 import numpy as np
 import yaml
 from dotmap import DotMap
 
-from hummingbot.constants import DECIMAL_NAN
+from hummingbot.constants import DECIMAL_NAN, ROUNDING_THRESHOLD
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, VWAP_THRESHOLD, \
 	FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
@@ -26,7 +24,6 @@ from utils import dump, deep_merge, log_class_exceptions
 
 @log_class_exceptions
 class Worker(WorkerBase):
-
 	CATEGORY = "worker"
 
 	def __init__(self, parent: Any, client_id: str):
@@ -37,29 +34,30 @@ class Worker(WorkerBase):
 			self._configuration: DotMap[str, Any]
 			self._reload_configuration()
 
-			self.id = f"""{self._parent.id}:{self.CATEGORY}:{self._configuration.id}"""
-			self.logger_prefix = self.id
+			self.id = f"""{self._parent.base_id}:{self.CATEGORY}:{self._configuration.id}"""
 
 			self.log(INFO, "start")
 
 			super().__init__()
 
 			self._can_run: bool = True
-			self._script_name = path.basename(Path(__file__))
+			self._is_busy: bool = False
+			self._initialized = False
+			self._refresh_timestamp: int = 0
 			self._wallet_address = None
+			self._market: DotMap[str, Any] = None
+			self._market_name = None
+			self._base_token: DotMap[str, Any] = None
+			self._quote_token: DotMap[str, Any] = None
 			self._quote_token_name = None
 			self._base_token_name = None
-			self._is_busy: bool = False
-			self._refresh_timestamp: int = 0
-			self._market: DotMap[str, Any]
+			self._tickers: DotMap[str, Any] = None
 			self._balances: DotMap[str, Any] = DotMap({}, _dynamic=False)
-			self._tickers: DotMap[str, Any]
+			self._all_tracked_orders_ids: [str] = []
 			self._currently_tracked_orders_ids: [str] = []
-			self._tracked_orders_ids: [str] = []
-			self._open_orders: DotMap[str, Any]
-			self._filled_orders: DotMap[str, Any]
+			self._open_orders: DotMap[str, Any] = None
+			self._filled_orders: DotMap[str, Any] = None
 
-			# Kill switch
 			self._wallet_previous_value: Optional[float] = None
 			self._token_previous_price: Optional[float] = None
 			self._wallet_current_value: Optional[float] = None
@@ -73,6 +71,7 @@ class Worker(WorkerBase):
 				"orders": None,
 				"balances": None,
 			}, _dynamic=False)
+
 			self._events: DotMap[str, asyncio.Event] = DotMap({
 				"on_tick": None,
 			}, _dynamic=False)
@@ -92,8 +91,8 @@ class Worker(WorkerBase):
 			configuration = deep_merge(copy.deepcopy(configuration), target)
 
 		with open(os.path.join(base_path, "workers", "common.yml"), 'r') as stream:
-				target = yaml.safe_load(stream) or {}
-				configuration = deep_merge(copy.deepcopy(configuration), target)
+			target = yaml.safe_load(stream) or {}
+			configuration = deep_merge(copy.deepcopy(configuration), target)
 
 		with open(os.path.join(base_path, "workers", f"{self._client_id}.yml"), 'r') as stream:
 			target = yaml.safe_load(stream) or {}
@@ -103,16 +102,11 @@ class Worker(WorkerBase):
 
 		self.log(INFO, "end")
 
-	# noinspection PyAttributeOutsideInit
 	async def initialize(self):
 		try:
 			self.log(INFO, "start")
 
 			self._initialized = False
-
-			self.clock.start()
-			self._refresh_timestamp = self.clock.now()
-			(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 
 			self._market_name = self._configuration.market
 
@@ -138,9 +132,9 @@ class Worker(WorkerBase):
 				except Exception as exception:
 					self.ignore_exception(exception)
 
-			waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
-			self.log(DEBUG, f"""Waiting for {waiting_time}s.""")
-			self._refresh_timestamp = waiting_time + self.clock.now()
+			self.clock.start()
+			self._refresh_timestamp = self.clock.now()
+			(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 
 			self._initialized = True
 			self._can_run = True
@@ -174,7 +168,6 @@ class Worker(WorkerBase):
 				pass
 			except Exception as exception:
 				self.ignore_exception(exception)
-
 
 			if self._initialized:
 				if self._configuration.strategy.cancel_all_orders_on_stop:
@@ -213,8 +206,6 @@ class Worker(WorkerBase):
 
 					self._reload_configuration()
 
-					# await self._should_stop_loss()
-
 					if self._configuration.strategy.withdraw_market_on_tick:
 						try:
 							await self._market_withdraw()
@@ -232,6 +223,8 @@ class Worker(WorkerBase):
 					open_orders = await self._get_open_orders(use_cache=False)
 					open_orders_ids = list(open_orders.keys())
 					await self._cancel_currently_untracked_orders(open_orders_ids)
+
+					await self._should_stop_loss()
 				except Exception as exception:
 					self.ignore_exception(exception)
 				finally:
@@ -239,12 +232,13 @@ class Worker(WorkerBase):
 
 					self._refresh_timestamp = waiting_time + self.clock.now()
 					(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
-					self._is_busy = False
 
 					self.log(INFO, "loop - end")
 
 					if self._configuration.strategy.run_only_once:
 						await self.stop()
+
+					self._is_busy = False
 
 					self.log(INFO, f"loop - sleeping for {waiting_time}...")
 					await asyncio.sleep(waiting_time)
@@ -271,7 +265,9 @@ class Worker(WorkerBase):
 			if price_strategy == PriceStrategy.TICKER:
 				used_price = ticker_price
 			elif price_strategy == PriceStrategy.MIDDLE:
-				middle_price_strategy = MiddlePriceStrategy[self._configuration.strategy.get("middle_price_strategy", MiddlePriceStrategy.SAP.name)]
+				middle_price_strategy = MiddlePriceStrategy[
+					self._configuration.strategy.get("middle_price_strategy", MiddlePriceStrategy.SAP.name)
+				]
 
 				used_price = await self._get_market_middle_price(
 					bids,
@@ -701,7 +697,7 @@ class Worker(WorkerBase):
 					response = await Gateway.kujira_post_orders(request)
 
 					self._currently_tracked_orders_ids = list(response.keys())
-					self._tracked_orders_ids.extend(self._currently_tracked_orders_ids)
+					self._all_tracked_orders_ids.extend(self._currently_tracked_orders_ids)
 				else:
 					self.log(WARNING, "No order was defined for placement/replacement. Skipping.", True)
 					response = []
@@ -724,7 +720,8 @@ class Worker(WorkerBase):
 			response = None
 			try:
 				untracked_orders_ids = list(
-					set(self._tracked_orders_ids).intersection(set(open_orders_ids)) - set(self._currently_tracked_orders_ids))
+					set(self._all_tracked_orders_ids).intersection(set(open_orders_ids)) - set(
+						self._currently_tracked_orders_ids))
 
 				if len(untracked_orders_ids) > 0:
 					request = {
@@ -854,8 +851,9 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	# noinspection PyMethodMayBeStatic
-	def _parse_order_book(self, orderbook: DotMap[str, Any]) -> List[Union[List[DotMap[str, Any]], List[DotMap[str, Any]]]]:
+	@staticmethod
+	def _parse_order_book(orderbook: DotMap[str, Any]) -> List[
+		Union[List[DotMap[str, Any]], List[DotMap[str, Any]]]]:
 		bids_list = []
 		asks_list = []
 
@@ -880,8 +878,8 @@ class Worker(WorkerBase):
 
 		return [bids, asks]
 
-	# noinspection PyMethodMayBeStatic
-	def _compute_volume_weighted_average_price(self, book: [DotMap[str, Any]]) -> np.array:
+	@staticmethod
+	def _compute_volume_weighted_average_price(book: [DotMap[str, Any]]) -> np.array:
 		prices = [float(order['price']) for order in book]
 		amounts = [float(order['amount']) for order in book]
 
@@ -892,8 +890,8 @@ class Worker(WorkerBase):
 
 		return vwap
 
-	# noinspection PyMethodMayBeStatic
-	def _remove_outliers(self, order_book: [DotMap[str, Any]], side: OrderSide) -> [DotMap[str, Any]]:
+	@staticmethod
+	def _remove_outliers(order_book: [DotMap[str, Any]], side: OrderSide) -> [DotMap[str, Any]]:
 		prices = [order['price'] for order in order_book]
 
 		q75, q25 = np.percentile(prices, [75, 25])
@@ -991,29 +989,27 @@ class Worker(WorkerBase):
 				self._wallet_current_value = self._wallet_previous_value
 				self._token_current_price = self._token_previous_price
 			else:
-				round_decimal = Decimal('0.01')
-				max_wallet_loss = Decimal(self._configuration["kill_switch"]["max_wallet_loss"]).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
-				max_wallet_comparison_loss = Decimal(self._configuration["kill_switch"]["max_wallet_comparison_loss"]).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
+				max_wallet_loss = Decimal(self._configuration.kill_switch.max_wallet_loss).quantize(ROUNDING_THRESHOLD, rounding=ROUND_HALF_EVEN)
+				max_wallet_comparison_loss = Decimal(self._configuration.kill_switch.max_wallet_comparison_loss).quantize(ROUNDING_THRESHOLD, rounding=ROUND_HALF_EVEN)
 
 				self._wallet_current_value = Decimal(await self._get_quote_balance())
-				wallet_loss = 100 * Decimal(1 - (self._wallet_current_value / self._wallet_previous_value)).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
+				wallet_loss = 100 * Decimal(1 - (self._wallet_current_value / self._wallet_previous_value)).quantize(ROUNDING_THRESHOLD, rounding=ROUND_HALF_EVEN)
 
 				self._token_current_price = Decimal(await self._get_market_price())
-				token_loss = 100 * Decimal(1 - (self._token_current_price / self._token_previous_price)).quantize(round_decimal, rounding=ROUND_HALF_EVEN)
+				token_loss = 100 * Decimal(1 - (self._token_current_price / self._token_previous_price)).quantize(ROUNDING_THRESHOLD, rounding=ROUND_HALF_EVEN)
 
 				self._wallet_previous_value = self._wallet_current_value
 				self._token_previous_price = self._token_current_price
 
 				if wallet_loss > 0:
-					users = ', '.join(self._configuration["kill_switch"]["notify"]["telegram"]["users"])
+					users = ', '.join(self._configuration.kill_switch.notify.telegram.users)
 
 					if wallet_loss >= max_wallet_loss:
-						self._log(DEBUG, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum limit of "{max_wallet_loss}%" in wallet loss.\n/cc {users}""", True)
+						self.log(WARNING, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum limit of "{max_wallet_loss}%" in wallet loss.\n/cc {users}""")
 						await self.stop()
 
 					if wallet_loss >= (token_loss + max_wallet_comparison_loss):
-						self._log(DEBUG, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum loss limit of "{max_wallet_comparison_loss}%" against the token value.\n/cc {users}""")
+						self.log(WARNING, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum loss limit of "{max_wallet_comparison_loss}%" against the token value.\n/cc {users}""")
 						await self.stop()
 		finally:
 			self.log(INFO, """_should_stop_loss... end""")
-

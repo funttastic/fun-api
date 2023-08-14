@@ -30,8 +30,8 @@ class Supervisor(StrategyBase):
 	def __init__(self, client_id):
 		try:
 			self._client_id = client_id
-			self.id = f"""{self.SHORT_ID}:{self.VERSION}:{self._client_id}"""
-			self.logger_prefix = f"""{self.id}:{self.CATEGORY}"""
+			self.base_id = f"""{self.SHORT_ID}:{self.VERSION}:{self._client_id}"""
+			self.id = f"""{self.base_id}:{self.CATEGORY}"""
 
 			self.log(INFO, "start")
 
@@ -76,7 +76,7 @@ class Supervisor(StrategyBase):
 			configuration = deep_merge(copy.deepcopy(configuration), target)
 
 		with open(os.path.join(base_path, "workers", "common.yml"), 'r') as stream:
-				configuration_worker_common = yaml.safe_load(stream) or {}
+			configuration_worker_common = yaml.safe_load(stream) or {}
 
 		workers_ids = copy.deepcopy(configuration["workers"])
 		configuration["workers"] = {}
@@ -193,7 +193,6 @@ class Supervisor(StrategyBase):
 				finally:
 					waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
 
-					# noinspection PyAttributeOutsideInit
 					self._refresh_timestamp = waiting_time + self.clock.now()
 					(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 					self._is_busy = False

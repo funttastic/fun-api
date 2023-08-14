@@ -43,4 +43,5 @@ strategy:
     notify:
       telegram:
         users:
-          - ""
+          - "<@user1>"
+          - "<@user2>"

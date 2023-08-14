@@ -3,3 +3,12 @@ network: mainnet
 connector: kujira
 logger:
   level: INFO
+strategy:
+  kill_switch:
+    max_wallet_loss: 5
+    max_wallet_comparison_loss: 5
+    notify:
+      telegram:
+        users:
+          - "<@user1>"
+          - "<@user2>"
