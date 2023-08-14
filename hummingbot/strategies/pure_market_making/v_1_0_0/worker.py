@@ -316,26 +316,28 @@ class Worker(WorkerBase):
 
 				last_filled_order_price = DECIMAL_ZERO
 
-			price_strategy = PriceStrategy[self._configuration.strategy.get("price_strategy", PriceStrategy.TICKER.name)]
-			if price_strategy == PriceStrategy.TICKER:
-				used_price = ticker_price
-			elif price_strategy == PriceStrategy.MIDDLE:
-				middle_price_strategy = MiddlePriceStrategy[
+			self._price_strategy = PriceStrategy[self._configuration.strategy.get("price_strategy", PriceStrategy.TICKER.name)]
+			if self._price_strategy == PriceStrategy.TICKER:
+				self._used_price = ticker_price
+			elif self._price_strategy == PriceStrategy.MIDDLE:
+				self._middle_price_strategy = MiddlePriceStrategy[
 					self._configuration.strategy.get("middle_price_strategy", MiddlePriceStrategy.SAP.name)
 				]
 
-				used_price = await self._get_market_middle_price(
+				self._used_price = await self._get_market_middle_price(
 					bids,
 					asks,
-					middle_price_strategy
+					self._middle_price_strategy
 				)
-			elif price_strategy == PriceStrategy.LAST_FILL:
-				used_price = last_filled_order_price
+			elif self._price_strategy == PriceStrategy.LAST_FILL:
+				self._used_price = last_filled_order_price
 			else:
 				raise ValueError("""Invalid "strategy.middle_price_strategy" configuration value.""")
 
-			if used_price is None or used_price <= DECIMAL_ZERO:
-				raise ValueError(f"Invalid price: {used_price}")
+			if self._used_price is None or self._used_price <= DECIMAL_ZERO:
+				raise ValueError(f"Invalid price: {self._used_price}")
+
+			self._order_type = OrderType[self._configuration.strategy.get("order_type", OrderType.LIMIT.name)]
 
 			minimum_price_increment = Decimal(self._market.minimumPriceIncrement)
 			minimum_order_size = Decimal(self._market.minimumOrderSize)
@@ -348,7 +350,7 @@ class Worker(WorkerBase):
 				best_ask = Decimal(next(iter(asks), {"price": FLOAT_INFINITY}).price)
 				bid_quantity = int(layer.bid.quantity)
 				bid_spread_percentage = Decimal(layer.bid.spread_percentage)
-				bid_market_price = ((100 - bid_spread_percentage) / 100) * min(used_price, best_ask)
+				bid_market_price = ((100 - bid_spread_percentage) / 100) * min(self._used_price, best_ask)
 				bid_max_liquidity_in_dollars = Decimal(layer.bid.max_liquidity_in_dollars)
 				bid_size = bid_max_liquidity_in_dollars / bid_market_price / bid_quantity if bid_quantity > 0 else 0
 
@@ -361,7 +363,7 @@ class Worker(WorkerBase):
 						bid_order = Order()
 						bid_order.client_id = str(client_id)
 						bid_order.market_name = self._market_name
-						bid_order.type = OrderType.LIMIT
+						bid_order.type = self._order_type
 						bid_order.side = OrderSide.BUY
 						bid_order.amount = bid_size
 						bid_order.price = bid_market_price
@@ -375,7 +377,7 @@ class Worker(WorkerBase):
 				best_bid = Decimal(next(iter(bids), {"price": FLOAT_ZERO}).price)
 				ask_quantity = int(layer.ask.quantity)
 				ask_spread_percentage = Decimal(layer.ask.spread_percentage)
-				ask_market_price = ((100 + ask_spread_percentage) / 100) * max(used_price, best_bid)
+				ask_market_price = ((100 + ask_spread_percentage) / 100) * max(self._used_price, best_bid)
 				ask_max_liquidity_in_dollars = Decimal(layer.ask.max_liquidity_in_dollars)
 				ask_size = ask_max_liquidity_in_dollars / ask_market_price / ask_quantity if ask_quantity > 0 else 0
 
@@ -388,7 +390,7 @@ class Worker(WorkerBase):
 						ask_order = Order()
 						ask_order.client_id = str(client_id)
 						ask_order.market_name = self._market_name
-						ask_order.type = OrderType.LIMIT
+						ask_order.type = self._order_type
 						ask_order.side = OrderSide.SELL
 						ask_order.amount = ask_size
 						ask_order.price = ask_market_price
@@ -727,8 +729,6 @@ class Worker(WorkerBase):
 			try:
 				orders = []
 				for candidate in proposal:
-					order_type = OrderType[self._configuration.strategy.get("order_type", OrderType.LIMIT.name)]
-
 					orders.append({
 						"clientId": candidate.client_id,
 						"marketId": self._market.id,
@@ -736,7 +736,7 @@ class Worker(WorkerBase):
 						"side": candidate.side.value[0],
 						"price": str(candidate.price),
 						"amount": str(candidate.amount),
-						"type": order_type.value[0],
+						"type": self._order_type.value[0],
 					})
 
 				request = {
@@ -1039,20 +1039,14 @@ class Worker(WorkerBase):
 
 			canceled_orders_summary = format_lines(groups)
 
-		order_type = self._configuration.strategy.get("order_type", "LIMIT")
-		price_strategy = self._configuration.strategy.price_strategy
-		use_adjusted_price = self._configuration.strategy.use_adjusted_price
-		middle_price_strategy = self._configuration.strategy.get("middle_price_strategy", "SAP")
-
 		self.log(
 			INFO,
 			textwrap.dedent(
 				f"""\
 					<b>Settings</b>:
-					{format_line("OrderType: ", order_type)}\
-					{format_line("PriceStrategy: ", price_strategy)}\
-					{format_line("UseAdjusted$: ", use_adjusted_price)}\
-					{format_line("Mid$Strategy: ", middle_price_strategy)}\
+					{format_line("OrderType: ", self._order_type)}\
+					{format_line("PriceStrategy: ", self._price_strategy)}\
+					{format_line("Mid$Strategy: ", self._middle_price_strategy)}\
 					"""
 			),
 			True
