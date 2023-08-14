@@ -12,7 +12,7 @@ from typing import Any, List, Optional
 import yaml
 from dotmap import DotMap
 
-from hummingbot.constants import DECIMAL_NAN
+from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
@@ -76,7 +76,7 @@ class Worker(WorkerBase):
 
 			self.summary: DotMap[str, Any] = DotMap({
 				"configurations": {
-					"kujira_order_type": str,
+					"order_type": str,
 					"price_strategy": str,
 					"middle_price_strategy": str,
 					"use_adjusted_price": bool
@@ -276,6 +276,8 @@ class Worker(WorkerBase):
 					open_orders_ids = list(open_orders.keys())
 					await self._cancel_currently_untracked_orders(open_orders_ids)
 
+					await self._get_balances(use_cache=False)
+
 					self._show_summary()
 					await self._should_stop_loss()
 				except Exception as exception:
@@ -437,11 +439,11 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	async def _get_base_ticker_price(self) -> Decimal:
+	async def _get_base_ticker_price(self, use_cache: bool = True) -> Decimal:
 		try:
 			self.log(INFO, "start")
 
-			return Decimal((await self._get_ticker(use_cache=False)).price)
+			return Decimal((await self._get_ticker(use_cache=use_cache)).price)
 		finally:
 			self.log(INFO, "end")
 
@@ -458,8 +460,8 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	async def _get_market_price(self) -> Decimal:
-		return await self._get_base_ticker_price()
+	async def _get_market_price(self, use_cache: bool = True) -> Decimal:
+		return await self._get_base_ticker_price(use_cache=use_cache)
 
 	async def _get_market_middle_price(self, bids, asks, strategy: MiddlePriceStrategy = None) -> Decimal:
 		try:
@@ -527,14 +529,11 @@ class Worker(WorkerBase):
 					self._balances.total.free = Decimal(self._balances.total.free)
 					self._balances.total.lockedInOrders = Decimal(self._balances.total.lockedInOrders)
 					self._balances.total.unsettled = Decimal(self._balances.total.unsettled)
-					self._balances.total.total = \
-						self._balances.total.free + self._balances.total.lockedInOrders + self._balances.total.unsettled
 
 					for (token, balance) in DotMap(response.tokens).items():
 						balance.free = Decimal(balance.free)
 						balance.lockedInOrders = Decimal(balance.lockedInOrders)
 						balance.unsettled = Decimal(balance.unsettled)
-						balance.total = balance.free + balance.lockedInOrders + balance.unsettled
 
 				return response
 			except Exception as exception:
@@ -728,7 +727,7 @@ class Worker(WorkerBase):
 			try:
 				orders = []
 				for candidate in proposal:
-					order_type = OrderType[self._configuration.strategy.get("kujira_order_type", OrderType.LIMIT.name)]
+					order_type = OrderType[self._configuration.strategy.get("order_type", OrderType.LIMIT.name)]
 
 					orders.append({
 						"clientId": candidate.client_id,
@@ -907,31 +906,18 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	async def _get_wallet_value(self):
-		free = self._balances.total.free
-		locked_in_orders = self._balances.total.lockedInOrders
-		unsettled = self._balances.total.unsettled
-		total = free + locked_in_orders + unsettled
-
-		return DotMap({
-			"free": free,
-			"lockedInOrders": locked_in_orders,
-			"unsettled": unsettled,
-			"total": total
-		}, _dynamic=False)
-
 	async def _should_stop_loss(self):
 		try:
 			self.log(INFO, """start""")
 
-			total_balances = await self._get_wallet_value()
+			balances = await self._get_balances()
 
 			if self.summary.wallet.initial_value == DECIMAL_ZERO:
 				self.summary.token.initial_price = await self._get_market_price()
 				self.summary.token.previous_price = self.summary.token.initial_price
 				self.summary.token.current_price = self.summary.token.initial_price
 
-				self.summary.wallet.initial_value = total_balances.total
+				self.summary.wallet.initial_value = balances.total
 				self.summary.wallet.previous_value = self.summary.wallet.initial_value
 				self.summary.wallet.current_value = self.summary.wallet.initial_value
 			else:
@@ -943,7 +929,7 @@ class Worker(WorkerBase):
 				self.summary.token.previous_price = self.summary.token.current_price
 				self.summary.token.current_price = await self._get_market_price()
 
-				open_orders_balance = total_balances.lockedInOrders
+				open_orders_balance = balances.lockedInOrders
 				self.summary.balance.orders.base.bids = open_orders_balance.quote / self.summary.token.current_price
 				self.summary.balance.orders.base.asks = open_orders_balance.base
 				self.summary.balance.orders.base.total = self.summary.balance.orders.base.bids + self.summary.balance.orders.base.asks
@@ -952,30 +938,31 @@ class Worker(WorkerBase):
 				self.summary.balance.orders.quote.total = self.summary.balance.orders.quote.bids + self.summary.balance.orders.quote.asks
 
 				self.summary.wallet.previous_value = self.summary.wallet.current_value
-				self.summary.wallet.current_value = (await self._get_wallet_value()).total
+				self.summary.wallet.current_value = balances.total
 
 				wallet_previous_initial_pnl = Decimal(round(
 					100 * ((self.summary.wallet.previous_value / self.summary.wallet.initial_value) - 1),
-					9
+					DEFAULT_PRECISION
 				))
 				wallet_current_initial_pnl = Decimal(round(
 					100 * ((self.summary.wallet.current_value / self.summary.wallet.initial_value) - 1),
-					9
+					DEFAULT_PRECISION
 				))
 				wallet_current_previous_pnl = Decimal(round(
 					100 * ((self.summary.wallet.current_value / self.summary.wallet.previous_value) - 1),
-					9
+					DEFAULT_PRECISION
 				))
 				token_previous_initial_pnl = Decimal(round(
 					100 * ((self.summary.token.previous_price / self.summary.token.initial_price) - 1),
-					9
+					DEFAULT_PRECISION
 				))
 				token_current_initial_pnl = Decimal(round(
-					100 * ((self.summary.token.current_price / self.summary.token.initial_price) - 1), 9
+					100 * ((self.summary.token.current_price / self.summary.token.initial_price) - 1),
+					DEFAULT_PRECISION
 				))
 				token_current_previous_pnl = Decimal(round(
 					100 * ((self.summary.token.current_price / self.summary.token.previous_price) - 1),
-					9
+					DEFAULT_PRECISION
 				))
 
 				self.summary.wallet.previous_initial_pnl = wallet_previous_initial_pnl
@@ -1003,15 +990,13 @@ class Worker(WorkerBase):
 							await self.stop()
 
 					if self._configuration.kill_switch.max_wallet_loss_compared_to_token_variation:
-						if math.fabs(wallet_current_initial_pnl - token_current_initial_pnl) >= math.fabs(
-								max_wallet_loss_compared_to_token_variation):
+						if math.fabs(wallet_current_initial_pnl - token_current_initial_pnl) >= math.fabs(max_wallet_loss_compared_to_token_variation):
 							self.log(CRITICAL, f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_compared_to_token_variation}% distant from the token price variation ({token_current_initial_pnl}) from its initial price.\n/cc {users}""")
 							self.can_run = False
 
 							await self.stop()
 
-				if token_current_initial_pnl < 0 and math.fabs(token_current_initial_pnl) >= math.fabs(
-						max_token_loss_from_initial):
+				if token_current_initial_pnl < 0 and math.fabs(token_current_initial_pnl) >= math.fabs(max_token_loss_from_initial):
 					self.log(CRITICAL, f"""The bot has been stopped because the token lost {-token_current_initial_pnl}%, which is at least {max_token_loss_from_initial}% distant from the token initial price.\n/cc {users}""")
 					self.can_run = False
 
@@ -1054,20 +1039,20 @@ class Worker(WorkerBase):
 
 			canceled_orders_summary = format_lines(groups)
 
-		kot = self._configuration.strategy.get("kujira_order_type", "LIMIT")
-		ps = self._configuration.strategy.price_strategy
-		uap = self._configuration.strategy.use_adjusted_price
-		mps = self._configuration.strategy.get("middle_price_strategy", "SAP")
+		order_type = self._configuration.strategy.get("order_type", "LIMIT")
+		price_strategy = self._configuration.strategy.price_strategy
+		use_adjusted_price = self._configuration.strategy.use_adjusted_price
+		middle_price_strategy = self._configuration.strategy.get("middle_price_strategy", "SAP")
 
 		self.log(
 			INFO,
 			textwrap.dedent(
 				f"""\
 					<b>Settings</b>:
-					{format_line("OrderType: ", kot)}\
-					{format_line("PriceStrategy: ", ps)}\
-					{format_line("UseAdjusted$: ", uap)}\
-					{format_line("Mid$Strategy: ", mps)}\
+					{format_line("OrderType: ", order_type)}\
+					{format_line("PriceStrategy: ", price_strategy)}\
+					{format_line("UseAdjusted$: ", use_adjusted_price)}\
+					{format_line("Mid$Strategy: ", middle_price_strategy)}\
 					"""
 			),
 			True
