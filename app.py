@@ -22,7 +22,7 @@ from utils import HttpMethod
 
 nest_asyncio.apply()
 root_path = os.path.dirname(__file__)
-debug = properties.get_or_default('server.debug', False)
+debug = properties.get_or_default('server.debug', True)
 app = FastAPI(debug=debug, root_path=root_path)
 properties.load(app)
 # Needs to come after properties loading
@@ -187,7 +187,7 @@ def start():
 	}, _dynamic=False)
 
 	uvicorn.run(
-		app,
+		"app:app",
 		host=host,
 		port=port,
 		log_level=logging.DEBUG,
@@ -202,7 +202,7 @@ def start():
 
 
 # noinspection PyUnusedLocal
-async def shutdown(*args):
+def shutdown(*args):
 	for task in tasks.values():
 		if task:
 			try:
@@ -213,7 +213,7 @@ async def shutdown(*args):
 
 @atexit.register
 def shutdown_helper():
-	asyncio.get_event_loop().run_until_complete(shutdown())
+	shutdown()
 	asyncio.get_event_loop().close()
 
 
