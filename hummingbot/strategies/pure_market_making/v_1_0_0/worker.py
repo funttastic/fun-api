@@ -24,7 +24,7 @@ from properties import properties
 from utils import dump, deep_merge, log_class_exceptions
 
 
-@log_class_exceptions
+# @log_class_exceptions
 class Worker(WorkerBase):
 	CATEGORY = "worker"
 
@@ -95,8 +95,8 @@ class Worker(WorkerBase):
 					}
 				},
 				"orders": {
-					"replaced": DotMap[str, Any]({}),
-					"canceled": DotMap[str, Any]({}),
+					"replaced": DotMap({}, _dynamic=False),
+					"canceled": DotMap({}, _dynamic=False),
 				},
 				"wallet": {
 					"initial_value": DECIMAL_ZERO,
@@ -308,7 +308,7 @@ class Worker(WorkerBase):
 			order_book = await self._get_order_book()
 			bids, asks = parse_order_book(order_book)
 
-			ticker_price = await self._get_market_price()
+			ticker_price = await self._get_market_price(use_cache=False)
 			try:
 				last_filled_order_price = await self._get_last_filled_order_price()
 			except Exception as exception:
@@ -354,6 +354,9 @@ class Worker(WorkerBase):
 				bid_max_liquidity_in_dollars = Decimal(layer.bid.max_liquidity_in_dollars)
 				bid_size = bid_max_liquidity_in_dollars / bid_market_price / bid_quantity if bid_quantity > 0 else 0
 
+				if not (bid_quantity > 0):
+					continue
+
 				if bid_market_price < minimum_price_increment:
 					self.log(WARNING, f"""Skipping orders placement from layer {index}, bid price too low:\n\n{'{:^30}'.format(round(bid_market_price, 6))}""")
 				elif bid_size < minimum_order_size:
@@ -380,6 +383,9 @@ class Worker(WorkerBase):
 				ask_market_price = ((100 + ask_spread_percentage) / 100) * max(self._used_price, best_bid)
 				ask_max_liquidity_in_dollars = Decimal(layer.ask.max_liquidity_in_dollars)
 				ask_size = ask_max_liquidity_in_dollars / ask_market_price / ask_quantity if ask_quantity > 0 else 0
+
+				if not (ask_quantity > 0):
+					continue
 
 				if ask_market_price < minimum_price_increment:
 					self.log(WARNING, f"""Skipping orders placement from layer {index}, ask price too low:\n\n{'{:^30}'.format(round(ask_market_price, 9))}""", True)
@@ -531,11 +537,13 @@ class Worker(WorkerBase):
 					self._balances.total.free = Decimal(self._balances.total.free)
 					self._balances.total.lockedInOrders = Decimal(self._balances.total.lockedInOrders)
 					self._balances.total.unsettled = Decimal(self._balances.total.unsettled)
+					self._balances.total.total = Decimal(self._balances.total.total)
 
 					for (token, balance) in DotMap(response.tokens).items():
 						balance.free = Decimal(balance.free)
 						balance.lockedInOrders = Decimal(balance.lockedInOrders)
 						balance.unsettled = Decimal(balance.unsettled)
+						balance.total = Decimal(balance.total)
 
 				return response
 			except Exception as exception:
@@ -917,7 +925,7 @@ class Worker(WorkerBase):
 				self.summary.token.previous_price = self.summary.token.initial_price
 				self.summary.token.current_price = self.summary.token.initial_price
 
-				self.summary.wallet.initial_value = balances.total
+				self.summary.wallet.initial_value = balances.total.total
 				self.summary.wallet.previous_value = self.summary.wallet.initial_value
 				self.summary.wallet.current_value = self.summary.wallet.initial_value
 			else:
@@ -938,7 +946,7 @@ class Worker(WorkerBase):
 				self.summary.balance.orders.quote.total = self.summary.balance.orders.quote.bids + self.summary.balance.orders.quote.asks
 
 				self.summary.wallet.previous_value = self.summary.wallet.current_value
-				self.summary.wallet.current_value = balances.total
+				self.summary.wallet.current_value = balances.total.total
 
 				wallet_previous_initial_pnl = Decimal(round(
 					100 * ((self.summary.wallet.previous_value / self.summary.wallet.initial_value) - 1),
@@ -1008,7 +1016,7 @@ class Worker(WorkerBase):
 		replaced_orders_summary = ""
 		canceled_orders_summary = ""
 
-		if len(self.summary.orders.replaced):
+		if self.summary.orders.replaced:
 			orders: List[DotMap[str, Any]] = list(self.summary.orders.replaced.values())
 			orders.sort(key=lambda item: item.price)
 
@@ -1024,7 +1032,7 @@ class Worker(WorkerBase):
 
 			replaced_orders_summary = format_lines(groups)
 
-		if len(self.summary.orders.canceled):
+		if self.summary.orders.canceled:
 			orders: List[DotMap[str, Any]] = list(self.summary.orders.canceled.values())
 			orders.sort(key=lambda item: item.price)
 

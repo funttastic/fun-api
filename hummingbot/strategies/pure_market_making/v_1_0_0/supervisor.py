@@ -18,7 +18,7 @@ from utils import deep_merge, log_class_exceptions
 from utils import dump
 
 
-@log_class_exceptions
+# @log_class_exceptions
 class Supervisor(StrategyBase):
 
 	ID = "pure_market_making"
