@@ -18,7 +18,7 @@ from hummingbot.router import router
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
 from properties import properties
-from utils import HttpMethod
+from types import HttpMethod
 
 nest_asyncio.apply()
 root_path = os.path.dirname(__file__)

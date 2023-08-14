@@ -20,9 +20,8 @@ from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
 from hummingbot.types import OrderSide, OrderType, Order, OrderStatus, \
 	MiddlePriceStrategy, PriceStrategy
-from hummingbot.utils import log_class_exceptions
 from properties import properties
-from utils import dump, deep_merge
+from utils import dump, deep_merge, log_class_exceptions
 
 
 @log_class_exceptions
