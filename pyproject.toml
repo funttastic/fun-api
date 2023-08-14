@@ -1,0 +1,12 @@
+[tool.poetry]
+name = "fun-hb-client"
+version = "0.1.0"
+description = "Lightweight Client for Hummingbot Gateway"
+authors = ["Funttastic Labs <contact@funttastic.com>"]
+
+[dependencies]
+python = "^3.11"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

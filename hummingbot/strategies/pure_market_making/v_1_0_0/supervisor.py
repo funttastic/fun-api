@@ -13,9 +13,8 @@ from hummingbot.gateway import Gateway
 from hummingbot.strategies.pure_market_making.v_1_0_0.worker import Worker
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.worker_base import WorkerBase
-from hummingbot.utils import log_class_exceptions
 from properties import properties
-from utils import deep_merge
+from utils import deep_merge, log_class_exceptions
 from utils import dump
 
 

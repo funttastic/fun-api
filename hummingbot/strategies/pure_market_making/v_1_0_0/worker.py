@@ -2,51 +2,26 @@ import asyncio
 import copy
 import math
 import os
-import textwrap
 import traceback
-from array import array
-from decimal import Decimal
-from decimal import ROUND_HALF_EVEN
-from logging import DEBUG, INFO, WARNING, CRITICAL
+from decimal import Decimal, ROUND_HALF_EVEN
+from logging import DEBUG, INFO, WARNING
 from os import path
 from pathlib import Path
-from typing import Any, List, Dict
-from typing import Optional
+from typing import Any, List, Union, Optional
 
+import numpy as np
 import yaml
 from dotmap import DotMap
 
-from hummingbot.constants import (
-	DECIMAL_NAN,
-	KUJIRA_NATIVE_TOKEN,
-	DECIMAL_ZERO,
-	FLOAT_ZERO,
-	FLOAT_INFINITY
-)
+from hummingbot.constants import DECIMAL_NAN
+from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, VWAP_THRESHOLD, \
+	FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
-from hummingbot.types import (
-	OrderSide,
-	OrderType,
-	Order,
-	OrderStatus,
-	MiddlePriceStrategy,
-	PriceStrategy
-)
-from hummingbot.utils import (
-	alignment_column,
-	parse_order_book,
-	calculate_middle_price,
-	format_line,
-	format_currency,
-	format_percentage,
-	format_lines,
-	calculate_waiting_time,
-)
-from hummingbot.utils import log_class_exceptions
+from hummingbot.types import OrderSide, OrderType, Order, OrderStatus, \
+	MiddlePriceStrategy, PriceStrategy
 from properties import properties
-from utils import deep_merge
-from utils import dump
+from utils import dump, deep_merge, log_class_exceptions
 
 
 @log_class_exceptions
@@ -64,15 +39,6 @@ class Worker(WorkerBase):
 
 			self.id = f"""{self._parent.id}:{self.CATEGORY}:{self._configuration.id}"""
 			self.logger_prefix = self.id
-
-			self.url: str = properties.get("telegram.url")
-			self.token: str = properties.get("telegram.token")
-			self.chat_id: str = properties.get("telegram.chat_id")
-			self.parse_mode: str = properties.get("telegram.parse_mode")
-			self.final_url: str = self.url.replace("{token}", self.token)
-
-			from telegram import telegram
-			self.telegram = telegram.__init__()
 
 			self.log(INFO, "start")
 
@@ -106,56 +72,6 @@ class Worker(WorkerBase):
 				"tickers": None,
 				"orders": None,
 				"balances": None,
-			}, _dynamic=False)
-			self.summary: DotMap[str, Any] = DotMap({
-				"configurations": {
-					"kujira_order_type": str,
-					"price_strategy": str,
-					"middle_price_strategy": str,
-					"use_adjusted_price": bool
-				},
-				"balance": {
-					"wallet": {
-						"base": DECIMAL_ZERO,
-						"quote": DECIMAL_ZERO
-					},
-					"orders": {
-						"quote": {
-							"bids": DECIMAL_ZERO,
-							"asks": DECIMAL_ZERO,
-							"total": DECIMAL_ZERO,
-						}
-					}
-				},
-				"orders": {
-					"replaced": DotMap({}),
-					"canceled": DotMap({}),
-				},
-				"wallet": {
-					"initial_value": DECIMAL_ZERO,
-					"previous_value": DECIMAL_ZERO,
-					"current_value": DECIMAL_ZERO,
-					"current_initial_pnl": DECIMAL_ZERO,
-					"current_previous_pnl": DECIMAL_ZERO,
-				},
-				"token": {
-					"initial_price": DECIMAL_ZERO,
-					"previous_price": DECIMAL_ZERO,
-					"current_price": DECIMAL_ZERO,
-					"current_initial_pnl": DECIMAL_ZERO,
-					"current_previous_pnl": DECIMAL_ZERO,
-				},
-				"price": {
-					"used_price": DECIMAL_ZERO,
-					"ticker_price": DECIMAL_ZERO,
-					"last_filled_order_price": DECIMAL_ZERO,
-					"expected_price": DECIMAL_ZERO,
-					"adjusted_market_price": DECIMAL_ZERO,
-					"sap": DECIMAL_ZERO,
-					"wap": DECIMAL_ZERO,
-					"vwap": DECIMAL_ZERO,
-
-				}
 			}, _dynamic=False)
 			self._events: DotMap[str, asyncio.Event] = DotMap({
 				"on_tick": None,
@@ -222,7 +138,7 @@ class Worker(WorkerBase):
 				except Exception as exception:
 					self.ignore_exception(exception)
 
-			waiting_time = calculate_waiting_time(self._configuration.strategy.tick_interval)
+			waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
 			self.log(DEBUG, f"""Waiting for {waiting_time}s.""")
 			self._refresh_timestamp = waiting_time + self.clock.now()
 
@@ -235,7 +151,6 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	# noinspection DuplicatedCode
 	async def start(self):
 		self.log(INFO, "start")
 
@@ -260,6 +175,7 @@ class Worker(WorkerBase):
 			except Exception as exception:
 				self.ignore_exception(exception)
 
+
 			if self._initialized:
 				if self._configuration.strategy.cancel_all_orders_on_stop:
 					try:
@@ -283,7 +199,7 @@ class Worker(WorkerBase):
 
 	async def on_tick(self):
 		try:
-			self.log(DEBUG, "start")
+			self.log(INFO, "start")
 
 			while self._can_run:
 				try:
@@ -297,17 +213,16 @@ class Worker(WorkerBase):
 
 					self._reload_configuration()
 
-					try:
-						await self._market_withdraw()
-					except Exception as exception:
-						self.ignore_exception(exception)
+					# await self._should_stop_loss()
+
+					if self._configuration.strategy.withdraw_market_on_tick:
+						try:
+							await self._market_withdraw()
+						except Exception as exception:
+							self.ignore_exception(exception)
 
 					await self._get_filled_orders(use_cache=False)
-					balances = await self._get_balances(use_cache=False)
-					base_token_id = self._base_token["id"]
-					quote_token_id = self._quote_token["id"]
-					self.summary.balance.wallet.base = Decimal(balances.tokens.get(base_token_id).get("free"))
-					self.summary.balance.wallet.quote = Decimal(balances.tokens.get(quote_token_id).get("free"))
+					await self._get_balances(use_cache=False)
 
 					proposed_orders: List[Order] = await self._create_proposal()
 					candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
@@ -317,10 +232,6 @@ class Worker(WorkerBase):
 					open_orders = await self._get_open_orders(use_cache=False)
 					open_orders_ids = list(open_orders.keys())
 					await self._cancel_currently_untracked_orders(open_orders_ids)
-
-					await self._should_stop_loss()
-
-					self._show_summary()
 				except Exception as exception:
 					self.ignore_exception(exception)
 				finally:
@@ -346,7 +257,7 @@ class Worker(WorkerBase):
 			self.log(INFO, "start")
 
 			order_book = await self._get_order_book()
-			bids, asks = parse_order_book(order_book)
+			bids, asks = self._parse_order_book(order_book)
 
 			ticker_price = await self._get_market_price()
 			try:
@@ -391,15 +302,9 @@ class Worker(WorkerBase):
 				bid_size = bid_max_liquidity_in_dollars / bid_market_price / bid_quantity if bid_quantity > 0 else 0
 
 				if bid_market_price < minimum_price_increment:
-					self.log(
-						WARNING,
-						f"""Skipping orders placement from layer {index}, bid price too low:\n\n{'{:^30}'.format(round(bid_market_price, 6))}"""
-					)
+					self.log(WARNING, f"""Skipping orders placement from layer {index}, bid price too low:\n\n{'{:^30}'.format(round(bid_market_price, 6))}""")
 				elif bid_size < minimum_order_size:
-					self.log(
-						WARNING,
-						f"""Skipping orders placement from layer {index}, bid size too low:\n\n{'{:^30}'.format(round(bid_size, 9))}"""
-					)
+					self.log(WARNING, f"""Skipping orders placement from layer {index}, bid size too low:\n\n{'{:^30}'.format(round(bid_size, 9))}""")
 				else:
 					for i in range(bid_quantity):
 						bid_order = Order()
@@ -424,17 +329,9 @@ class Worker(WorkerBase):
 				ask_size = ask_max_liquidity_in_dollars / ask_market_price / ask_quantity if ask_quantity > 0 else 0
 
 				if ask_market_price < minimum_price_increment:
-					self.log(
-						WARNING,
-						f"""Skipping orders placement from layer {index}, ask price too low:\n\n{'{:^30}'.format(round(ask_market_price, 9))}""",
-						True
-					)
+					self.log(WARNING, f"""Skipping orders placement from layer {index}, ask price too low:\n\n{'{:^30}'.format(round(ask_market_price, 9))}""", True)
 				elif ask_size < minimum_order_size:
-					self.log(
-						WARNING,
-						f"""Skipping orders placement from layer {index}, ask size too low:\n\n{'{:^30}'.format(round(ask_size, 9))}""",
-						True
-					)
+					self.log(WARNING, f"""Skipping orders placement from layer {index}, ask size too low:\n\n{'{:^30}'.format(round(ask_size, 9))}""", True)
 				else:
 					for i in range(ask_quantity):
 						ask_order = Order()
@@ -520,16 +417,16 @@ class Worker(WorkerBase):
 			self.log(INFO, "start")
 
 			if strategy:
-				return calculate_middle_price(bids, asks, strategy)
+				return self._calculate_middle_price(bids, asks, strategy)
 
 			try:
-				return calculate_middle_price(bids, asks, MiddlePriceStrategy.VWAP)
+				return self._calculate_middle_price(bids, asks, MiddlePriceStrategy.VWAP)
 			except (Exception,):
 				try:
-					return calculate_middle_price(bids, asks, MiddlePriceStrategy.WAP)
+					return self._calculate_middle_price(bids, asks, MiddlePriceStrategy.WAP)
 				except (Exception,):
 					try:
-						return calculate_middle_price(bids, asks, MiddlePriceStrategy.SAP)
+						return self._calculate_middle_price(bids, asks, MiddlePriceStrategy.SAP)
 					except (Exception,):
 						return await self._get_market_price()
 		finally:
@@ -555,7 +452,6 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "start")
 
-	# noinspection DuplicatedCode
 	async def _get_balances(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
 			self.log(INFO, "start")
@@ -582,15 +478,11 @@ class Worker(WorkerBase):
 					self._balances.total.free = Decimal(self._balances.total.free)
 					self._balances.total.lockedInOrders = Decimal(self._balances.total.lockedInOrders)
 					self._balances.total.unsettled = Decimal(self._balances.total.unsettled)
-					self._balances.total["total"] = \
-						self._balances.total.free + self._balances.total.lockedInOrders + self._balances.total.unsettled
 
 					for (token, balance) in DotMap(response.tokens).items():
 						balance.free = Decimal(balance.free)
 						balance.lockedInOrders = Decimal(balance.lockedInOrders)
 						balance.unsettled = Decimal(balance.unsettled)
-						balance["total"] = balance.free + balance.lockedInOrders + balance.unsettled
-
 
 				return response
 			except Exception as exception:
@@ -644,10 +536,7 @@ class Worker(WorkerBase):
 					"marketId": self._market.id
 				}
 
-				self.log(
-					DEBUG,
-					f"""gateway.kujira_get_order_books: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_order_books: request:\n{dump(request)}""")
 
 				response = await Gateway.kujira_get_order_book(request)
 
@@ -657,10 +546,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					DEBUG,
-					f"""gateway.kujira_get_order_books: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_order_books: response:\n{dump(response)}""")
 		finally:
 			self.log(INFO, "end")
 
@@ -698,7 +584,6 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	# noinspection DuplicatedCode
 	async def _get_open_orders(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
 			self.log(INFO, "start")
@@ -748,7 +633,6 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	# noinspection DuplicatedCode
 	async def _get_filled_orders(self, use_cache: bool = True) -> DotMap[str, Any]:
 		try:
 			self.log(INFO, "start")
@@ -765,10 +649,7 @@ class Worker(WorkerBase):
 					"status": OrderStatus.FILLED.value[0]
 				}
 
-				self.log(
-					DEBUG,
-					f"""gateway.kujira_get_filled_orders: request:\n{dump(request)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_filled_orders: request:\n{dump(request)}""")
 
 				if use_cache and self._filled_orders is not None:
 					response = self._filled_orders
@@ -782,10 +663,7 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
-				self.log(
-					DEBUG,
-					f"""gateway.kujira_get_filled_orders: response:\n{dump(response)}"""
-				)
+				self.log(DEBUG, f"""gateway.kujira_get_filled_orders: response:\n{dump(response)}""")
 
 		finally:
 			self.log(INFO, "end")
@@ -976,244 +854,131 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	async def _get_wallet_value(self):
-		free = self._balances.total.free
-		locked_in_orders = self._balances.total.lockedInOrders
-		unsettled = self._balances.total.unsettled
-		total = free + locked_in_orders + unsettled
+	# noinspection PyMethodMayBeStatic
+	def _parse_order_book(self, orderbook: DotMap[str, Any]) -> List[Union[List[DotMap[str, Any]], List[DotMap[str, Any]]]]:
+		bids_list = []
+		asks_list = []
 
-		return {"free": free, "lockedInOrders": locked_in_orders, "unsettled": unsettled, "total": total}
+		bids: DotMap[str, Any] = orderbook.bids
+		asks: DotMap[str, Any] = orderbook.asks
 
-	async def _should_stop_loss(self):
-		try:
-			self._log(DEBUG, """_should_stop_loss... start""")
+		for value in bids.values():
+			bids_list.append(DotMap({'price': value.price, 'amount': value.amount}, _dynamic=False))
 
-			total_balances = await self._get_wallet_value()
+		for value in asks.values():
+			asks_list.append(DotMap({'price': value.price, 'amount': value.amount}, _dynamic=False))
 
-			if self.summary.wallet.initial_value == DECIMAL_ZERO:
-				self.summary.token.initial_price = await self._get_market_price()
-				self.summary.token.previous_price = self.summary.token.initial_price
-				self.summary.token.current_price = self.summary.token.initial_price
+		bids_list.sort(key=lambda x: x['price'], reverse=True)
+		asks_list.sort(key=lambda x: x['price'], reverse=False)
 
-				self.summary.wallet.initial_value = total_balances["total"]
-				self.summary.wallet.previous_value = self.summary.wallet.initial_value
-				self.summary.wallet.current_value = self.summary.wallet.initial_value
+		return [bids_list, asks_list]
+
+	@staticmethod
+	def _split_percentage(bids: [DotMap[str, Any]], asks: [DotMap[str, Any]]) -> List[Any]:
+		asks = asks[:math.ceil((VWAP_THRESHOLD / 100) * len(asks))]
+		bids = bids[:math.ceil((VWAP_THRESHOLD / 100) * len(bids))]
+
+		return [bids, asks]
+
+	# noinspection PyMethodMayBeStatic
+	def _compute_volume_weighted_average_price(self, book: [DotMap[str, Any]]) -> np.array:
+		prices = [float(order['price']) for order in book]
+		amounts = [float(order['amount']) for order in book]
+
+		prices = np.array(prices)
+		amounts = np.array(amounts)
+
+		vwap = (np.cumsum(amounts * prices) / np.cumsum(amounts))
+
+		return vwap
+
+	# noinspection PyMethodMayBeStatic
+	def _remove_outliers(self, order_book: [DotMap[str, Any]], side: OrderSide) -> [DotMap[str, Any]]:
+		prices = [order['price'] for order in order_book]
+
+		q75, q25 = np.percentile(prices, [75, 25])
+
+		# https://www.askpython.com/python/examples/detection-removal-outliers-in-python
+		# intr_qr = q75-q25
+		# max_threshold = q75+(1.5*intr_qr)
+		# min_threshold = q75-(1.5*intr_qr) # Error: Sometimes this function assigns negative value for min
+
+		max_threshold = q75 * 1.5
+		min_threshold = q25 * 0.5
+
+		orders = []
+		if side == OrderSide.SELL:
+			orders = [order for order in order_book if order['price'] < max_threshold]
+		elif side == OrderSide.BUY:
+			orders = [order for order in order_book if order['price'] > min_threshold]
+
+		return orders
+
+	def _calculate_middle_price(
+		self,
+		bids: [DotMap[str, Any]],
+		asks: [DotMap[str, Any]],
+		strategy: MiddlePriceStrategy
+	) -> Decimal:
+		if strategy == MiddlePriceStrategy.SAP:
+			bid_prices = [float(item['price']) for item in bids]
+			ask_prices = [float(item['price']) for item in asks]
+
+			best_ask_price = 0
+			best_bid_price = 0
+
+			if len(ask_prices) > 0:
+				best_ask_price = min(ask_prices)
+
+			if len(bid_prices) > 0:
+				best_bid_price = max(bid_prices)
+
+			return Decimal((best_ask_price + best_bid_price) / 2.0)
+		elif strategy == MiddlePriceStrategy.WAP:
+			bid_prices = [float(item['price']) for item in bids]
+			ask_prices = [float(item['price']) for item in asks]
+
+			best_ask_price = 0
+			best_ask_volume = 0
+			best_bid_price = 0
+			best_bid_amount = 0
+
+			if len(ask_prices) > 0:
+				best_ask_idx = ask_prices.index(min(ask_prices))
+				best_ask_price = float(asks[best_ask_idx]['price'])
+				best_ask_volume = float(asks[best_ask_idx]['amount'])
+
+			if len(bid_prices) > 0:
+				best_bid_idx = bid_prices.index(max(bid_prices))
+				best_bid_price = float(bids[best_bid_idx]['price'])
+				best_bid_amount = float(bids[best_bid_idx]['amount'])
+
+			if best_ask_volume + best_bid_amount > 0:
+				return Decimal(
+					(best_ask_price * best_ask_volume + best_bid_price * best_bid_amount)
+					/ (best_ask_volume + best_bid_amount)
+				)
 			else:
-				max_wallet_loss_from_initial_value = round(self._configuration.kill_switch.max_wallet_loss_from_initial_value, 9)
-				max_wallet_loss_from_previous_value = round(self._configuration.kill_switch.max_wallet_loss_from_previous_value, 9)
-				max_wallet_loss_compared_to_token_variation = round(
-					self._configuration.kill_switch.max_wallet_loss_compared_to_token_variation, 9)
-				max_token_loss_from_initial = round(self._configuration.kill_switch.max_token_loss_from_initial_price, 9)
+				return DECIMAL_ZERO
+		elif strategy == MiddlePriceStrategy.VWAP:
+			bids, asks = self._split_percentage(bids, asks)
 
-				self.summary.token.previous_price = self.summary.token.current_price
-				self.summary.token.current_price = await self._get_market_price()
+			if len(bids) > 0:
+				bids = self._remove_outliers(bids, OrderSide.BUY)
 
-				open_orders_balance = total_balances["lockedInOrders"]
-				self.summary.balance.orders.base.bids = open_orders_balance["quote"] / self.summary.token.current_price
-				self.summary.balance.orders.base.asks = open_orders_balance["base"]
-				self.summary.balance.orders.base.total = self.summary.balance.orders.base.bids + self.summary.balance.orders.base.asks
-				self.summary.balance.orders.quote.bids = open_orders_balance["quote"]
-				self.summary.balance.orders.quote.asks = open_orders_balance["base"] * self.summary.token.current_price
-				self.summary.balance.orders.quote.total = self.summary.balance.orders.quote.bids + self.summary.balance.orders.quote.asks
+			if len(asks) > 0:
+				asks = self._remove_outliers(asks, OrderSide.SELL)
 
-				self.summary.wallet.previous_value = self.summary.wallet.current_value
-				self.summary.wallet.current_value = (await self._get_wallet_value())["total"]
+			book = [*bids, *asks]
 
-				wallet_previous_initial_pnl = Decimal(round(
-					100 * ((self.summary.wallet.previous_value / self.summary.wallet.initial_value) - 1),
-					9))
-				wallet_current_initial_pnl = Decimal(round(
-					100 * ((self.summary.wallet.current_value / self.summary.wallet.initial_value) - 1),
-					9))
-				wallet_current_previous_pnl = Decimal(round(
-					100 * ((self.summary.wallet.current_value / self.summary.wallet.previous_value) - 1),
-					9))
-				token_previous_initial_pnl = Decimal(round(
-					100 * ((self.summary.token.previous_price / self.summary.token.initial_price) - 1),
-					9))
-				token_current_initial_pnl = Decimal(round(
-					100 * ((self.summary.token.current_price / self.summary.token.initial_price) - 1), 9))
-				token_current_previous_pnl = Decimal(round(
-					100 * ((self.summary.token.current_price / self.summary.token.previous_price) - 1),
-					9))
+			if len(book) > 0:
+				vwap = self._compute_volume_weighted_average_price(book)
 
-				self.summary.wallet.previous_initial_pnl = wallet_previous_initial_pnl
-				self.summary.wallet.current_initial_pnl = wallet_current_initial_pnl
-				self.summary.wallet.current_previous_pnl = wallet_current_previous_pnl
-				self.summary.token.previous_initial_pnl = token_previous_initial_pnl
-				self.summary.token.current_initial_pnl = token_current_initial_pnl
-				self.summary.token.current_previous_pnl = token_current_previous_pnl
-
-				users = ', '.join(self._configuration.kill_switch.notify.telegram.users)
-
-				if wallet_current_initial_pnl < 0:
-					if self._configuration.kill_switch.max_wallet_loss_from_initial_value:
-						if math.fabs(wallet_current_initial_pnl) >= math.fabs(max_wallet_loss_from_initial_value):
-							self._log(CRITICAL,
-									  f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_from_initial_value}% distant from the wallet initial value.\n/cc {users}""",
-									  True)
-							self.can_run = False
-
-							return
-
-					if self._configuration.kill_switch.max_wallet_loss_from_previous_value:
-						if math.fabs(wallet_current_previous_pnl) >= math.fabs(max_wallet_loss_from_previous_value):
-							self._log(CRITICAL,
-									  f"""The bot has been stopped because the wallet lost {-wallet_current_previous_pnl}%, which is at least {max_wallet_loss_from_previous_value}% distant from the wallet previous value.\n/cc {users}""",
-									  True)
-							self.can_run = False
-
-							return
-
-					if self._configuration.kill_switch.max_wallet_loss_compared_to_token_variation:
-						if math.fabs(wallet_current_initial_pnl - token_current_initial_pnl) >= math.fabs(
-								max_wallet_loss_compared_to_token_variation):
-							self._log(CRITICAL,
-									  f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_compared_to_token_variation}% distant from the token price variation ({token_current_initial_pnl}) from its initial price.\n/cc {users}""",
-									  True)
-							self.can_run = False
-
-							return
-
-				if token_current_initial_pnl < 0 and math.fabs(token_current_initial_pnl) >= math.fabs(
-						max_token_loss_from_initial):
-					self._log(CRITICAL,
-							  f"""The bot has been stopped because the token lost {-token_current_initial_pnl}%, which is at least {max_token_loss_from_initial}% distant from the token initial price.\n/cc {users}""",
-							  True)
-					self.can_run = False
-
-					return
-
-		finally:
-			self._log(DEBUG, """_should_stop_loss... end""")
-
-	def _show_summary(self):
-		replaced_orders_summary = ""
-		canceled_orders_summary = ""
-
-		if len(self.summary.orders.replaced):
-			orders: List[Dict[str, Any]] = list(dict(self.summary.orders.replaced).values())
-			orders.sort(key=lambda item: item["price"])
-
-			groups: array[array[str]] = [[], [], [], [], [], [], []]
-			for order in orders:
-				groups[0].append(str(order["type"]).lower())
-				groups[1].append(str(order["side"]).lower())
-				groups[2].append(format_currency(order["amount"], 3))
-				groups[3].append(self._base_token)
-				groups[4].append("by")
-				groups[5].append(format_currency(order["price"], 3))
-				groups[6].append(self._quote_token)
-
-			replaced_orders_summary = format_lines(groups)
-
-		if len(self.summary.orders.canceled):
-			orders: List[Dict[str, Any]] = list(dict(self.summary.orders.canceled.values()))
-			orders.sort(key=lambda item: item["price"])
-
-			groups: array[array[str]] = [[], [], [], [], [], []]
-			for order in orders:
-				groups[0].append(str(order["side"]).lower())
-				groups[1].append(format_currency(order["amount"], 3))
-				groups[2].append(self._base_token)
-				groups[3].append("by")
-				groups[4].append(format_currency(order["price"], 3))
-				groups[5].append(self._quote_token)
-
-			canceled_orders_summary = format_lines(groups)
-
-		kot = self._configuration.strategy.get("kujira_order_type", "LIMIT")
-		ps = self._configuration.strategy.price_strategy
-		uap = self._configuration.strategy.use_adjusted_price
-		mps = self._configuration.strategy.get("middle_price_strategy", "SAP")
-
-		self._log(
-			INFO,
-			textwrap.dedent(
-				f"""\
-					<b>Settings</b>:
-					{format_line("OrderType: ", kot)}\
-					{format_line("PriceStrategy: ", ps)}\
-					{format_line("UseAdjusted$: ", uap)}\
-					{format_line("Mid$Strategy: ", mps)}\
-					"""
-			),
-			True
-		)
-
-		self._log(
-			INFO,
-			textwrap.dedent(
-				f"""\
-				
-					<b>Market</b>: <b>{self._market["name"]}</b>
-					<b>PnL</b>: {format_line("", format_percentage(self.summary.wallet.current_initial_pnl), alignment_column - 4)}
-					 <b>Balances</b>:
-					{format_line(f"  {self._base_token['symbol']}:", format_currency(self.summary.balance.wallet.base, 4))}
-					{format_line(f"  {self._quote_token['symbol']}:", format_currency(self.summary.balance.wallet.quote, 4))}
-					 <b>Orders (in {self._quote_token['symbol']})</b>:
-					{format_line(f"  Bids:", format_currency(self.summary.balance.orders.quote.bids, 4))}
-					{format_line(f"  Asks:", format_currency(self.summary.balance.orders.quote.asks, 4))}
-					{format_line(f"  Total:", format_currency(self.summary.balance.orders.quote.total, 4))}
-					<b>Orders</b>:
-					{format_line(" Replaced:", str(len(self.summary.orders.replaced)))}
-					{format_line(" Canceled:", str(len(self.summary.orders.canceled)))}
-					<b>Wallet</b>:
-					{format_line(" Wo:", format_currency(self.summary.wallet.initial_value, 4))}
-					{format_line(" Wp:", format_currency(self.summary.wallet.previous_value, 4))}
-					{format_line(" Wc:", format_currency(self.summary.wallet.current_value, 4))}
-					{format_line(" Wc/Wo:", (format_percentage(self.summary.wallet.current_initial_pnl)))}
-					{format_line(" Wc/Wp:", format_percentage(self.summary.wallet.current_previous_pnl))}
-					<b>Token</b>:
-					{format_line(" To:", format_currency(self.summary.token.initial_price, 6))}
-					{format_line(" Tp:", format_currency(self.summary.token.previous_price, 6))}
-					{format_line(" Tc:", format_currency(self.summary.token.current_price, 6))}
-					{format_line(" Tc/To:", format_percentage(self.summary.token.current_initial_pnl))}
-					{format_line(" Tc/Tp:", format_percentage(self.summary.token.current_previous_pnl))}
-					<b>Price</b>:
-					{format_line(" Used:", format_currency(self.summary.price.used_price, 6))}
-					{format_line(" External:", format_currency(self.summary.price.ticker_price, 6))}
-					{format_line(" Last fill:", format_currency(self.summary.price.last_filled_order_price, 6))}
-					{format_line(" Expected:", format_currency(self.summary.price.expected_price, 6))}
-					{format_line(" Adjusted:", format_currency(self.summary.price.adjusted_market_price, 6))}
-					{format_line(" SAP:", format_currency(self.summary.price.sap, 6))}
-					{format_line(" WAP:", format_currency(self.summary.price.wap, 6))}
-					{format_line(" VWAP:", format_currency(self.summary.price.vwap, 6))}
-					<b>Balance</b>:
-					"""
-			),
-			True
-		)
-
-		if replaced_orders_summary:
-			self._log(
-				INFO,
-				f"""<b>Replaced Orders:</b>\n{replaced_orders_summary}""",
-				True
-			)
-
-		if canceled_orders_summary:
-			self._log(
-				INFO,
-				f"""<b>Canceled Orders:</b>\n{canceled_orders_summary}""",
-				True
-			)
-
-	def _log(self, level: int, message: str, use_telegram: bool = False, *args, **kwargs):
-		# noinspection PyUnresolvedReferences
-		message = f"""{self.id}:\n{message}"""
-
-		self.log(level, message, *args, **kwargs)
-
-		if use_telegram:
-
-			try:
-				self.telegram.send(f"""{message}""")
-			except Exception as exception:
-				atribute_error = exception.args[0]
-				if "'NoneType' object has no attribute 'send'" in atribute_error:
-					self.log(DEBUG, f"""Instance of Telegram class not found.""")
-					self.log(DEBUG, f"""AttributeError: {atribute_error}""")
+				return Decimal(vwap[-1])
+			else:
+				return DECIMAL_ZERO
+		else:
+			raise ValueError(f'Unrecognized mid price strategy "{strategy}".')
 
 	async def _should_stop_loss(self):
 		try:
@@ -1251,3 +1016,4 @@ class Worker(WorkerBase):
 						await self.stop()
 		finally:
 			self.log(INFO, """_should_stop_loss... end""")
+
