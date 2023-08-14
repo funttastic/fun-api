@@ -28,7 +28,7 @@ strategy:
         spread_percentage: 50
         max_liquidity_in_dollars: 1
   tick_interval: 59
-  kujira_order_type: LIMIT
+  order_type: LIMIT
   price_strategy: MIDDLE
   middle_price_strategy: SAP
   cancel_all_orders_on_start: true
