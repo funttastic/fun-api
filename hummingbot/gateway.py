@@ -5,8 +5,7 @@ from typing import Any, Dict
 
 from hummingbot.constants import NUMBER_OF_RETRIES, DELAY_BETWEEN_RETRIES, TIMEOUT
 from hummingbot.router import router
-from hummingbot.utils import automatic_retry_with_timeout
-from utils import HttpMethod
+from utils import automatic_retry_with_timeout, HttpMethod
 
 
 class Gateway:

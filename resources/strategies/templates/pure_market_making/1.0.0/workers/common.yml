@@ -5,8 +5,10 @@ logger:
   level: INFO
 strategy:
   kill_switch:
-    max_wallet_loss: 5
-    max_wallet_comparison_loss: 5
+    max_wallet_loss_from_initial_value: 5
+    max_wallet_loss_from_previous_value: 2
+    max_wallet_loss_compared_to_token_variation: 2
+    max_token_loss_from_initial: 2
     notify:
       telegram:
         users:
