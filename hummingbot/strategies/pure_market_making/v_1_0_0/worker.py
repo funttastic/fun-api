@@ -2,22 +2,24 @@ import asyncio
 import copy
 import math
 import os
+import textwrap
 import traceback
-from decimal import Decimal, ROUND_HALF_EVEN
-from logging import DEBUG, INFO, WARNING
-from typing import Any, List, Union, Optional
+from array import array
+from decimal import Decimal
+from logging import DEBUG, INFO, WARNING, CRITICAL
+from typing import Any, List, Optional
 
-import numpy as np
 import yaml
 from dotmap import DotMap
 
-from hummingbot.constants import DECIMAL_NAN, ROUNDING_THRESHOLD
-from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, VWAP_THRESHOLD, \
-	FLOAT_ZERO, FLOAT_INFINITY
+from hummingbot.constants import DECIMAL_NAN
+from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
 from hummingbot.types import OrderSide, OrderType, Order, OrderStatus, \
 	MiddlePriceStrategy, PriceStrategy
+from hummingbot.utils import calculate_middle_price, format_currency, format_lines, format_line, format_percentage, \
+	alignment_column, parse_order_book
 from properties import properties
 from utils import dump, deep_merge, log_class_exceptions
 
@@ -45,18 +47,18 @@ class Worker(WorkerBase):
 			self._initialized = False
 			self._refresh_timestamp: int = 0
 			self._wallet_address = None
-			self._market: DotMap[str, Any] = None
+			self._market: DotMap[str, Any]
 			self._market_name = None
-			self._base_token: DotMap[str, Any] = None
-			self._quote_token: DotMap[str, Any] = None
+			self._base_token: DotMap[str, Any]
+			self._quote_token: DotMap[str, Any]
 			self._quote_token_name = None
 			self._base_token_name = None
-			self._tickers: DotMap[str, Any] = None
+			self._tickers: DotMap[str, Any]
 			self._balances: DotMap[str, Any] = DotMap({}, _dynamic=False)
 			self._all_tracked_orders_ids: [str] = []
 			self._currently_tracked_orders_ids: [str] = []
-			self._open_orders: DotMap[str, Any] = None
-			self._filled_orders: DotMap[str, Any] = None
+			self._open_orders: DotMap[str, Any]
+			self._filled_orders: DotMap[str, Any]
 
 			self._wallet_previous_value: Optional[float] = None
 			self._token_previous_price: Optional[float] = None
@@ -70,6 +72,56 @@ class Worker(WorkerBase):
 				"tickers": None,
 				"orders": None,
 				"balances": None,
+			}, _dynamic=False)
+
+			self.summary: DotMap[str, Any] = DotMap({
+				"configurations": {
+					"kujira_order_type": str,
+					"price_strategy": str,
+					"middle_price_strategy": str,
+					"use_adjusted_price": bool
+				},
+				"balance": {
+					"wallet": {
+						"base": DECIMAL_ZERO,
+						"quote": DECIMAL_ZERO
+					},
+					"orders": {
+						"quote": {
+							"bids": DECIMAL_ZERO,
+							"asks": DECIMAL_ZERO,
+							"total": DECIMAL_ZERO,
+						}
+					}
+				},
+				"orders": {
+					"replaced": DotMap[str, Any]({}),
+					"canceled": DotMap[str, Any]({}),
+				},
+				"wallet": {
+					"initial_value": DECIMAL_ZERO,
+					"previous_value": DECIMAL_ZERO,
+					"current_value": DECIMAL_ZERO,
+					"current_initial_pnl": DECIMAL_ZERO,
+					"current_previous_pnl": DECIMAL_ZERO,
+				},
+				"token": {
+					"initial_price": DECIMAL_ZERO,
+					"previous_price": DECIMAL_ZERO,
+					"current_price": DECIMAL_ZERO,
+					"current_initial_pnl": DECIMAL_ZERO,
+					"current_previous_pnl": DECIMAL_ZERO,
+				},
+				"price": {
+					"used_price": DECIMAL_ZERO,
+					"ticker_price": DECIMAL_ZERO,
+					"last_filled_order_price": DECIMAL_ZERO,
+					"expected_price": DECIMAL_ZERO,
+					"adjusted_market_price": DECIMAL_ZERO,
+					"sap": DECIMAL_ZERO,
+					"wap": DECIMAL_ZERO,
+					"vwap": DECIMAL_ZERO,
+				}
 			}, _dynamic=False)
 
 			self._events: DotMap[str, asyncio.Event] = DotMap({
@@ -224,6 +276,7 @@ class Worker(WorkerBase):
 					open_orders_ids = list(open_orders.keys())
 					await self._cancel_currently_untracked_orders(open_orders_ids)
 
+					self._show_summary()
 					await self._should_stop_loss()
 				except Exception as exception:
 					self.ignore_exception(exception)
@@ -251,7 +304,7 @@ class Worker(WorkerBase):
 			self.log(INFO, "start")
 
 			order_book = await self._get_order_book()
-			bids, asks = self._parse_order_book(order_book)
+			bids, asks = parse_order_book(order_book)
 
 			ticker_price = await self._get_market_price()
 			try:
@@ -413,16 +466,16 @@ class Worker(WorkerBase):
 			self.log(INFO, "start")
 
 			if strategy:
-				return self._calculate_middle_price(bids, asks, strategy)
+				return calculate_middle_price(bids, asks, strategy)
 
 			try:
-				return self._calculate_middle_price(bids, asks, MiddlePriceStrategy.VWAP)
+				return calculate_middle_price(bids, asks, MiddlePriceStrategy.VWAP)
 			except (Exception,):
 				try:
-					return self._calculate_middle_price(bids, asks, MiddlePriceStrategy.WAP)
+					return calculate_middle_price(bids, asks, MiddlePriceStrategy.WAP)
 				except (Exception,):
 					try:
-						return self._calculate_middle_price(bids, asks, MiddlePriceStrategy.SAP)
+						return calculate_middle_price(bids, asks, MiddlePriceStrategy.SAP)
 					except (Exception,):
 						return await self._get_market_price()
 		finally:
@@ -474,11 +527,14 @@ class Worker(WorkerBase):
 					self._balances.total.free = Decimal(self._balances.total.free)
 					self._balances.total.lockedInOrders = Decimal(self._balances.total.lockedInOrders)
 					self._balances.total.unsettled = Decimal(self._balances.total.unsettled)
+					self._balances.total.total = \
+						self._balances.total.free + self._balances.total.lockedInOrders + self._balances.total.unsettled
 
 					for (token, balance) in DotMap(response.tokens).items():
 						balance.free = Decimal(balance.free)
 						balance.lockedInOrders = Decimal(balance.lockedInOrders)
 						balance.unsettled = Decimal(balance.unsettled)
+						balance.total = balance.free + balance.lockedInOrders + balance.unsettled
 
 				return response
 			except Exception as exception:
@@ -494,7 +550,7 @@ class Worker(WorkerBase):
 		try:
 			self.log(INFO, "start")
 
-			request = None
+			# request = None
 			response = None
 			try:
 				request = {
@@ -522,7 +578,7 @@ class Worker(WorkerBase):
 		try:
 			self.log(INFO, "start")
 
-			request = None
+			# request = None
 			response = None
 			try:
 				request = {
@@ -550,7 +606,7 @@ class Worker(WorkerBase):
 		try:
 			self.log(INFO, "start")
 
-			request = None
+			# request = None
 			response = None
 			try:
 				request = {
@@ -584,7 +640,7 @@ class Worker(WorkerBase):
 		try:
 			self.log(INFO, "start")
 
-			request = None
+			# request = None
 			response = None
 			try:
 				request = {
@@ -633,7 +689,7 @@ class Worker(WorkerBase):
 		try:
 			self.log(INFO, "start")
 
-			request = None
+			# request = None
 			response = None
 			try:
 				request = {
@@ -716,7 +772,7 @@ class Worker(WorkerBase):
 		try:
 			self.log(INFO, "start")
 
-			request = None
+			# request = None
 			response = None
 			try:
 				untracked_orders_ids = list(
@@ -754,7 +810,7 @@ class Worker(WorkerBase):
 		try:
 			self.log(INFO, "start")
 
-			request = None
+			# request = None
 			response = None
 			try:
 				request = {
@@ -851,165 +907,226 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	@staticmethod
-	def _parse_order_book(orderbook: DotMap[str, Any]) -> List[
-		Union[List[DotMap[str, Any]], List[DotMap[str, Any]]]]:
-		bids_list = []
-		asks_list = []
+	async def _get_wallet_value(self):
+		free = self._balances.total.free
+		locked_in_orders = self._balances.total.lockedInOrders
+		unsettled = self._balances.total.unsettled
+		total = free + locked_in_orders + unsettled
 
-		bids: DotMap[str, Any] = orderbook.bids
-		asks: DotMap[str, Any] = orderbook.asks
-
-		for value in bids.values():
-			bids_list.append(DotMap({'price': value.price, 'amount': value.amount}, _dynamic=False))
-
-		for value in asks.values():
-			asks_list.append(DotMap({'price': value.price, 'amount': value.amount}, _dynamic=False))
-
-		bids_list.sort(key=lambda x: x['price'], reverse=True)
-		asks_list.sort(key=lambda x: x['price'], reverse=False)
-
-		return [bids_list, asks_list]
-
-	@staticmethod
-	def _split_percentage(bids: [DotMap[str, Any]], asks: [DotMap[str, Any]]) -> List[Any]:
-		asks = asks[:math.ceil((VWAP_THRESHOLD / 100) * len(asks))]
-		bids = bids[:math.ceil((VWAP_THRESHOLD / 100) * len(bids))]
-
-		return [bids, asks]
-
-	@staticmethod
-	def _compute_volume_weighted_average_price(book: [DotMap[str, Any]]) -> np.array:
-		prices = [float(order['price']) for order in book]
-		amounts = [float(order['amount']) for order in book]
-
-		prices = np.array(prices)
-		amounts = np.array(amounts)
-
-		vwap = (np.cumsum(amounts * prices) / np.cumsum(amounts))
-
-		return vwap
-
-	@staticmethod
-	def _remove_outliers(order_book: [DotMap[str, Any]], side: OrderSide) -> [DotMap[str, Any]]:
-		prices = [order['price'] for order in order_book]
-
-		q75, q25 = np.percentile(prices, [75, 25])
-
-		# https://www.askpython.com/python/examples/detection-removal-outliers-in-python
-		# intr_qr = q75-q25
-		# max_threshold = q75+(1.5*intr_qr)
-		# min_threshold = q75-(1.5*intr_qr) # Error: Sometimes this function assigns negative value for min
-
-		max_threshold = q75 * 1.5
-		min_threshold = q25 * 0.5
-
-		orders = []
-		if side == OrderSide.SELL:
-			orders = [order for order in order_book if order['price'] < max_threshold]
-		elif side == OrderSide.BUY:
-			orders = [order for order in order_book if order['price'] > min_threshold]
-
-		return orders
-
-	def _calculate_middle_price(
-		self,
-		bids: [DotMap[str, Any]],
-		asks: [DotMap[str, Any]],
-		strategy: MiddlePriceStrategy
-	) -> Decimal:
-		if strategy == MiddlePriceStrategy.SAP:
-			bid_prices = [float(item['price']) for item in bids]
-			ask_prices = [float(item['price']) for item in asks]
-
-			best_ask_price = 0
-			best_bid_price = 0
-
-			if len(ask_prices) > 0:
-				best_ask_price = min(ask_prices)
-
-			if len(bid_prices) > 0:
-				best_bid_price = max(bid_prices)
-
-			return Decimal((best_ask_price + best_bid_price) / 2.0)
-		elif strategy == MiddlePriceStrategy.WAP:
-			bid_prices = [float(item['price']) for item in bids]
-			ask_prices = [float(item['price']) for item in asks]
-
-			best_ask_price = 0
-			best_ask_volume = 0
-			best_bid_price = 0
-			best_bid_amount = 0
-
-			if len(ask_prices) > 0:
-				best_ask_idx = ask_prices.index(min(ask_prices))
-				best_ask_price = float(asks[best_ask_idx]['price'])
-				best_ask_volume = float(asks[best_ask_idx]['amount'])
-
-			if len(bid_prices) > 0:
-				best_bid_idx = bid_prices.index(max(bid_prices))
-				best_bid_price = float(bids[best_bid_idx]['price'])
-				best_bid_amount = float(bids[best_bid_idx]['amount'])
-
-			if best_ask_volume + best_bid_amount > 0:
-				return Decimal(
-					(best_ask_price * best_ask_volume + best_bid_price * best_bid_amount)
-					/ (best_ask_volume + best_bid_amount)
-				)
-			else:
-				return DECIMAL_ZERO
-		elif strategy == MiddlePriceStrategy.VWAP:
-			bids, asks = self._split_percentage(bids, asks)
-
-			if len(bids) > 0:
-				bids = self._remove_outliers(bids, OrderSide.BUY)
-
-			if len(asks) > 0:
-				asks = self._remove_outliers(asks, OrderSide.SELL)
-
-			book = [*bids, *asks]
-
-			if len(book) > 0:
-				vwap = self._compute_volume_weighted_average_price(book)
-
-				return Decimal(vwap[-1])
-			else:
-				return DECIMAL_ZERO
-		else:
-			raise ValueError(f'Unrecognized mid price strategy "{strategy}".')
+		return DotMap({
+			"free": free,
+			"lockedInOrders": locked_in_orders,
+			"unsettled": unsettled,
+			"total": total
+		}, _dynamic=False)
 
 	async def _should_stop_loss(self):
 		try:
-			self.log(INFO, """_should_stop_loss... start""")
+			self.log(INFO, """start""")
 
-			if self._wallet_previous_value is None:
-				self._wallet_previous_value = Decimal(await self._get_quote_balance())
-				self._token_previous_price = Decimal(await self._get_market_price())
+			total_balances = await self._get_wallet_value()
 
-				self._wallet_current_value = self._wallet_previous_value
-				self._token_current_price = self._token_previous_price
+			if self.summary.wallet.initial_value == DECIMAL_ZERO:
+				self.summary.token.initial_price = await self._get_market_price()
+				self.summary.token.previous_price = self.summary.token.initial_price
+				self.summary.token.current_price = self.summary.token.initial_price
+
+				self.summary.wallet.initial_value = total_balances.total
+				self.summary.wallet.previous_value = self.summary.wallet.initial_value
+				self.summary.wallet.current_value = self.summary.wallet.initial_value
 			else:
-				max_wallet_loss = Decimal(self._configuration.kill_switch.max_wallet_loss).quantize(ROUNDING_THRESHOLD, rounding=ROUND_HALF_EVEN)
-				max_wallet_comparison_loss = Decimal(self._configuration.kill_switch.max_wallet_comparison_loss).quantize(ROUNDING_THRESHOLD, rounding=ROUND_HALF_EVEN)
+				max_wallet_loss_from_initial_value = round(self._configuration.kill_switch.max_wallet_loss_from_initial_value, 9)
+				max_wallet_loss_from_previous_value = round(self._configuration.kill_switch.max_wallet_loss_from_previous_value, 9)
+				max_wallet_loss_compared_to_token_variation = round(self._configuration.kill_switch.max_wallet_loss_compared_to_token_variation, 9)
+				max_token_loss_from_initial = round(self._configuration.kill_switch.max_token_loss_from_initial_price, 9)
 
-				self._wallet_current_value = Decimal(await self._get_quote_balance())
-				wallet_loss = 100 * Decimal(1 - (self._wallet_current_value / self._wallet_previous_value)).quantize(ROUNDING_THRESHOLD, rounding=ROUND_HALF_EVEN)
+				self.summary.token.previous_price = self.summary.token.current_price
+				self.summary.token.current_price = await self._get_market_price()
 
-				self._token_current_price = Decimal(await self._get_market_price())
-				token_loss = 100 * Decimal(1 - (self._token_current_price / self._token_previous_price)).quantize(ROUNDING_THRESHOLD, rounding=ROUND_HALF_EVEN)
+				open_orders_balance = total_balances.lockedInOrders
+				self.summary.balance.orders.base.bids = open_orders_balance.quote / self.summary.token.current_price
+				self.summary.balance.orders.base.asks = open_orders_balance.base
+				self.summary.balance.orders.base.total = self.summary.balance.orders.base.bids + self.summary.balance.orders.base.asks
+				self.summary.balance.orders.quote.bids = open_orders_balance.quote
+				self.summary.balance.orders.quote.asks = open_orders_balance.base * self.summary.token.current_price
+				self.summary.balance.orders.quote.total = self.summary.balance.orders.quote.bids + self.summary.balance.orders.quote.asks
 
-				self._wallet_previous_value = self._wallet_current_value
-				self._token_previous_price = self._token_current_price
+				self.summary.wallet.previous_value = self.summary.wallet.current_value
+				self.summary.wallet.current_value = (await self._get_wallet_value()).total
 
-				if wallet_loss > 0:
-					users = ', '.join(self._configuration.kill_switch.notify.telegram.users)
+				wallet_previous_initial_pnl = Decimal(round(
+					100 * ((self.summary.wallet.previous_value / self.summary.wallet.initial_value) - 1),
+					9
+				))
+				wallet_current_initial_pnl = Decimal(round(
+					100 * ((self.summary.wallet.current_value / self.summary.wallet.initial_value) - 1),
+					9
+				))
+				wallet_current_previous_pnl = Decimal(round(
+					100 * ((self.summary.wallet.current_value / self.summary.wallet.previous_value) - 1),
+					9
+				))
+				token_previous_initial_pnl = Decimal(round(
+					100 * ((self.summary.token.previous_price / self.summary.token.initial_price) - 1),
+					9
+				))
+				token_current_initial_pnl = Decimal(round(
+					100 * ((self.summary.token.current_price / self.summary.token.initial_price) - 1), 9
+				))
+				token_current_previous_pnl = Decimal(round(
+					100 * ((self.summary.token.current_price / self.summary.token.previous_price) - 1),
+					9
+				))
 
-					if wallet_loss >= max_wallet_loss:
-						self.log(WARNING, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum limit of "{max_wallet_loss}%" in wallet loss.\n/cc {users}""")
-						await self.stop()
+				self.summary.wallet.previous_initial_pnl = wallet_previous_initial_pnl
+				self.summary.wallet.current_initial_pnl = wallet_current_initial_pnl
+				self.summary.wallet.current_previous_pnl = wallet_current_previous_pnl
+				self.summary.token.previous_initial_pnl = token_previous_initial_pnl
+				self.summary.token.current_initial_pnl = token_current_initial_pnl
+				self.summary.token.current_previous_pnl = token_current_previous_pnl
 
-					if wallet_loss >= (token_loss + max_wallet_comparison_loss):
-						self.log(WARNING, f"""The bot has been stopped because the wallet lost "{wallet_loss}%", which is equal to or greater than the configured maximum loss limit of "{max_wallet_comparison_loss}%" against the token value.\n/cc {users}""")
-						await self.stop()
+				users = ', '.join(self._configuration.kill_switch.notify.telegram.users)
+
+				if wallet_current_initial_pnl < 0:
+					if self._configuration.kill_switch.max_wallet_loss_from_initial_value:
+						if math.fabs(wallet_current_initial_pnl) >= math.fabs(max_wallet_loss_from_initial_value):
+							self.log(CRITICAL, f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_from_initial_value}% distant from the wallet initial value.\n/cc {users}""")
+							self.can_run = False
+
+							await self.stop()
+
+					if self._configuration.kill_switch.max_wallet_loss_from_previous_value:
+						if math.fabs(wallet_current_previous_pnl) >= math.fabs(max_wallet_loss_from_previous_value):
+							self.log(CRITICAL, f"""The bot has been stopped because the wallet lost {-wallet_current_previous_pnl}%, which is at least {max_wallet_loss_from_previous_value}% distant from the wallet previous value.\n/cc {users}""")
+							self.can_run = False
+
+							await self.stop()
+
+					if self._configuration.kill_switch.max_wallet_loss_compared_to_token_variation:
+						if math.fabs(wallet_current_initial_pnl - token_current_initial_pnl) >= math.fabs(
+								max_wallet_loss_compared_to_token_variation):
+							self.log(CRITICAL, f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_compared_to_token_variation}% distant from the token price variation ({token_current_initial_pnl}) from its initial price.\n/cc {users}""")
+							self.can_run = False
+
+							await self.stop()
+
+				if token_current_initial_pnl < 0 and math.fabs(token_current_initial_pnl) >= math.fabs(
+						max_token_loss_from_initial):
+					self.log(CRITICAL, f"""The bot has been stopped because the token lost {-token_current_initial_pnl}%, which is at least {max_token_loss_from_initial}% distant from the token initial price.\n/cc {users}""")
+					self.can_run = False
+
+					await self.stop()
 		finally:
-			self.log(INFO, """_should_stop_loss... end""")
+			self.log(DEBUG, """end""")
+
+	def _show_summary(self):
+		replaced_orders_summary = ""
+		canceled_orders_summary = ""
+
+		if len(self.summary.orders.replaced):
+			orders: List[DotMap[str, Any]] = list(self.summary.orders.replaced.values())
+			orders.sort(key=lambda item: item.price)
+
+			groups: array[array[str]] = [[], [], [], [], [], [], []]
+			for order in orders:
+				groups[0].append(str(order.type).lower())
+				groups[1].append(str(order.side).lower())
+				groups[2].append(format_currency(order.amount, 3))
+				groups[3].append(self._base_token)
+				groups[4].append("by")
+				groups[5].append(format_currency(order.price, 3))
+				groups[6].append(self._quote_token)
+
+			replaced_orders_summary = format_lines(groups)
+
+		if len(self.summary.orders.canceled):
+			orders: List[DotMap[str, Any]] = list(self.summary.orders.canceled.values())
+			orders.sort(key=lambda item: item.price)
+
+			groups: array[array[str]] = [[], [], [], [], [], []]
+			for order in orders:
+				groups[0].append(str(order.side).lower())
+				groups[1].append(format_currency(order.amount, 3))
+				groups[2].append(self._base_token)
+				groups[3].append("by")
+				groups[4].append(format_currency(order.price, 3))
+				groups[5].append(self._quote_token)
+
+			canceled_orders_summary = format_lines(groups)
+
+		kot = self._configuration.strategy.get("kujira_order_type", "LIMIT")
+		ps = self._configuration.strategy.price_strategy
+		uap = self._configuration.strategy.use_adjusted_price
+		mps = self._configuration.strategy.get("middle_price_strategy", "SAP")
+
+		self.log(
+			INFO,
+			textwrap.dedent(
+				f"""\
+					<b>Settings</b>:
+					{format_line("OrderType: ", kot)}\
+					{format_line("PriceStrategy: ", ps)}\
+					{format_line("UseAdjusted$: ", uap)}\
+					{format_line("Mid$Strategy: ", mps)}\
+					"""
+			),
+			True
+		)
+
+		self.log(
+			INFO,
+			textwrap.dedent(
+				f"""\
+				
+					<b>Market</b>: <b>{self._market.name}</b>
+					<b>PnL</b>: {format_line("", format_percentage(self.summary.wallet.current_initial_pnl), alignment_column - 4)}
+					<b>Balances</b>:
+					{format_line(f"  {self._base_token['symbol']}:", format_currency(self.summary.balance.wallet.base, 4))}
+					{format_line(f"  {self._quote_token['symbol']}:", format_currency(self.summary.balance.wallet.quote, 4))}
+					<b>Orders (in {self._quote_token['symbol']})</b>:
+					{format_line(f"  Bids:", format_currency(self.summary.balance.orders.quote.bids, 4))}
+					{format_line(f"  Asks:", format_currency(self.summary.balance.orders.quote.asks, 4))}
+					{format_line(f"  Total:", format_currency(self.summary.balance.orders.quote.total, 4))}
+					<b>Orders</b>:
+					{format_line(" Replaced:", str(len(self.summary.orders.replaced)))}
+					{format_line(" Canceled:", str(len(self.summary.orders.canceled)))}
+					<b>Wallet</b>:
+					{format_line(" Wo:", format_currency(self.summary.wallet.initial_value, 4))}
+					{format_line(" Wp:", format_currency(self.summary.wallet.previous_value, 4))}
+					{format_line(" Wc:", format_currency(self.summary.wallet.current_value, 4))}
+					{format_line(" Wc/Wo:", (format_percentage(self.summary.wallet.current_initial_pnl)))}
+					{format_line(" Wc/Wp:", format_percentage(self.summary.wallet.current_previous_pnl))}
+					<b>Token</b>:
+					{format_line(" To:", format_currency(self.summary.token.initial_price, 6))}
+					{format_line(" Tp:", format_currency(self.summary.token.previous_price, 6))}
+					{format_line(" Tc:", format_currency(self.summary.token.current_price, 6))}
+					{format_line(" Tc/To:", format_percentage(self.summary.token.current_initial_pnl))}
+					{format_line(" Tc/Tp:", format_percentage(self.summary.token.current_previous_pnl))}
+					<b>Price</b>:
+					{format_line(" Used:", format_currency(self.summary.price.used_price, 6))}
+					{format_line(" External:", format_currency(self.summary.price.ticker_price, 6))}
+					{format_line(" Last fill:", format_currency(self.summary.price.last_filled_order_price, 6))}
+					{format_line(" Expected:", format_currency(self.summary.price.expected_price, 6))}
+					{format_line(" Adjusted:", format_currency(self.summary.price.adjusted_market_price, 6))}
+					{format_line(" SAP:", format_currency(self.summary.price.sap, 6))}
+					{format_line(" WAP:", format_currency(self.summary.price.wap, 6))}
+					{format_line(" VWAP:", format_currency(self.summary.price.vwap, 6))}
+					<b>Balance</b>:
+					"""
+			),
+			True
+		)
+
+		if replaced_orders_summary:
+			self.log(
+				INFO,
+				f"""<b>Replaced Orders:</b>\n{replaced_orders_summary}""",
+				True
+			)
+
+		if canceled_orders_summary:
+			self.log(
+				INFO,
+				f"""<b>Canceled Orders:</b>\n{canceled_orders_summary}""",
+				True
+			)
