@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from dotmap import DotMap
 from typing import Any, Dict
+
+from dotmap import DotMap
 
 from hummingbot.constants import NUMBER_OF_RETRIES, DELAY_BETWEEN_RETRIES, TIMEOUT
 from hummingbot.router import router
-from hummingbot.utils import automatic_retry_with_timeout
 from utils import HttpMethod
+from utils import automatic_retry_with_timeout
 
 
 class Gateway:

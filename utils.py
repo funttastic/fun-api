@@ -134,3 +134,13 @@ def log_class_exceptions(cls):
 		setattr(cls, name, log_function_exception(method))
 
 	return cls
+
+
+class HttpMethod(Enum):
+	GET = 'get'
+	POST = 'post'
+	PUT = 'put'
+	DELETE = 'delete'
+	PATCH = 'patch'
+	HEAD = 'head'
+	OPTIONS = 'options'

@@ -18,7 +18,7 @@ from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, VWAP_THRESHO
 	FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
-from hummingbot.types import OrderSide, OrderType, Order, OrderStatus, \
+from hummingbot.utils import OrderSide, OrderType, Order, OrderStatus, \
 	MiddlePriceStrategy, PriceStrategy
 from properties import properties
 from utils import dump, deep_merge, log_class_exceptions
