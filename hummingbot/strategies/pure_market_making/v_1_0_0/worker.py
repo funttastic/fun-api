@@ -16,7 +16,7 @@ from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
-from hummingbot.types import OrderSide, OrderType, Order, OrderStatus, \
+from hummingbot.utils import OrderSide, OrderType, Order, OrderStatus, \
 	MiddlePriceStrategy, PriceStrategy
 from hummingbot.utils import calculate_middle_price, format_currency, format_lines, format_line, format_percentage, \
 	alignment_column, parse_order_book

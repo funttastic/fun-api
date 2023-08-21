@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
+from utils import HttpMethod
 from constants import constants
 from hummingbot.router import router
 from hummingbot.strategies.strategy_base import StrategyBase
@@ -27,7 +28,6 @@ app = FastAPI(debug=debug, root_path=root_path)
 properties.load(app)
 # Needs to come after properties loading
 from logger import logger
-
 
 tasks: DotMap[str, asyncio.Task] = DotMap({
 })
