@@ -266,9 +266,9 @@ class Worker(WorkerBase):
 					open_orders_ids = list(open_orders.keys())
 					await self._cancel_currently_untracked_orders(open_orders_ids)
 
-					balances = await self._get_balances(use_cache=False)
+					await self._get_balances(use_cache=False)
 
-					self.summary.balances = balances
+					self.summary.balances = self._balances
 
 					if self._first_time is False:
 						summary = self._get_summary()
@@ -537,13 +537,18 @@ class Worker(WorkerBase):
 					self._balances.total.unsettled = Decimal(self._balances.total.unsettled)
 					self._balances.total.total = Decimal(self._balances.total.total)
 
-					for (token, balance) in DotMap(response.tokens).items():
+					for (token, balance) in DotMap(self._balances.tokens).items():
 						balance.free = Decimal(balance.free)
 						balance.lockedInOrders = Decimal(balance.lockedInOrders)
 						balance.unsettled = Decimal(balance.unsettled)
 						balance.total = Decimal(balance.total)
 
-				return response
+						balance.inUSD.free = Decimal(balance.inUSD.free)
+						balance.inUSD.lockedInOrders = Decimal(balance.inUSD.lockedInOrders)
+						balance.inUSD.unsettled = Decimal(balance.inUSD.unsettled)
+						balance.inUSD.total = Decimal(balance.inUSD.total)
+
+				return self._balances
 			except Exception as exception:
 				response = traceback.format_exc()
 
@@ -1066,15 +1071,15 @@ class Worker(WorkerBase):
 				{format_line(f"  Total:", format_currency(self.summary.balances.total.total, 4))}
 				<b> Tokens</b>:
 				<b>  {self._base_token.symbol}</b>:
-				{format_line(f"   Free:", format_currency(self.summary.balances.tokens[self._base_token.symbol].inUSD.free, 4))}
-				{format_line(f"   Orders (sell):", format_currency(self.summary.balances.tokens[self._base_token.symbol].inUSD.lockedInOrders, 4))}
-				{format_line(f"   Unsettled:", format_currency(self.summary.balances.tokens[self._base_token.symbol].inUSD.unsettled, 4))}
-				{format_line(f"   Total:", format_currency(self.summary.balances.tokens[self._base_token.symbol].inUSD.total, 4))}
+				{format_line(f"   Free:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.free, 4))}
+				{format_line(f"   Orders (sell):", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.lockedInOrders, 4))}
+				{format_line(f"   Unsettled:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.unsettled, 4))}
+				{format_line(f"   Total:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.total, 4))}
 				<b>  {self._quote_token.symbol}</b>:
-				{format_line(f"   Free:", format_currency(self.summary.balances.tokens[self._quote_token.symbol].inUSD.free, 4))}
-				{format_line(f"   Orders (buy):", format_currency(self.summary.balances.tokens[self._quote_token.symbol].inUSD.lockedInOrders, 4))}
-				{format_line(f"   Unsettled:", format_currency(self.summary.balances.tokens[self._quote_token.symbol].inUSD.unsettled, 4))}
-				{format_line(f"   Total:", format_currency(self.summary.balances.tokens[self._quote_token.symbol].inUSD.total, 4))}
+				{format_line(f"   Free:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.free, 4))}
+				{format_line(f"   Orders (buy):", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.lockedInOrders, 4))}
+				{format_line(f"   Unsettled:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.unsettled, 4))}
+				{format_line(f"   Total:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.total, 4))}
 				<b>Wallet (in USD)</b>:
 				{format_line(" Wo:", format_currency(self.summary.wallet.initial_value, 4))}
 				{format_line(" Wp:", format_currency(self.summary.wallet.previous_value, 4))}
