@@ -19,6 +19,7 @@ from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
 from properties import properties
 from utils import HttpMethod
+from controller import controller_strategy_start, controller_strategy_status
 
 nest_asyncio.apply()
 root_path = os.path.dirname(__file__)
@@ -77,29 +78,7 @@ async def strategy_start(request: Request) -> Dict[str, Any]:
 	version = body["version"]
 	id = body["id"]
 
-	full_id = f"""{strategy}:{version}:{id}"""
-
-	try:
-		class_reference = Strategy.from_id_and_version(strategy, version).value
-		if not processes.get(full_id):
-			processes[full_id] = class_reference(id)
-			tasks[full_id].start = asyncio.create_task(processes[full_id].start())
-
-			return {
-				"message": "Successfully started"
-			}
-		else:
-			return {
-				"message": "Already running"
-			}
-	except Exception as exception:
-		if tasks.get(full_id):
-			tasks[full_id].start.cancel()
-			await tasks[full_id].start
-		processes[full_id] = None
-		tasks[full_id].start = None
-
-		raise exception
+	return await controller_strategy_start(strategy, version, id)
 
 
 @app.post("/strategy/status")
@@ -110,23 +89,7 @@ async def strategy_status(request: Request) -> Dict[str, Any]:
 	version = body["version"]
 	id = body["id"]
 
-	full_id = f"""{strategy}:{version}:{id}"""
-
-	try:
-		if processes.get(full_id):
-			return processes[full_id].get_status()
-		else:
-			return {
-				"message": "Process not running"
-			}
-	except Exception as exception:
-		if tasks.get(full_id):
-			tasks[full_id].start.cancel()
-			await tasks[full_id].start
-		processes[full_id] = None
-		tasks[full_id].start = None
-
-		raise exception
+	return await controller_strategy_status(strategy, version, id)
 
 
 @app.post("/strategy/stop")
