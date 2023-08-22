@@ -537,7 +537,7 @@ class Worker(WorkerBase):
 					self._balances.total.unsettled = Decimal(self._balances.total.unsettled)
 					self._balances.total.total = Decimal(self._balances.total.total)
 
-					for (token, balance) in DotMap(self._balances.tokens).items():
+					for (token, balance) in self._balances.tokens.items():
 						balance.free = Decimal(balance.free)
 						balance.lockedInOrders = Decimal(balance.lockedInOrders)
 						balance.unsettled = Decimal(balance.unsettled)
