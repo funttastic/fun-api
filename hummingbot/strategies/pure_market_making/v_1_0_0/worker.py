@@ -45,6 +45,7 @@ class Worker(WorkerBase):
 			self._can_run: bool = True
 			self._is_busy: bool = False
 			self._initialized = False
+			self._first_time = True
 			self._refresh_timestamp: int = 0
 			self._wallet_address = None
 			self._market: DotMap[str, Any]
@@ -258,6 +259,9 @@ class Worker(WorkerBase):
 
 					self._reload_configuration()
 
+					# noinspection PyTypedDict
+					self.summary.orders.canceled = {}
+
 					if self._configuration.strategy.withdraw_market_on_tick:
 						try:
 							await self._market_withdraw()
@@ -276,9 +280,16 @@ class Worker(WorkerBase):
 					open_orders_ids = list(open_orders.keys())
 					await self._cancel_currently_untracked_orders(open_orders_ids)
 
-					await self._get_balances(use_cache=False)
+					balances = await self._get_balances(use_cache=False)
 
-					self._show_summary()
+					self.summary.balance.wallet.base = Decimal(balances.tokens[self._base_token.id].total)
+					self.summary.balance.wallet.quote = Decimal(balances.tokens[self._quote_token.id].total)
+
+					if self._first_time is False:
+						self._show_summary()
+
+					self._first_time = False
+
 					await self._should_stop_loss()
 				except Exception as exception:
 					self.ignore_exception(exception)
@@ -771,6 +782,8 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
+				self.summary.orders.replaced = response
+
 				self.log(DEBUG, f"""gateway.kujira_post_orders: response:\n{dump(response)}""")
 		finally:
 			self.log(INFO, "end")
@@ -799,6 +812,10 @@ class Worker(WorkerBase):
 					self.log(DEBUG, f"""gateway.kujira_delete_orders: request:\n{dump(request)}""")
 
 					response = await Gateway.kujira_delete_orders(request)
+
+					# noinspection PyTypedDict
+					self.summary.orders.canceled = {**self.summary.orders.canceled, **response}
+
 				else:
 					self.log(DEBUG, "No order needed to be canceled.")
 					response = {}
@@ -929,15 +946,15 @@ class Worker(WorkerBase):
 				self.summary.wallet.previous_value = self.summary.wallet.initial_value
 				self.summary.wallet.current_value = self.summary.wallet.initial_value
 			else:
-				max_wallet_loss_from_initial_value = round(self._configuration.kill_switch.max_wallet_loss_from_initial_value, 9)
-				max_wallet_loss_from_previous_value = round(self._configuration.kill_switch.max_wallet_loss_from_previous_value, 9)
-				max_wallet_loss_compared_to_token_variation = round(self._configuration.kill_switch.max_wallet_loss_compared_to_token_variation, 9)
-				max_token_loss_from_initial = round(self._configuration.kill_switch.max_token_loss_from_initial_price, 9)
+				max_wallet_loss_from_initial_value = round(self._configuration.strategy.kill_switch.max_wallet_loss_from_initial_value, 9)
+				max_wallet_loss_from_previous_value = round(self._configuration.strategy.kill_switch.max_wallet_loss_from_previous_value, 9)
+				max_wallet_loss_compared_to_token_variation = round(self._configuration.strategy.kill_switch.max_wallet_loss_compared_to_token_variation, 9)
+				max_token_loss_from_initial = round(self._configuration.strategy.kill_switch.max_token_loss_from_initial, 9)
 
 				self.summary.token.previous_price = self.summary.token.current_price
 				self.summary.token.current_price = await self._get_market_price()
 
-				open_orders_balance = balances.lockedInOrders
+				open_orders_balance = await self._get_open_orders_balance()
 				self.summary.balance.orders.base.bids = open_orders_balance.quote / self.summary.token.current_price
 				self.summary.balance.orders.base.asks = open_orders_balance.base
 				self.summary.balance.orders.base.total = self.summary.balance.orders.base.bids + self.summary.balance.orders.base.asks
@@ -980,24 +997,24 @@ class Worker(WorkerBase):
 				self.summary.token.current_initial_pnl = token_current_initial_pnl
 				self.summary.token.current_previous_pnl = token_current_previous_pnl
 
-				users = ', '.join(self._configuration.kill_switch.notify.telegram.users)
+				users = ', '.join(self._configuration.strategy.kill_switch.notify.telegram.users)
 
 				if wallet_current_initial_pnl < 0:
-					if self._configuration.kill_switch.max_wallet_loss_from_initial_value:
+					if self._configuration.strategy.kill_switch.max_wallet_loss_from_initial_value:
 						if math.fabs(wallet_current_initial_pnl) >= math.fabs(max_wallet_loss_from_initial_value):
 							self.log(CRITICAL, f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_from_initial_value}% distant from the wallet initial value.\n/cc {users}""")
 							self.can_run = False
 
 							await self.stop()
 
-					if self._configuration.kill_switch.max_wallet_loss_from_previous_value:
+					if self._configuration.strategy.kill_switch.max_wallet_loss_from_previous_value:
 						if math.fabs(wallet_current_previous_pnl) >= math.fabs(max_wallet_loss_from_previous_value):
 							self.log(CRITICAL, f"""The bot has been stopped because the wallet lost {-wallet_current_previous_pnl}%, which is at least {max_wallet_loss_from_previous_value}% distant from the wallet previous value.\n/cc {users}""")
 							self.can_run = False
 
 							await self.stop()
 
-					if self._configuration.kill_switch.max_wallet_loss_compared_to_token_variation:
+					if self._configuration.strategy.kill_switch.max_wallet_loss_compared_to_token_variation:
 						if math.fabs(wallet_current_initial_pnl - token_current_initial_pnl) >= math.fabs(max_wallet_loss_compared_to_token_variation):
 							self.log(CRITICAL, f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_compared_to_token_variation}% distant from the token price variation ({token_current_initial_pnl}) from its initial price.\n/cc {users}""")
 							self.can_run = False
@@ -1012,38 +1029,37 @@ class Worker(WorkerBase):
 		finally:
 			self.log(DEBUG, """end""")
 
+	# noinspection DuplicatedCode
 	def _show_summary(self):
 		replaced_orders_summary = ""
 		canceled_orders_summary = ""
 
 		if self.summary.orders.replaced:
 			orders: List[DotMap[str, Any]] = list(self.summary.orders.replaced.values())
-			orders.sort(key=lambda item: item.price)
+			orders.sort(key=lambda item: item.id)
 
-			groups: array[array[str]] = [[], [], [], [], [], [], []]
+			groups: array[array[str]] = [[], [], [], [], [], [], [], []]
 			for order in orders:
-				groups[0].append(str(order.type).lower())
+				groups[0].append(order.id)
 				groups[1].append(str(order.side).lower())
-				groups[2].append(format_currency(order.amount, 3))
-				groups[3].append(self._base_token)
-				groups[4].append("by")
-				groups[5].append(format_currency(order.price, 3))
-				groups[6].append(self._quote_token)
+				groups[2].append(str(order.type).lower())
+				groups[3].append(format_currency(Decimal(order.amount), 3))
+				groups[4].append(self._base_token.symbol)
+				groups[5].append("by")
+				groups[6].append(format_currency(Decimal(order.price), 3))
+				groups[7].append(self._quote_token.symbol)
 
 			replaced_orders_summary = format_lines(groups)
 
 		if self.summary.orders.canceled:
 			orders: List[DotMap[str, Any]] = list(self.summary.orders.canceled.values())
-			orders.sort(key=lambda item: item.price)
+			# orders.sort(key=lambda item: item.price)
 
-			groups: array[array[str]] = [[], [], [], [], [], []]
+			groups: array[array[str]] = [[], [], []]
 			for order in orders:
-				groups[0].append(str(order.side).lower())
-				groups[1].append(format_currency(order.amount, 3))
-				groups[2].append(self._base_token)
-				groups[3].append("by")
-				groups[4].append(format_currency(order.price, 3))
-				groups[5].append(self._quote_token)
+				groups[0].append(order.id)
+				groups[1].append(str(order.type).lower())
+				groups[2].append(order.marketName)
 
 			canceled_orders_summary = format_lines(groups)
 
@@ -1052,12 +1068,11 @@ class Worker(WorkerBase):
 			textwrap.dedent(
 				f"""\
 					<b>Settings</b>:
-					{format_line("OrderType: ", self._order_type)}\
-					{format_line("PriceStrategy: ", self._price_strategy)}\
-					{format_line("Mid$Strategy: ", self._middle_price_strategy)}\
+					{format_line("OrderType: ", self._order_type)}<br>
+					{format_line("PriceStrategy: ", self._price_strategy)}<br>
+					{format_line("Mid$Strategy: ", self._middle_price_strategy)}<br>
 					"""
-			),
-			True
+			)
 		)
 
 		self.log(
@@ -1100,20 +1115,34 @@ class Worker(WorkerBase):
 					{format_line(" VWAP:", format_currency(self.summary.price.vwap, 6))}
 					<b>Balance</b>:
 					"""
-			),
-			True
+			)
 		)
 
 		if replaced_orders_summary:
 			self.log(
 				INFO,
-				f"""<b>Replaced Orders:</b>\n{replaced_orders_summary}""",
-				True
+				f"""<b>Replaced Orders:</b>\n{replaced_orders_summary}"""
 			)
 
 		if canceled_orders_summary:
 			self.log(
 				INFO,
-				f"""<b>Canceled Orders:</b>\n{canceled_orders_summary}""",
-				True
+				f"""<b>Canceled Orders:</b>\n{canceled_orders_summary}"""
 			)
+
+	async def _get_open_orders_balance(self) -> DotMap[str, Decimal]:
+		open_orders = await self._get_open_orders()
+		open_orders_base_amount = DECIMAL_ZERO
+		open_orders_quote_amount = DECIMAL_ZERO
+		for market in open_orders.values():
+			for order in market.values():
+				if order.side == OrderSide.SELL.name:
+					open_orders_base_amount += Decimal(order.amount)
+				if order.side == OrderSide.BUY.name:
+					open_orders_quote_amount += Decimal(order.amount) * Decimal(order.price)
+
+		open_orders_balance = DotMap()
+		open_orders_balance.base = open_orders_base_amount
+		open_orders_balance.quote = open_orders_quote_amount
+
+		return open_orders_balance
