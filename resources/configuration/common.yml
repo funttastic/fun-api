@@ -5,8 +5,10 @@ server:
 logging:
   directory: /tmp/app/<template>
   filename: all.log
-  level: 10 # 10 -> DEBUG
+  level: 30 # 30 -> WARNING
   format: '%(asctime)s %(levelname)s %(message)s'
-  use_telegram: true
+  use_telegram: false
+telegram:
+  level: 30 # 30 -> WARNING
 clock:
   delay: 1
