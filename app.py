@@ -13,7 +13,6 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
-from utils import HttpMethod
 from constants import constants
 from hummingbot.router import router
 from hummingbot.strategies.strategy_base import StrategyBase
