@@ -1134,12 +1134,11 @@ class Worker(WorkerBase):
 		open_orders = await self._get_open_orders()
 		open_orders_base_amount = DECIMAL_ZERO
 		open_orders_quote_amount = DECIMAL_ZERO
-		for market in open_orders.values():
-			for order in market.values():
-				if order.side == OrderSide.SELL.name:
-					open_orders_base_amount += Decimal(order.amount)
-				if order.side == OrderSide.BUY.name:
-					open_orders_quote_amount += Decimal(order.amount) * Decimal(order.price)
+		for order in open_orders.values():
+			if order.side == OrderSide.SELL.name:
+				open_orders_base_amount += Decimal(order.amount)
+			if order.side == OrderSide.BUY.name:
+				open_orders_quote_amount += Decimal(order.amount) * Decimal(order.price)
 
 		open_orders_balance = DotMap()
 		open_orders_balance.base = open_orders_base_amount
