@@ -88,6 +88,11 @@ class Worker(WorkerBase):
 						"quote": DECIMAL_ZERO
 					},
 					"orders": {
+						"base": {
+							"bids": DECIMAL_ZERO,
+							"asks": DECIMAL_ZERO,
+							"total": DECIMAL_ZERO,
+						},
 						"quote": {
 							"bids": DECIMAL_ZERO,
 							"asks": DECIMAL_ZERO,
