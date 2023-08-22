@@ -1,7 +1,10 @@
+from typing import Any
+
 import requests
 from singleton.singleton import ThreadSafeSingleton
 
 from properties import properties
+from utils import dump
 
 
 @ThreadSafeSingleton
@@ -13,6 +16,7 @@ class Telegram(object):
 		self.chat_id: str = properties.get("telegram.chat_id")
 		self.parse_mode: str = properties.get("telegram.parse_mode")
 		self.final_url: str = self.url.replace("{token}", self.token)
+		self.level: bool = properties.get('telegram.level')
 
 	def send(self, text):
 		parameters = {
@@ -23,6 +27,15 @@ class Telegram(object):
 		response = requests.get(url=self.final_url, params=parameters)
 
 		return response.json()
+
+	def log(self, level: int, message: str = "", object: Any = None, prefix: str = ""):
+		if object:
+			message = f'{message}:\n{dump(object)}'
+
+		message = f"{prefix} {message}"
+
+		if level >= self.level:
+			telegram.send(message)
 
 
 telegram = Telegram.instance()
