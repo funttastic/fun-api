@@ -108,6 +108,7 @@ class Worker(WorkerBase):
 					"initial_value": DECIMAL_ZERO,
 					"previous_value": DECIMAL_ZERO,
 					"current_value": DECIMAL_ZERO,
+					"previous_initial_pnl": DECIMAL_ZERO,
 					"current_initial_pnl": DECIMAL_ZERO,
 					"current_previous_pnl": DECIMAL_ZERO,
 				},
@@ -115,6 +116,7 @@ class Worker(WorkerBase):
 					"initial_price": DECIMAL_ZERO,
 					"previous_price": DECIMAL_ZERO,
 					"current_price": DECIMAL_ZERO,
+					"previous_initial_pnl": DECIMAL_ZERO,
 					"current_initial_pnl": DECIMAL_ZERO,
 					"current_previous_pnl": DECIMAL_ZERO,
 				},
@@ -998,6 +1000,7 @@ class Worker(WorkerBase):
 				self.summary.wallet.previous_initial_pnl = wallet_previous_initial_pnl
 				self.summary.wallet.current_initial_pnl = wallet_current_initial_pnl
 				self.summary.wallet.current_previous_pnl = wallet_current_previous_pnl
+
 				self.summary.token.previous_initial_pnl = token_previous_initial_pnl
 				self.summary.token.current_initial_pnl = token_current_initial_pnl
 				self.summary.token.current_previous_pnl = token_current_previous_pnl
