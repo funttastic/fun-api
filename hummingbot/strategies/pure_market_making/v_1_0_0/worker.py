@@ -187,11 +187,13 @@ class Worker(WorkerBase):
 
 	async def start(self):
 		self.log(INFO, "start")
+		self.telegram_log(INFO, "starting...")
 
 		await self.initialize()
 
 		self._tasks.on_tick = asyncio.create_task(self.on_tick())
 
+		self.telegram_log(INFO, "started.")
 		self.log(INFO, "end")
 
 	async def stop(self):
