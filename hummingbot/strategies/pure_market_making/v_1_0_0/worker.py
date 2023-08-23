@@ -281,7 +281,7 @@ class Worker(WorkerBase):
 
 					self._first_time = False
 
-					await self._should_stop_loss()
+					# await self._should_stop_loss()
 				except Exception as exception:
 					self.ignore_exception(exception)
 				finally:
