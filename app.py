@@ -81,8 +81,6 @@ async def strategy_start(request: Request) -> Dict[str, Any]:
 	try:
 		import hummingbot.strategies.pure_market_making.v_1_0_0.supervisor
 		import hummingbot.strategies.pure_market_making.v_1_0_0.worker
-		importlib.reload(hummingbot.strategies.pure_market_making.v_1_0_0.supervisor)
-		importlib.reload(hummingbot.strategies.pure_market_making.v_1_0_0.worker)
 
 		class_reference = Strategy.from_id_and_version(strategy, version).value
 		if not processes.get(full_id):
