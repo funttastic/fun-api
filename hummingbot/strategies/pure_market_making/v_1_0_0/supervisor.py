@@ -134,6 +134,7 @@ class Supervisor(StrategyBase):
 	async def stop(self):
 		try:
 			self.log(INFO, "start")
+			self.telegram_log(INFO, "stopping...")
 
 			self._can_run = False
 
@@ -156,6 +157,7 @@ class Supervisor(StrategyBase):
 		finally:
 			await self.exit()
 
+			self.telegram_log(INFO, "stopped.")
 			self.log(INFO, "end")
 
 	async def stop_worker(self, worker_id: str):

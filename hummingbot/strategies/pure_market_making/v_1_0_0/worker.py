@@ -197,6 +197,7 @@ class Worker(WorkerBase):
 	async def stop(self):
 		try:
 			self.log(INFO, "start")
+			self.telegram_log(INFO, "stopping...")
 
 			self._can_run = False
 
@@ -224,7 +225,9 @@ class Worker(WorkerBase):
 		finally:
 			await self.exit()
 
+			self.telegram_log(INFO, "stopped.")
 			self.log(INFO, "end")
+
 
 	async def exit(self):
 		self.log(INFO, "start")

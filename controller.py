@@ -64,10 +64,10 @@ async def controller_strategy_stop(strategy: str, version: str, id: str):
 		if processes.get(full_id):
 			tasks[full_id].start.cancel()
 			tasks[full_id].stop = asyncio.create_task(processes[full_id].stop())
-			await tasks[full_id].stop
+			# await tasks[full_id].stop
 
 			return {
-				"message": "Successfully stopped"
+				"message": "Stopping..."
 			}
 		else:
 			return {
