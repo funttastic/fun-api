@@ -326,11 +326,11 @@ def format_percentage(target: Decimal, precision: int = 2) -> str:
 
 	value = round(target, precision)
 	if math.isclose(value, DECIMAL_ZERO, rel_tol=decimal_near_zero, abs_tol=decimal_near_zero):
-		return f"{math.fabs(value)}% ⚪"
+		return "⚪ {:.{}f}%".format(math.fabs(value), precision)
 	elif target < 0:
-		return f"{value}% 🔴"
+		return "🔴 {:.{}f}%".format(value, precision)
 	else:
-		return f"{value}% 🟢"
+		return "🟢 {:.{}f}%".format(value, precision)
 
 
 def format_lines(groups: List[List[str]], align: str = "right") -> str:

@@ -1063,7 +1063,7 @@ class Worker(WorkerBase):
 				 Market: <b>{self._market.name}</b>
 				 Wallet: ...{str(self._wallet_address)[-4:]}
 				 
-				{format_line("<b>PnL</b>: ", format_percentage(self.summary.wallet.current_initial_pnl), alignment_column + 7)}
+				{format_line("<b>PnL</b>: ", format_percentage(self.summary.wallet.current_initial_pnl, 3), alignment_column + 6)}
 				
 				<b>Balances (in USD)</b>:
 				<b> Total</b>:
@@ -1086,21 +1086,21 @@ class Worker(WorkerBase):
 				{format_line(" Wo:", format_currency(self.summary.wallet.initial_value, 4))}
 				{format_line(" Wp:", format_currency(self.summary.wallet.previous_value, 4))}
 				{format_line(" Wc:", format_currency(self.summary.wallet.current_value, 4))}
-				{format_line(" Wc/Wo:", (format_percentage(self.summary.wallet.current_initial_pnl)))}
-				{format_line(" Wc/Wp:", format_percentage(self.summary.wallet.current_previous_pnl))}
+				{format_line(" Wc/Wo:", (format_percentage(self.summary.wallet.current_initial_pnl, 3)), alignment_column - 1)}
+				{format_line(" Wc/Wp:", format_percentage(self.summary.wallet.current_previous_pnl, 3), alignment_column - 1)}
 				<b>{self._base_token.symbol} (in {self._quote_token.symbol})</b>:
 				{format_line(" Bo:", format_currency(self.summary.token.base.initial_price, 4))}
 				{format_line(" Bp:", format_currency(self.summary.token.base.previous_price, 4))}
 				{format_line(" Bc:", format_currency(self.summary.token.base.current_price, 4))}
-				{format_line(" Bc/Bo:", format_percentage(self.summary.token.base.current_initial_pnl))}
-				{format_line(" Bc/Bp:", format_percentage(self.summary.token.base.current_previous_pnl))}
+				{format_line(" Bc/Bo:", format_percentage(self.summary.token.base.current_initial_pnl, 3), alignment_column - 1)}
+				{format_line(" Bc/Bp:", format_percentage(self.summary.token.base.current_previous_pnl, 3), alignment_column - 1)}
 				<b>Price</b>:
 				{format_line(f" Used:", format_currency(self.summary.price.used_price, 4))}
 				{format_line(" Ticker:", format_currency(self.summary.price.ticker_price, 4))}
 				<b>Orders</b>:
 				<b> Quantity</b>:
-				{format_line("  New:", str(len(self.summary.orders.new)))}
-				{format_line("  Canceled:", str(len(self.summary.orders.canceled)))}\
+				{format_line("  New:", str(len(self.summary.orders.new)), alignment_column - 5)}
+				{format_line("  Canceled:", str(len(self.summary.orders.canceled)), alignment_column - 5)}\
 			"""
 		)
 
