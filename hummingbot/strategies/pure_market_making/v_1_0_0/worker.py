@@ -1089,14 +1089,14 @@ class Worker(WorkerBase):
 				{format_line(" Wc/Wo:", (format_percentage(self.summary.wallet.current_initial_pnl)))}
 				{format_line(" Wc/Wp:", format_percentage(self.summary.wallet.current_previous_pnl))}
 				<b>{self._base_token.symbol} (in {self._quote_token.symbol})</b>:
-				{format_line(" Bo:", format_currency(self.summary.token.base.initial_price, 6))}
-				{format_line(" Bp:", format_currency(self.summary.token.base.previous_price, 6))}
-				{format_line(" Bc:", format_currency(self.summary.token.base.current_price, 6))}
+				{format_line(" Bo:", format_currency(self.summary.token.base.initial_price, 4))}
+				{format_line(" Bp:", format_currency(self.summary.token.base.previous_price, 4))}
+				{format_line(" Bc:", format_currency(self.summary.token.base.current_price, 4))}
 				{format_line(" Bc/Bo:", format_percentage(self.summary.token.base.current_initial_pnl))}
 				{format_line(" Bc/Bp:", format_percentage(self.summary.token.base.current_previous_pnl))}
 				<b>Price</b>:
-				{format_line(f" Used:", format_currency(self.summary.price.used_price, 6))}
-				{format_line(" Ticker:", format_currency(self.summary.price.ticker_price, 6))}
+				{format_line(f" Used:", format_currency(self.summary.price.used_price, 4))}
+				{format_line(" Ticker:", format_currency(self.summary.price.ticker_price, 4))}
 				<b>Orders</b>:
 				<b> Quantity</b>:
 				{format_line("  New:", str(len(self.summary.orders.new)))}
