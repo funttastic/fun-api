@@ -1053,18 +1053,18 @@ class Worker(WorkerBase):
 
 		summary +=\
 		textwrap.dedent(
-			f"""\
+			f"""\n\n\
 				<b>Settings</b>:
-				{format_line("OrderType: ", self._order_type.name, 21)}
-				{format_line("PriceStrategy: ", self._price_strategy.name, 21)}
-				{format_line("MiddlePriceStrategy: ", self._middle_price_strategy.name, 21)}\
+				 OrderType: {self._order_type.name}
+				 PriceStrategy: {self._price_strategy.name}
+				 MiddlePriceStrategy: {self._middle_price_strategy.name}\
 			"""
 		)
 
 		summary += textwrap.dedent(
-			f"""\n\
+			f"""\n\n\
 				<b>Market</b>: <b>{self._market.name}</b>
-				<b>PnL</b>: {format_line("", format_percentage(self.summary.wallet.current_initial_pnl), alignment_column - 4)}
+				{format_line("<b>PnL</b>: ", format_percentage(self.summary.wallet.current_initial_pnl), alignment_column + 7)}
 				<b>Balances (in USD)</b>:
 				<b> Total</b>:
 				{format_line(f"  Free:", format_currency(self.summary.balances.total.free, 4))}
@@ -1097,7 +1097,6 @@ class Worker(WorkerBase):
 				<b>Price</b>:
 				{format_line(f" Used:", format_currency(self.summary.price.used_price, 6))}
 				{format_line(" Ticker:", format_currency(self.summary.price.ticker_price, 6))}
-				{format_line(" Last fill:", format_currency(self.summary.price.last_filled_order_price, 6))}
 				<b>Orders</b>:
 				<b> Quantity</b>:
 				{format_line("  New:", str(len(self.summary.orders.new)))}
@@ -1112,3 +1111,9 @@ class Worker(WorkerBase):
 			summary += f"""\n<b> Canceled:</b>\n{canceled_orders_summary}"""
 
 		return summary
+	
+	def _hot_reload(self):
+		import importlib
+		module = importlib.reload(importlib.import_module(self.__module__))
+
+		self.__class__ = getattr(module, self.__class__.__name__)

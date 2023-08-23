@@ -17,7 +17,7 @@ from dotmap import DotMap
 from hummingbot.constants import VWAP_THRESHOLD, DECIMAL_ZERO
 
 
-alignment_column = 18
+alignment_column = 12
 
 from utils import dump
 
@@ -306,10 +306,15 @@ def calculate_middle_price(
 		raise ValueError(f'Unrecognized mid price strategy "{strategy}".')
 
 
-def format_line(left, right, column=alignment_column):
+def format_line(left, right, column=alignment_column, align: str = "right"):
 	right = str(right) if str(right).startswith("-") else f" {str(right)}"
 
-	return f"""<code>{left}{" " * (column - len(left))}{right}</code>"""
+	if align == "left":
+		return f"""<code>{left}{" " * (column - len(left))}{right}</code>"""
+	elif align == "right":
+		return f"""<code>{left}{" " * (alignment_column + column - len(left) - len(right))}{right}</code>"""
+	else:
+		raise ValueError(f"""Align option "{align}" not recognized.""")
 
 
 def format_currency(target: Decimal, precision: int) -> str:
@@ -321,7 +326,7 @@ def format_percentage(target: Decimal, precision: int = 2) -> str:
 
 	value = round(target, precision)
 	if math.isclose(value, DECIMAL_ZERO, rel_tol=decimal_near_zero, abs_tol=decimal_near_zero):
-		return f"{math.fabs(value)}%"
+		return f"{math.fabs(value)}% ⚪"
 	elif target < 0:
 		return f"{value}% 🔴"
 	else:
