@@ -10,6 +10,7 @@ tasks: DotMap[str, asyncio.Task] = DotMap({
 processes: DotMap[str, StrategyBase] = DotMap({
 })
 
+
 async def controller_strategy_start(strategy: str, version: str, id: str) -> Dict[str, Any]:
     full_id = f"""{strategy}:{version}:{id}"""
 
@@ -35,6 +36,7 @@ async def controller_strategy_start(strategy: str, version: str, id: str) -> Dic
 
         raise exception
 
+
 async def controller_strategy_status(strategy: str, version: str, id: str) -> Dict[str, Any]:
     full_id = f"""{strategy}:{version}:{id}"""
 
@@ -53,6 +55,7 @@ async def controller_strategy_status(strategy: str, version: str, id: str) -> Di
         tasks[full_id].start = None
 
         raise exception
+
 
 async def controller_strategy_stop(strategy: str, version: str, id: str):
     full_id = f"""{strategy}:{version}:{id}"""

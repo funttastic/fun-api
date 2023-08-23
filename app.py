@@ -143,6 +143,15 @@ async def start_rest_api():
 	await server.serve()
 
 
+async def main():
+	loop = asyncio.get_event_loop()
+
+	tasks.telegram = loop.create_task(start_telegram_bot())
+	tasks.api = loop.create_task(start_rest_api())
+
+	await asyncio.gather(*[tasks.telegram, tasks.api])
+
+
 # noinspection PyUnusedLocal
 def shutdown(*args):
 	for task in tasks.values():
@@ -162,8 +171,6 @@ def shutdown_helper():
 if __name__ == '__main__':
 	try:
 		loop = asyncio.get_event_loop()
-		loop.create_task(start_telegram_bot())
-		loop.create_task(start_rest_api())
-		loop.run_forever()
+		loop.run_until_complete(main())
 	finally:
 		shutdown_helper()

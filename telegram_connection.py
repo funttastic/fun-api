@@ -1,8 +1,14 @@
+from typing import Any
+
 import requests
 from singleton.singleton import ThreadSafeSingleton
+from telegram import Update
+from telegram.ext import filters, MessageHandler, ApplicationBuilder, ContextTypes, CommandHandler
+
 from controller import controller_strategy_stop, controller_strategy_start, controller_strategy_status
-from utils import dump
 from properties import properties
+from utils import dump
+
 
 @ThreadSafeSingleton
 class Telegram(object):
@@ -13,6 +19,7 @@ class Telegram(object):
 		self.chat_id: str = properties.get("telegram.chat_id")
 		self.parse_mode: str = properties.get("telegram.parse_mode")
 		self.final_url: str = self.url.replace("{token}", self.token)
+		self.level: bool = properties.get('telegram.level')
 
 	def send(self, text):
 		parameters = {
@@ -24,68 +31,72 @@ class Telegram(object):
 
 		return response.json()
 
+	def log(self, level: int, message: str = "", object: Any = None, prefix: str = ""):
+		if object:
+			message = f'{message}:\n{dump(object)}'
+
+		message = f"{prefix} {message}"
+
+		if level >= self.level:
+			telegram.send(message)
+
 
 telegram = Telegram.instance()
 
-import logging
-from telegram import Update
-from telegram.ext import filters, MessageHandler, ApplicationBuilder, ContextTypes, CommandHandler
-
-logging.basicConfig(
-	format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-	level=logging.INFO
-)
-
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	if not context.args:
-		await context.bot.send_message(chat_id=update.effective_chat.id, text="You need to provide the strategy, version and id")
+		telegram.send("You need to provide the strategy, version and id")
 		return
 
 	args = context.args[0].split(':')
 	if len(args) != 3:
-		await context.bot.send_message(chat_id=update.effective_chat.id, text="You need to provide the strategy, version and id")
+		telegram.send("You need to provide the strategy, version and id")
 		return
 
 	strategy = args[0]
 	version = args[1]
 	id = args[2]
 	response = await controller_strategy_start(strategy, version, id)
-	await context.bot.send_message(chat_id=update.effective_chat.id, text=dump(response))
+	telegram.send(dump(response))
+
 
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	if not context.args:
-		await context.bot.send_message(chat_id=update.effective_chat.id, text="You need to provide the strategy, version and id")
+		telegram.send("You need to provide the strategy, version and id")
 		return
 
 	args = context.args[0].split(':')
 	if len(args) != 3:
-		await context.bot.send_message(chat_id=update.effective_chat.id, text="You need to provide the strategy, version and id")
+		telegram.send("You need to provide the strategy, version and id")
 		return
 
 	strategy = args[0]
 	version = args[1]
 	id = args[2]
 	response = await controller_strategy_stop(strategy, version, id)
-	await context.bot.send_message(chat_id=update.effective_chat.id, text=dump(response))
+	telegram.send(dump(response))
+
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	if not context.args:
-		await context.bot.send_message(chat_id=update.effective_chat.id, text="You need to provide the strategy, version and id")
+		telegram.send("You need to provide the strategy, version and id")
 		return
 
 	args = context.args[0].split(':')
 	if len(args) != 3:
-		await context.bot.send_message(chat_id=update.effective_chat.id, text="You need to provide the strategy, version and id")
+		telegram.send("You need to provide the strategy, version and id")
 		return
 
 	strategy = args[0]
 	version = args[1]
 	id = args[2]
 	response = await controller_strategy_status(strategy, version, id)
-	await context.bot.send_message(chat_id=update.effective_chat.id, text=dump(response))
+	telegram.send(dump(response))
+
 
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.")
+	telegram.send("Sorry, I didn't understand that command.")
+
 
 async def start_telegram_bot():
 	token: str = properties.get("telegram.token")
@@ -99,4 +110,4 @@ async def start_telegram_bot():
 	application.add_handler(stop_handler)
 	application.add_handler(status_handler)
 	application.add_handler(unknown_handler)
-	application.run_polling(timeout=20)
+	application.run_polling()
