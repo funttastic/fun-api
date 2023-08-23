@@ -49,7 +49,7 @@ class Logger(object):
 
 		logging.log(level, message)
 
-		if self.use_telegram and level >= self.telegram_level:
+		if self.use_telegram and level >= self.level and level >= self.telegram_level:
 			telegram.send(message)
 
 	def ignore_exception(self, exception: Exception, prefix: str = "", frame=inspect.currentframe().f_back):
