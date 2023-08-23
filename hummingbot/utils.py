@@ -17,7 +17,7 @@ from dotmap import DotMap
 from hummingbot.constants import VWAP_THRESHOLD, DECIMAL_ZERO
 
 
-alignment_column = 11
+alignment_column = 21
 
 from utils import dump
 

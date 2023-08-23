@@ -108,6 +108,7 @@ class Worker(WorkerBase):
 				"price": {
 					"used_price": DECIMAL_ZERO,
 					"ticker_price": DECIMAL_ZERO,
+					"last_filled_order_price": DECIMAL_ZERO,
 				}
 			}, _dynamic=False)
 
@@ -313,6 +314,8 @@ class Worker(WorkerBase):
 				self.ignore_exception(exception)
 
 				last_filled_order_price = DECIMAL_ZERO
+
+			self.summary.price.last_filled_order_price = last_filled_order_price
 
 			self._price_strategy = PriceStrategy[self._configuration.strategy.get("price_strategy", PriceStrategy.TICKER.name)]
 			if self._price_strategy == PriceStrategy.TICKER:
@@ -1052,15 +1055,14 @@ class Worker(WorkerBase):
 		textwrap.dedent(
 			f"""\
 				<b>Settings</b>:
-				{format_line("OrderType: ", self._order_type)}<br>
-				{format_line("PriceStrategy: ", self._price_strategy)}<br>
-				{format_line("MiddlePriceStrategy: ", self._middle_price_strategy)}<br>
-				"""
+				{format_line("OrderType: ", self._order_type.name)}
+				{format_line("PriceStrategy: ", self._price_strategy.name)}
+				{format_line("MiddlePriceStrategy: ", self._middle_price_strategy.name)}\
+			"""
 		)
 
 		summary += textwrap.dedent(
-			f"""\
-			
+			f"""\n\
 				<b>Market</b>: <b>{self._market.name}</b>
 				<b>PnL</b>: {format_line("", format_percentage(self.summary.wallet.current_initial_pnl), alignment_column - 4)}
 				<b>Balances (in USD)</b>:
@@ -1093,19 +1095,20 @@ class Worker(WorkerBase):
 				{format_line(" Bc/Bo:", format_percentage(self.summary.token.base.current_initial_pnl))}
 				{format_line(" Bc/Bp:", format_percentage(self.summary.token.base.current_previous_pnl))}
 				<b>Price</b>:
-				{format_line(f" Used ({self._price_strategy.name}):", format_currency(self.summary.price.used_price, 6))}
-				{format_line(" Ticker:", format_currency(self.summary.price.last_filled_order_price, 6))}
+				{format_line(f" Used:", format_currency(self.summary.price.used_price, 6))}
+				{format_line(" Ticker:", format_currency(self.summary.price.ticker_price, 6))}
+				{format_line(" Last fill:", format_currency(self.summary.price.last_filled_order_price, 6))}
 				<b>Orders</b>:
 				<b> Quantity</b>:
 				{format_line("  New:", str(len(self.summary.orders.new)))}
-				{format_line("  Canceled:", str(len(self.summary.orders.canceled)))}
-				"""
+				{format_line("  Canceled:", str(len(self.summary.orders.canceled)))}\
+			"""
 		)
 
 		if new_orders_summary:
-			summary += f"""<b> New:</b>\n{new_orders_summary}"""
+			summary += f"""\n<b> New:</b>\n{new_orders_summary}"""
 
 		if canceled_orders_summary:
-			summary += f"""<b> Canceled:</b>\n{canceled_orders_summary}"""
+			summary += f"""\n<b> Canceled:</b>\n{canceled_orders_summary}"""
 
 		return summary
