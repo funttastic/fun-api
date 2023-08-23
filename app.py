@@ -30,7 +30,6 @@ properties.load(app)
 from logger import logger
 from telegram_connection import start_telegram_bot
 
-
 tasks: DotMap[str, asyncio.Task] = DotMap({
 })
 
@@ -132,7 +131,7 @@ async def start_rest_api():
 		host=host,
 		port=port,
 		log_level=logging.DEBUG,
-		reload=debug,
+		#reload=debug,
 		# app_dir=os.path.dirname(__file__),
 		ssl_certfile=certificates.server_certificate,
 		ssl_keyfile=certificates.server_private_key,

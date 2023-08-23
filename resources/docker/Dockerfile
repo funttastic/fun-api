@@ -32,7 +32,7 @@ RUN set -ex \
 RUN set -ex \
   && mkdir -p /root/.ssh \
   && chmod 0700 /root/.ssh \
-  && ssh-keyscan bitbucket.org > /root/.ssh/known_hosts \
+  && ssh-keyscan github.com > /root/.ssh/known_hosts \
   && set +ex
 
 # Adding the keys and setting the permissions
@@ -46,9 +46,9 @@ RUN \
 
 RUN set -ex \
   && mkdir -p /media/shared \
-  && git clone -b master git@bitbucket.org:funttastic/omniscient.git /tmp/app \
+  && git clone -b $CLONE_BRANCH git@github.com:funttastic/fun-hb-client.git /tmp/app \
   && mkdir /root/app \
-  && mv /tmp/app/modules/path/to/project/* /root/app/ \
+  && mv /tmp/app/* /root/app/ \
   && rm -rf /tmp/app \
   && cd /root/app \
   && pip install -r requirements.txt \

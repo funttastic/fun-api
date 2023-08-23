@@ -8,7 +8,7 @@ telegram:
   token: "<token>"
   chat_id: "<chat_id>"
   parse_mode: "HTML"
-  level: 20 # 20 -> INFO
+  level: 30 # 30 -> WARNING
 hummingbot:
   gateway:
     host: https://localhost
