@@ -43,7 +43,12 @@ class Telegram(object):
 
 telegram = Telegram.instance()
 
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	chat_id = update.message.chat_id
+	if chat_id != telegram.chat_id:
+		return
+
 	if not context.args:
 		telegram.send("You need to provide the strategy, version and id")
 		return
@@ -61,6 +66,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	chat_id = update.message.chat_id
+	if chat_id != telegram.chat_id:
+		return
+
 	if not context.args:
 		telegram.send("You need to provide the strategy, version and id")
 		return
@@ -78,6 +87,10 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	chat_id = update.message.chat_id
+	if chat_id != telegram.chat_id:
+		return
+
 	if not context.args:
 		telegram.send("You need to provide the strategy, version and id")
 		return
@@ -95,6 +108,10 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	chat_id = update.message.chat_id
+	if chat_id != telegram.chat_id:
+		return
+
 	telegram.send("Sorry, I didn't understand that command.")
 
 
