@@ -308,6 +308,8 @@ class Worker(WorkerBase):
 			bids, asks = parse_order_book(order_book)
 
 			ticker_price = await self._get_market_price(use_cache=False)
+			self.summary.price.ticker_price = ticker_price
+
 			try:
 				last_filled_order_price = await self._get_last_filled_order_price()
 			except Exception as exception:
@@ -337,6 +339,8 @@ class Worker(WorkerBase):
 
 			if self._used_price is None or self._used_price <= DECIMAL_ZERO:
 				raise ValueError(f"Invalid price: {self._used_price}")
+
+			self.summary.price.used_price = self._used_price
 
 			self._order_type = OrderType[self._configuration.strategy.get("order_type", OrderType.LIMIT.name)]
 
