@@ -18,8 +18,8 @@ from hummingbot.router import router
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
 from properties import properties
-from utils import HttpMethod
-from controller import controller_strategy_start, controller_strategy_status
+from utils import HttpMethod, dump
+from controller import controller_strategy_start, controller_strategy_status, controller_strategy_stop
 
 nest_asyncio.apply()
 root_path = os.path.dirname(__file__)
@@ -28,6 +28,7 @@ app = FastAPI(debug=debug, root_path=root_path)
 properties.load(app)
 # Needs to come after properties loading
 from logger import logger
+from telegram_connection import start_telegram_bot
 
 
 tasks: DotMap[str, asyncio.Task] = DotMap({
@@ -100,33 +101,10 @@ async def strategy_stop(request: Request) -> Dict[str, Any]:
 	version = body["version"]
 	id = body["id"]
 
-	full_id = f"""{strategy}:{version}:{id}"""
-
-	try:
-		if processes.get(full_id):
-			tasks[full_id].start.cancel()
-			tasks[full_id].stop = asyncio.create_task(processes[full_id].stop())
-			await tasks[full_id].stop
-
-			return {
-				"message": "Successfully stopped"
-			}
-		else:
-			return {
-				"message": "Process not running"
-			}
-	except Exception as exception:
-		if tasks.get(full_id):
-			tasks[full_id].start.cancel()
-			await tasks[full_id].start
-
-		raise exception
-	finally:
-		processes[full_id] = None
-		tasks[full_id].start = None
+	return await controller_strategy_stop(strategy, version, id)
 
 
-def start():
+async def start_rest_api():
 	signal.signal(signal.SIGTERM, shutdown)
 	signal.signal(signal.SIGINT, shutdown)
 
@@ -149,19 +127,21 @@ def start():
 		"certificate_authority_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.certificate_authority_certificate")}""")
 	}, _dynamic=False)
 
-	uvicorn.run(
+	config = uvicorn.Config(
 		"app:app",
 		host=host,
 		port=port,
 		log_level=logging.DEBUG,
 		reload=debug,
-		app_dir=os.path.dirname(__file__),
+		# app_dir=os.path.dirname(__file__),
 		ssl_certfile=certificates.server_certificate,
 		ssl_keyfile=certificates.server_private_key,
 		ssl_keyfile_password=certificates.server_private_key_password,
 		ssl_ca_certs=certificates.certificate_authority_certificate,
 		ssl_cert_reqs=ssl.CERT_REQUIRED
 	)
+	server = uvicorn.Server(config)
+	await server.serve()
 
 
 # noinspection PyUnusedLocal
@@ -182,6 +162,9 @@ def shutdown_helper():
 
 if __name__ == '__main__':
 	try:
-		start()
+		loop = asyncio.get_event_loop()
+		loop.create_task(start_telegram_bot())
+		loop.create_task(start_rest_api())
+		loop.run_forever()
 	finally:
 		shutdown_helper()

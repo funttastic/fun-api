@@ -53,3 +53,29 @@ async def controller_strategy_status(strategy: str, version: str, id: str) -> Di
         tasks[full_id].start = None
 
         raise exception
+
+async def controller_strategy_stop(strategy: str, version: str, id: str):
+    full_id = f"""{strategy}:{version}:{id}"""
+
+    try:
+        if processes.get(full_id):
+            tasks[full_id].start.cancel()
+            tasks[full_id].stop = asyncio.create_task(processes[full_id].stop())
+            await tasks[full_id].stop
+
+            return {
+                "message": "Successfully stopped"
+            }
+        else:
+            return {
+                "message": "Process not running"
+            }
+    except Exception as exception:
+        if tasks.get(full_id):
+            tasks[full_id].start.cancel()
+            await tasks[full_id].start
+
+        raise exception
+    finally:
+        processes[full_id] = None
+        tasks[full_id].start = None
