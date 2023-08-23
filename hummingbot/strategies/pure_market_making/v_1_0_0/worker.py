@@ -1055,9 +1055,9 @@ class Worker(WorkerBase):
 		textwrap.dedent(
 			f"""\
 				<b>Settings</b>:
-				{format_line("OrderType: ", self._order_type.name)}
-				{format_line("PriceStrategy: ", self._price_strategy.name)}
-				{format_line("MiddlePriceStrategy: ", self._middle_price_strategy.name)}\
+				{format_line("OrderType: ", self._order_type.name, 21)}
+				{format_line("PriceStrategy: ", self._price_strategy.name, 21)}
+				{format_line("MiddlePriceStrategy: ", self._middle_price_strategy.name, 21)}\
 			"""
 		)
 
