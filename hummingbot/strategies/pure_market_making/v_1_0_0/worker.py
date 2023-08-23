@@ -1055,20 +1055,16 @@ class Worker(WorkerBase):
 
 			canceled_orders_summary = format_lines(groups)
 
-		summary +=\
-		textwrap.dedent(
-			f"""\n\n\
-				<b>Settings</b>:
-				 OrderType: {self._order_type.name}
-				 PriceStrategy: {self._price_strategy.name}
-				 MiddlePriceStrategy: {self._middle_price_strategy.name}\
-			"""
-		)
-
 		summary += textwrap.dedent(
 			f"""\n\n\
-				<b>Market</b>: <b>{self._market.name}</b>
+				<b>Worker</b>
+				 Id: {self._client_id}
+				 Network: {self._configuration.network}
+				 Market: <b>{self._market.name}</b>
+				 Wallet: ...{str(self._wallet_address)[-4:]}
+				 
 				{format_line("<b>PnL</b>: ", format_percentage(self.summary.wallet.current_initial_pnl), alignment_column + 7)}
+				
 				<b>Balances (in USD)</b>:
 				<b> Total</b>:
 				{format_line(f"  Free:", format_currency(self.summary.balances.total.free, 4))}
@@ -1113,6 +1109,16 @@ class Worker(WorkerBase):
 
 		if canceled_orders_summary:
 			summary += f"""\n<b> Canceled:</b>\n{canceled_orders_summary}"""
+
+		summary +=\
+		textwrap.dedent(
+			f"""\n\n\
+				<b>Settings</b>:
+				 OrderType: {self._order_type.name}
+				 PriceStrategy: {self._price_strategy.name}
+				 MiddlePriceStrategy: {self._middle_price_strategy.name}\
+			"""
+		)
 
 		return summary
 	
