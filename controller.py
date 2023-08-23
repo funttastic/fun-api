@@ -12,73 +12,73 @@ processes: DotMap[str, StrategyBase] = DotMap({
 
 
 async def controller_strategy_start(strategy: str, version: str, id: str) -> Dict[str, Any]:
-    full_id = f"""{strategy}:{version}:{id}"""
+	full_id = f"""{strategy}:{version}:{id}"""
 
-    try:
-        class_reference = Strategy.from_id_and_version(strategy, version).value
-        if not processes.get(full_id):
-            processes[full_id] = class_reference(id)
-            tasks[full_id].start = asyncio.create_task(processes[full_id].start())
+	try:
+		class_reference = Strategy.from_id_and_version(strategy, version).value
+		if not processes.get(full_id):
+			processes[full_id] = class_reference(id)
+			tasks[full_id].start = asyncio.create_task(processes[full_id].start())
 
-            return {
-                "message": "Successfully started"
-            }
-        else:
-            return {
-                "message": "Already running"
-            }
-    except Exception as exception:
-        if tasks.get(full_id):
-            tasks[full_id].start.cancel()
-            await tasks[full_id].start
-        processes[full_id] = None
-        tasks[full_id].start = None
+			return {
+				"message": "Successfully started"
+			}
+		else:
+			return {
+				"message": "Already running"
+			}
+	except Exception as exception:
+		if tasks.get(full_id):
+			tasks[full_id].start.cancel()
+			await tasks[full_id].start
+		processes[full_id] = None
+		tasks[full_id].start = None
 
-        raise exception
+		raise exception
 
 
 async def controller_strategy_status(strategy: str, version: str, id: str) -> Dict[str, Any]:
-    full_id = f"""{strategy}:{version}:{id}"""
+	full_id = f"""{strategy}:{version}:{id}"""
 
-    try:
-        if processes.get(full_id):
-            return processes[full_id].get_status()
-        else:
-            return {
-                "message": "Process not running"
-            }
-    except Exception as exception:
-        if tasks.get(full_id):
-            tasks[full_id].start.cancel()
-            await tasks[full_id].start
-        processes[full_id] = None
-        tasks[full_id].start = None
+	try:
+		if processes.get(full_id):
+			return processes[full_id].get_status()
+		else:
+			return {
+				"message": "Process not running"
+			}
+	except Exception as exception:
+		if tasks.get(full_id):
+			tasks[full_id].start.cancel()
+			await tasks[full_id].start
+		processes[full_id] = None
+		tasks[full_id].start = None
 
-        raise exception
+		raise exception
 
 
 async def controller_strategy_stop(strategy: str, version: str, id: str):
-    full_id = f"""{strategy}:{version}:{id}"""
+	full_id = f"""{strategy}:{version}:{id}"""
 
-    try:
-        if processes.get(full_id):
-            tasks[full_id].start.cancel()
-            tasks[full_id].stop = asyncio.create_task(processes[full_id].stop())
-            await tasks[full_id].stop
+	try:
+		if processes.get(full_id):
+			tasks[full_id].start.cancel()
+			tasks[full_id].stop = asyncio.create_task(processes[full_id].stop())
+			await tasks[full_id].stop
 
-            return {
-                "message": "Successfully stopped"
-            }
-        else:
-            return {
-                "message": "Process not running"
-            }
-    except Exception as exception:
-        if tasks.get(full_id):
-            tasks[full_id].start.cancel()
-            await tasks[full_id].start
+			return {
+				"message": "Successfully stopped"
+			}
+		else:
+			return {
+				"message": "Process not running"
+			}
+	except Exception as exception:
+		if tasks.get(full_id):
+			tasks[full_id].start.cancel()
+			await tasks[full_id].start
 
-        raise exception
-    finally:
-        processes[full_id] = None
-        tasks[full_id].start = None
+		raise exception
+	finally:
+		processes[full_id] = None
+		tasks[full_id].start = None
