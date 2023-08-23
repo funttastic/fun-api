@@ -79,6 +79,11 @@ async def strategy_start(request: Request) -> Dict[str, Any]:
 	full_id = f"""{strategy}:{version}:{id}"""
 
 	try:
+		import hummingbot.strategies.pure_market_making.v_1_0_0.supervisor
+		import hummingbot.strategies.pure_market_making.v_1_0_0.worker
+		importlib.reload(hummingbot.strategies.pure_market_making.v_1_0_0.supervisor)
+		importlib.reload(hummingbot.strategies.pure_market_making.v_1_0_0.worker)
+
 		class_reference = Strategy.from_id_and_version(strategy, version).value
 		if not processes.get(full_id):
 			processes[full_id] = class_reference(id)
@@ -190,7 +195,7 @@ def start():
 		host=host,
 		port=port,
 		log_level=logging.DEBUG,
-		reload=debug,
+		# reload=debug,
 		app_dir=os.path.dirname(__file__),
 		ssl_certfile=certificates.server_certificate,
 		ssl_keyfile=certificates.server_private_key,
