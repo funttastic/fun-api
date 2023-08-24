@@ -4,7 +4,7 @@ import os
 import urllib3
 from dotmap import DotMap
 
-from properties import properties
+from core.properties import properties
 
 def test_01():
 	app = DotMap({

@@ -5,8 +5,8 @@ from singleton.singleton import ThreadSafeSingleton
 from telegram import Update
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, ContextTypes, CommandHandler
 
-from controller import controller_strategy_stop, controller_strategy_start, controller_strategy_status
-from properties import properties
+from core.controller import controller_strategy_stop, controller_strategy_start, controller_strategy_status
+from core.properties import properties
 from utils import dump
 
 

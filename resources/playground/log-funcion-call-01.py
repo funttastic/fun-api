@@ -3,7 +3,7 @@ import os
 import nest_asyncio
 from fastapi import FastAPI
 
-from properties import properties
+from core.properties import properties
 
 nest_asyncio.apply()
 root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.join(__file__))))

@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 from singleton.singleton import ThreadSafeSingleton
 
-from properties import properties
+from core.properties import properties
 
 
 @ThreadSafeSingleton

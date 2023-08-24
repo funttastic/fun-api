@@ -13,15 +13,15 @@ class Base(ABC):
 
 	def log(self, level: int, message: str = "", object: Any = None):
 		# noinspection PyUnresolvedReferences
-		from logger import logger
+		from core.logger import logger
 		logger.log(level=level, prefix=self.id, message=message, object=object, frame=inspect.currentframe().f_back.f_back)
 
 	def telegram_log(self, level: int, message: str = "", object: Any = None):
 		# noinspection PyUnresolvedReferences
-		from telegram_connection import telegram
+		from core.telegram_connection import telegram
 		telegram.log(level=level, prefix=self.id, message=message, object=object)
 
 	def ignore_exception(self, exception: Exception):
 		# noinspection PyUnresolvedReferences
-		from logger import logger
+		from core.logger import logger
 		logger.ignore_exception(prefix=self.id, exception=exception, frame=inspect.currentframe().f_back.f_back)

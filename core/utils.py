@@ -86,7 +86,7 @@ def automatic_retry_with_timeout(retries=1, delay=0, timeout=None):
 def log_function_call(func):
 	@wraps(func)
 	def wrapper(*args, **kwargs):
-		from logger import logger
+		from core.logger import logger
 
 		frame = inspect.currentframe().f_back
 
@@ -111,7 +111,7 @@ def log_function_call(func):
 def log_function_exception(func):
 	@wraps(func)
 	def wrapper(*args, **kwargs):
-		from logger import logger
+		from core.logger import logger
 
 		frame = inspect.currentframe().f_back
 		fully_qualified_name = func.__qualname__

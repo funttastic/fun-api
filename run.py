@@ -4,7 +4,7 @@ from dotmap import DotMap
 
 import urllib3
 
-from properties import properties
+from core.properties import properties
 
 if __name__ == '__main__':
 	app = DotMap({

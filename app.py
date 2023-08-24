@@ -13,13 +13,12 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
-from constants import constants
+from core.constants import constants
+from core.controller import controller_strategy_start, controller_strategy_status, controller_strategy_stop
+from core.properties import properties
+from core.utils import HttpMethod
 from hummingbot.router import router
 from hummingbot.strategies.strategy_base import StrategyBase
-from hummingbot.strategies.types import Strategy
-from properties import properties
-from utils import HttpMethod, dump
-from controller import controller_strategy_start, controller_strategy_status, controller_strategy_stop
 
 nest_asyncio.apply()
 root_path = os.path.dirname(__file__)
@@ -27,8 +26,8 @@ debug = properties.get_or_default('server.debug', True)
 app = FastAPI(debug=debug, root_path=root_path)
 properties.load(app)
 # Needs to come after properties loading
-from logger import logger
-from telegram_connection import start_telegram_bot
+from core.logger import logger
+from core.telegram_connection import start_telegram_bot
 
 tasks: DotMap[str, asyncio.Task] = DotMap({
 })

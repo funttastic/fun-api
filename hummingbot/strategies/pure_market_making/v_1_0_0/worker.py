@@ -12,6 +12,8 @@ from typing import Any, List, Optional
 import yaml
 from dotmap import DotMap
 
+from core.properties import properties
+from core.utils import dump, deep_merge
 from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
@@ -20,8 +22,6 @@ from hummingbot.utils import OrderSide, OrderType, Order, OrderStatus, \
 	MiddlePriceStrategy, PriceStrategy
 from hummingbot.utils import calculate_middle_price, format_currency, format_lines, format_line, format_percentage, \
 	alignment_column, parse_order_book
-from properties import properties
-from utils import dump, deep_merge, log_class_exceptions
 
 
 # @log_class_exceptions

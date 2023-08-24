@@ -3,9 +3,9 @@ import os
 import yaml
 from singleton.singleton import ThreadSafeSingleton
 
-from constants import constants
+from core.constants import constants
 from utils import deep_merge
-from extensions import DotMap
+from core.extensions import DotMap
 
 
 @ThreadSafeSingleton

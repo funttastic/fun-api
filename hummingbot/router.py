@@ -4,8 +4,8 @@ import requests
 from dotmap import DotMap
 from typing import Any
 
-from utils import HttpMethod
-from properties import properties
+from core.utils import HttpMethod
+from core.properties import properties
 
 
 async def router(

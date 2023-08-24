@@ -19,7 +19,7 @@ from hummingbot.constants import VWAP_THRESHOLD, DECIMAL_ZERO
 
 alignment_column = 12
 
-from utils import dump
+from core.utils import dump
 
 
 class OrderStatus(Enum):
