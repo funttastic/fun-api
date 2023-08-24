@@ -9,6 +9,7 @@ logging:
   format: '%(asctime)s %(levelname)s %(message)s'
   use_telegram: false
 telegram:
+  enabled: true
   level: 30 # 30 -> WARNING
 clock:
   delay: 1

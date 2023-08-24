@@ -27,7 +27,7 @@ app = FastAPI(debug=debug, root_path=root_path)
 properties.load(app)
 # Needs to come after properties loading
 from core.logger import logger
-from core.telegram import start_telegram_bot
+from core.telegram.telegram import telegram
 
 tasks: DotMap[str, asyncio.Task] = DotMap({
 })
@@ -102,7 +102,7 @@ async def strategy_stop(request: Request) -> Dict[str, Any]:
 	return await controller_strategy_stop(strategy, version, id)
 
 
-async def start_rest_api():
+async def start_api():
 	signal.signal(signal.SIGTERM, shutdown)
 	signal.signal(signal.SIGINT, shutdown)
 
@@ -145,8 +145,8 @@ async def start_rest_api():
 async def main():
 	loop = asyncio.get_event_loop()
 
-	tasks.telegram = loop.create_task(start_telegram_bot())
-	tasks.api = loop.create_task(start_rest_api())
+	tasks.telegram = loop.create_task(telegram.start_command_listener())
+	tasks.api = loop.create_task(start_api())
 
 	await asyncio.gather(*[tasks.telegram, tasks.api])
 
