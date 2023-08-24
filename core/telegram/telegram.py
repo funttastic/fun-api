@@ -22,9 +22,10 @@ class Telegram(object):
 		self.final_url: str = self.url.replace("{token}", self.token)
 		self.level: bool = properties.get('telegram.level')
 		self.enabled: bool = properties.get('telegram.enabled')
+		self.listen_commands: bool = properties.get('telegram.listen_commands')
 
 	async def start_command_listener(self):
-		if not self.enabled:
+		if not self.enabled or not self.listen_commands:
 			return
 
 		application = ApplicationBuilder().token(self.token).build()

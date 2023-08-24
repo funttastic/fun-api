@@ -281,7 +281,7 @@ class Worker(WorkerBase):
 					proposed_orders: List[Order] = await self._create_proposal()
 					candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
 
-					await self._replace_orders(candidate_orders)
+					await self._place_orders(candidate_orders)
 
 					open_orders = await self._get_open_orders(use_cache=False)
 					open_orders_ids = list(open_orders.keys())
@@ -759,7 +759,7 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	async def _replace_orders(self, proposal: List[Order]) -> DotMap[str, Any]:
+	async def _place_orders(self, proposal: List[Order]) -> DotMap[str, Any]:
 		try:
 			self.log(INFO, "start")
 
@@ -1140,14 +1140,14 @@ class Worker(WorkerBase):
 				<b> Quantity</b>:
 				{format_line("  New:", str(len(self.summary.orders.new)), alignment_column - 5)}
 				{format_line("  Canceled:", str(len(self.summary.orders.canceled)), alignment_column - 5)}
-				<b> Gas Payed</b>:
-				{format_line("  Token:", self.summary.gas_payed.token.symbol)}
-				<b>   Token Amounts</b>:
+				<b> Fees</b>:
+				{format_line("  Native Token:", self.summary.gas_payed.token.symbol)}
+				<b>   {self.summary.gas_payed.token.symbol}</b>:
 				{format_line("   Create:", format_currency(self.summary.gas_payed.token_amounts.creation, 5))}
 				{format_line("   Cancel:", format_currency(self.summary.gas_payed.token_amounts.cancellation, 5))}
 				{format_line("   Withdraw:", format_currency(self.summary.gas_payed.token_amounts.withdrawing, 5))}
 				{format_line("   Total:", format_currency(self.summary.gas_payed.token_amounts.total, 5))}
-				<b>   USD Amounts (~)</b>:
+				<b>   USD (~)</b>:
 				{format_line("   Create:", format_currency(self.summary.gas_payed.usd_amounts.creation, 5))}
 				{format_line("   Cancel:", format_currency(self.summary.gas_payed.usd_amounts.cancellation, 5))}
 				{format_line("   Withdraw:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing, 5))}

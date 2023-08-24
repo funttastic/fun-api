@@ -10,6 +10,7 @@ logging:
   use_telegram: false
 telegram:
   enabled: true
+  listen_commands: true
   level: 30 # 30 -> WARNING
 clock:
   delay: 1
