@@ -16,7 +16,7 @@ from starlette.requests import Request
 from core.constants import constants
 from core.controller import controller_strategy_start, controller_strategy_status, controller_strategy_stop
 from core.properties import properties
-from core.utils import HttpMethod
+from core.types import HttpMethod
 from hummingbot.router import router
 from hummingbot.strategies.strategy_base import StrategyBase
 
@@ -27,7 +27,7 @@ app = FastAPI(debug=debug, root_path=root_path)
 properties.load(app)
 # Needs to come after properties loading
 from core.logger import logger
-from core.telegram_connection import start_telegram_bot
+from core.telegram import start_telegram_bot
 
 tasks: DotMap[str, asyncio.Task] = DotMap({
 })

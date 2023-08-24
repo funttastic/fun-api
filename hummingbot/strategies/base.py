@@ -18,7 +18,7 @@ class Base(ABC):
 
 	def telegram_log(self, level: int, message: str = "", object: Any = None):
 		# noinspection PyUnresolvedReferences
-		from core.telegram_connection import telegram
+		from core.telegram import telegram
 		telegram.log(level=level, prefix=self.id, message=message, object=object)
 
 	def ignore_exception(self, exception: Exception):

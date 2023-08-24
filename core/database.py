@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-from properties import properties
+from core.properties import properties
 
 
 class Database(object):

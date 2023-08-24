@@ -5,9 +5,9 @@ from pathlib import Path
 from singleton.singleton import ThreadSafeSingleton
 from typing import Any
 
-from telegram_connection import telegram
-from utils import dump
-from properties import properties
+from core.telegram import telegram
+from core.utils import dump
+from core.properties import properties
 
 
 @ThreadSafeSingleton

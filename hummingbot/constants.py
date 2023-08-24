@@ -23,3 +23,4 @@ DELAY_BETWEEN_RETRIES = 3
 TIMEOUT = 60
 
 VWAP_THRESHOLD = 50
+alignment_column = 12

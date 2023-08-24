@@ -6,7 +6,8 @@ from dotmap import DotMap
 
 from hummingbot.constants import NUMBER_OF_RETRIES, DELAY_BETWEEN_RETRIES, TIMEOUT
 from hummingbot.router import router
-from core.utils import automatic_retry_with_timeout, HttpMethod
+from core.decorators import automatic_retry_with_timeout
+from core.types import HttpMethod
 
 
 class Gateway:

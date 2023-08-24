@@ -4,7 +4,7 @@ import requests
 from dotmap import DotMap
 from typing import Any
 
-from core.utils import HttpMethod
+from core.types import HttpMethod
 from core.properties import properties
 
 

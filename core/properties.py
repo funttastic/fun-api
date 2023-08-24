@@ -4,7 +4,7 @@ import yaml
 from singleton.singleton import ThreadSafeSingleton
 
 from core.constants import constants
-from utils import deep_merge
+from core.utils import deep_merge
 from core.extensions import DotMap
 
 

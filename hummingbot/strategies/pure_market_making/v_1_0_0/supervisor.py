@@ -9,6 +9,7 @@ from typing import Dict, Any
 import yaml
 from dotmap import DotMap
 
+from core.decorators import log_class_exceptions
 from core.properties import properties
 from core.utils import deep_merge
 from core.utils import dump
@@ -18,7 +19,7 @@ from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.worker_base import WorkerBase
 
 
-# @log_class_exceptions
+@log_class_exceptions
 class Supervisor(StrategyBase):
 
 	ID = "pure_market_making"

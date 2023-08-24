@@ -2,12 +2,14 @@ from typing import Any
 
 import requests
 from singleton.singleton import ThreadSafeSingleton
+# noinspection PyUnresolvedReferences
 from telegram import Update
+# noinspection PyUnresolvedReferences
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, ContextTypes, CommandHandler
 
 from core.controller import controller_strategy_stop, controller_strategy_start, controller_strategy_status
 from core.properties import properties
-from utils import dump
+from core.utils import dump
 
 
 @ThreadSafeSingleton

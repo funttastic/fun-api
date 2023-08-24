@@ -6,6 +6,7 @@ from dotmap import DotMap
 
 from core.properties import properties
 
+
 def test_01():
 	app = DotMap({
 		'instance_path':os.path.dirname(os.path.realpath(__file__)),

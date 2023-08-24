@@ -12,19 +12,19 @@ from typing import Any, List, Optional
 import yaml
 from dotmap import DotMap
 
+from core.decorators import log_class_exceptions
 from core.properties import properties
 from core.utils import dump, deep_merge
-from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION
+from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
-from hummingbot.utils import OrderSide, OrderType, Order, OrderStatus, \
-	MiddlePriceStrategy, PriceStrategy
+from hummingbot.types import OrderStatus, OrderType, OrderSide, PriceStrategy, MiddlePriceStrategy, Order
 from hummingbot.utils import calculate_middle_price, format_currency, format_lines, format_line, format_percentage, \
-	alignment_column, parse_order_book
+	parse_order_book
 
 
-# @log_class_exceptions
+@log_class_exceptions
 class Worker(WorkerBase):
 	CATEGORY = "worker"
 
