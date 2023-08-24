@@ -15,24 +15,44 @@ class Logger(object):
 
 	def __init__(self):
 		self.level = properties.get('logging.level')
+		self.levels = properties.get('logging.levels')
 		self.telegram_level: bool = properties.get('telegram.level')
 		self.use_telegram: bool = properties.get('logging.use_telegram')
 
 		directory = properties.get('logging.directory')
 		Path(directory).mkdir(parents=True, exist_ok=True)
 
-		filename = properties.get('logging.filename')
-
 		format = properties.get('logging.format')
 
-		logging.basicConfig(
-			level=self.level,
-			format=format,
-			handlers=[
-				logging.StreamHandler(),
-				logging.FileHandler(f'{directory}/{filename}', mode='a')
-			]
-		)
+		logger = logging.getLogger()
+		logger.setLevel(logging.DEBUG)
+
+		for level in self.levels:
+			file_handler = logging.FileHandler(f'{directory}/{str(logging.getLevelName(level)).lower()}.log', mode='a')
+			file_handler.setLevel(level)
+
+			# Create a filter to only log messages of a specific level
+			class SpecificLevelFilter(logging.Filter):
+				def __init__(self, level):
+					super().__init__()
+					self.__level = level
+
+				def filter(self, logRecord):
+					return logRecord.levelno == self.__level
+
+			file_handler.addFilter(SpecificLevelFilter(level))
+			file_handler.setFormatter(logging.Formatter(format))
+			logger.addHandler(file_handler)
+
+		file_handler = logging.FileHandler(f'{directory}/all.log', mode='a')
+		file_handler.setLevel(logging.DEBUG)
+		file_handler.setFormatter(logging.Formatter(format))
+		logger.addHandler(file_handler)
+
+		stream_handler = logging.StreamHandler()
+		stream_handler.setFormatter(logging.Formatter(format))
+		stream_handler.setLevel(self.level)
+		logger.addHandler(stream_handler)
 
 	def log(self, level: int, message: str = "", object: Any = None, prefix: str = "", frame: Any = None):
 		if not frame:

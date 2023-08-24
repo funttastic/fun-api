@@ -2,13 +2,14 @@ server:
   environment: development
   debug: true
 logging:
+  level: 30 # 30 -> WARNING
   use_telegram: false
 telegram:
+  level: 30 # 30 -> WARNING
   url: "https://api.telegram.org/bot{token}/sendMessage"
   token: "<token>"
   chat_id: "<chat_id>"
   parse_mode: "HTML"
-  level: 30 # 30 -> WARNING
 hummingbot:
   gateway:
     host: https://localhost

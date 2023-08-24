@@ -3,11 +3,11 @@ server:
   port: 5000
   base_url: https://localhost:5000
 logging:
-  directory: /tmp/app/<template>
-  filename: all.log
   level: 30 # 30 -> WARNING
-  format: '%(asctime)s %(levelname)s %(message)s'
+  levels: [10, 20, 30, 40, 50]
   use_telegram: false
+  directory: resources/logs
+  format: '%(asctime)s %(levelname)s %(message)s'
 telegram:
   enabled: true
   listen_commands: true
