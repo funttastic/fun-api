@@ -23,6 +23,7 @@ class Telegram(object):
 		self.level: bool = properties.get('telegram.level')
 		self.enabled: bool = properties.get('telegram.enabled')
 		self.listen_commands: bool = properties.get('telegram.listen_commands')
+		self.users_to_notify: str = ', '.join(properties.get_or_default('telegram.notify.users', []))
 
 	async def start_command_listener(self):
 		if not self.enabled or not self.listen_commands:

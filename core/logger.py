@@ -2,12 +2,13 @@ import inspect
 import logging
 import traceback
 from pathlib import Path
-from singleton.singleton import ThreadSafeSingleton
 from typing import Any
 
-from core.telegram.telegram import telegram
-from core.utils import dump
+from singleton.singleton import ThreadSafeSingleton
+
 from core.properties import properties
+from core.telegram.telegram import telegram
+from core.utils import dump, escape_html
 
 
 @ThreadSafeSingleton
@@ -70,6 +71,10 @@ class Logger(object):
 		logging.log(level, message)
 
 		if self.use_telegram and level >= self.level and level >= self.telegram_level:
+			if level >= logging.ERROR and not "/cc " in message:
+				message += f"\n/cc {telegram.users_to_notify}"
+				message = escape_html(message)
+
 			telegram.send(message)
 
 	def ignore_exception(self, exception: Exception, prefix: str = "", frame=inspect.currentframe().f_back):
@@ -78,7 +83,7 @@ class Logger(object):
 
 		message = f"""Ignored exception: {type(exception).__name__} {str(exception)}:\n{formatted_exception}"""
 
-		self.log(logging.WARNING, prefix=prefix, message=message, frame=frame)
+		self.log(logging.ERROR, prefix=prefix, message=message, frame=frame)
 
 
 logger = Logger.instance()

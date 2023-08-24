@@ -48,3 +48,7 @@ def dump(target: Any):
 		return jsonpickle.encode(target, unpicklable=True, indent=2)
 	except (Exception,):
 		return target
+
+
+def escape_html(text: str) -> str:
+	return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&apos;")

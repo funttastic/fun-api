@@ -1,11 +1,12 @@
 import json
 import os
-import requests
-from dotmap import DotMap
 from typing import Any
 
-from core.types import HttpMethod
+import requests
+from dotmap import DotMap
+
 from core.properties import properties
+from core.types import HttpMethod
 
 
 async def router(

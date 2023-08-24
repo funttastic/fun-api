@@ -10,6 +10,8 @@ telegram:
   token: "<token>"
   chat_id: "<chat_id>"
   parse_mode: "HTML"
+  notify:
+    users: []
 hummingbot:
   gateway:
     host: https://localhost
