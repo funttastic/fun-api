@@ -1072,8 +1072,8 @@ class Worker(WorkerBase):
 			groups: array[array[str]] = [[], [], [], [], [], [], [], []]
 			for order in orders:
 				groups[0].append(order.id)
-				groups[1].append(str(order.side).lower())
 				groups[2].append(str(order.type).lower())
+				groups[1].append(str(order.side).lower())
 				groups[3].append(format_currency(Decimal(order.amount), 3))
 				groups[4].append(self._base_token.symbol)
 				groups[5].append("by")
