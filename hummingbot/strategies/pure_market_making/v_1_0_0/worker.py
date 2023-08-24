@@ -87,6 +87,21 @@ class Worker(WorkerBase):
 					"new": DotMap({}, _dynamic=False),
 					"canceled": DotMap({}, _dynamic=False),
 				},
+				"gas_payed": {
+					"token": KUJIRA_NATIVE_TOKEN,
+					"token_amounts": {
+						"creation": DECIMAL_ZERO,
+						"cancellation": DECIMAL_ZERO,
+						"withdrawing": DECIMAL_ZERO,
+						"total": DECIMAL_ZERO
+					},
+					"usd_amounts": {
+						"creation": DECIMAL_ZERO,
+						"cancellation": DECIMAL_ZERO,
+						"withdrawing": DECIMAL_ZERO,
+						"total": DECIMAL_ZERO
+					}
+				},
 				"wallet": {
 					"initial_value": DECIMAL_ZERO,
 					"previous_value": DECIMAL_ZERO,
@@ -771,6 +786,12 @@ class Worker(WorkerBase):
 
 					self._currently_tracked_orders_ids = list(response.keys())
 					self._all_tracked_orders_ids.extend(self._currently_tracked_orders_ids)
+
+					if response:
+						if not self._balances:
+							await self._get_balances(use_cache=False)
+						self._calculate_gas_sum(response, "creation")
+
 				else:
 					self.log(WARNING, "No order was defined for placement/replacement. Skipping.", True)
 					response = []
@@ -813,6 +834,11 @@ class Worker(WorkerBase):
 					response = await Gateway.kujira_delete_orders(request)
 
 					self.summary.orders.canceled = response
+
+					if response:
+						if not self._balances:
+							await self._get_balances(use_cache=False)
+						self._calculate_gas_sum(response, "cancellation")
 				else:
 					self.log(DEBUG, "No order needed to be canceled.")
 					response = {}
@@ -845,6 +871,11 @@ class Worker(WorkerBase):
 				self.log(DEBUG, f"""gateway.clob_delete_orders: request:\n{dump(request)}""")
 
 				response = await Gateway.kujira_delete_orders_all(request)
+
+				if response:
+					if not self._balances:
+						await self._get_balances(use_cache=False)
+					self._calculate_gas_sum(response, "cancellation")
 			except Exception as exception:
 				response = traceback.format_exc()
 
@@ -871,6 +902,9 @@ class Worker(WorkerBase):
 				self.log(DEBUG, f"""gateway.kujira_post_market_withdraw: request:\n{dump(request)}""")
 
 				response = await Gateway.kujira_post_market_withdraw(request)
+
+				# if response:
+				# 	self._calculate_gas_sum(response, "withdrawing")
 			except Exception as exception:
 				response = traceback.format_exc()
 
@@ -1100,7 +1134,20 @@ class Worker(WorkerBase):
 				<b>Orders</b>:
 				<b> Quantity</b>:
 				{format_line("  New:", str(len(self.summary.orders.new)), alignment_column - 5)}
-				{format_line("  Canceled:", str(len(self.summary.orders.canceled)), alignment_column - 5)}\
+				{format_line("  Canceled:", str(len(self.summary.orders.canceled)), alignment_column - 5)}
+				<b> Gas Payed</b>:
+				{format_line("  Token:", self.summary.gas_payed.token.symbol)}
+				<b>   Token Amounts</b>:
+				{format_line("   Create:", format_currency(self.summary.gas_payed.token_amounts.creation, 5))}
+				{format_line("   Cancel:", format_currency(self.summary.gas_payed.token_amounts.cancellation, 5))}
+				{format_line("   Withdraw:", format_currency(self.summary.gas_payed.token_amounts.withdrawing, 5))}
+				{format_line("   Total:", format_currency(self.summary.gas_payed.token_amounts.total, 5))}
+				<b>   USD Amounts (~)</b>:
+				{format_line("   Create:", format_currency(self.summary.gas_payed.usd_amounts.creation, 5))}
+				{format_line("   Cancel:", format_currency(self.summary.gas_payed.usd_amounts.cancellation, 5))}
+				{format_line("   Withdraw:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing, 5))}
+				{format_line("   Total:", format_currency(self.summary.gas_payed.usd_amounts.total, 5))}\
+				
 			"""
 		)
 
@@ -1127,3 +1174,25 @@ class Worker(WorkerBase):
 		module = importlib.reload(importlib.import_module(self.__module__))
 
 		self.__class__ = getattr(module, self.__class__.__name__)
+
+	def _calculate_gas_sum(self, response: Any, transaction_type: str):
+		try:
+			self.log(DEBUG, f"""start""")
+
+			for order in response.values():
+				self.summary.gas_payed.token_amounts[transaction_type] += Decimal(order.fee)
+				self.summary.gas_payed.token_amounts.total += Decimal(order.fee)
+				values = [
+					Decimal(self._balances.tokens[self.summary.gas_payed.token.id].free),
+					Decimal(self._balances.tokens[self.summary.gas_payed.token.id].inUSD.free)
+				]
+				max_value = max(*values)
+				min_value = min(*values)
+				factor = min_value / max_value
+				self.summary.gas_payed.usd_amounts[transaction_type] += Decimal(order.fee) * factor
+				self.summary.gas_payed.usd_amounts.total += Decimal(order.fee) * factor
+		except Exception as exception:
+			self.log(DEBUG, f"""An error occurred during tax sum calculation...""")
+			raise exception
+		finally:
+			self.log(DEBUG, f"""end""")
