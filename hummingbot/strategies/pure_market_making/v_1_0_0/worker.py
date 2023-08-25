@@ -27,6 +27,7 @@ from hummingbot.utils import calculate_middle_price, format_currency, format_lin
 @log_class_exceptions
 class Worker(WorkerBase):
 	CATEGORY = "worker"
+	_first_time = True
 
 	def __init__(self, parent: Any, client_id: str):
 		try:
@@ -45,7 +46,6 @@ class Worker(WorkerBase):
 			self._can_run: bool = True
 			self._is_busy: bool = False
 			self._initialized = False
-			self._first_time = True
 			self._refresh_timestamp: int = 0
 			self._wallet_address = None
 			self._market: DotMap[str, Any]
@@ -60,6 +60,7 @@ class Worker(WorkerBase):
 			self._currently_tracked_orders_ids: [str] = []
 			self._open_orders: DotMap[str, Any]
 			self._filled_orders: DotMap[str, Any]
+			self._max_liquidity_in_dollars: None
 
 			self._wallet_previous_value: Optional[float] = None
 			self._token_previous_price: Optional[float] = None
@@ -154,6 +155,14 @@ class Worker(WorkerBase):
 			configuration = deep_merge(copy.deepcopy(configuration), target)
 
 		self._configuration = DotMap(configuration, _dynamic=False)
+
+		if self._first_time:
+			self._max_liquidity_in_dollars = copy.deepcopy(target["strategy"]["layers"])
+			for layer in self._max_liquidity_in_dollars:
+				layer["bid"].pop("quantity")
+				layer["bid"].pop("spread_percentage")
+				layer["ask"].pop("quantity")
+				layer["ask"].pop("spread_percentage")
 
 		self.log(INFO, "end")
 
@@ -321,6 +330,20 @@ class Worker(WorkerBase):
 			self.log(INFO, "end")
 
 	async def _create_proposal(self) -> List[Order]:
+		all_max_liquidity = [
+			value for layer in self._max_liquidity_in_dollars
+			for side in layer.values()
+			for key, value in side.items()
+			if key == 'max_liquidity_in_dollars'
+		]
+
+		if all(value <= 0 for value in all_max_liquidity):
+			self.log(
+				CRITICAL,
+				f"""The bot has been stopped because the max_liquidity_in_dollars has been reached for all layers."""
+			)
+			await self.stop()
+
 		try:
 			self.log(INFO, "start")
 
@@ -382,6 +405,13 @@ class Worker(WorkerBase):
 				if not (bid_quantity > 0):
 					continue
 
+				max_liquidity = self._max_liquidity_in_dollars[index-1]["bid"]["max_liquidity_in_dollars"]
+				if max_liquidity <= 0:
+					self.log(WARNING, f"""The max_liquidity_in_dollars for bid layer {index} has been reached, new orders will not be created for this layer.""")
+					continue
+				else:
+					self._max_liquidity_in_dollars[index-1]["bid"]["max_liquidity_in_dollars"] = max_liquidity - float(bid_size)
+
 				if bid_market_price < minimum_price_increment:
 					self.log(WARNING, f"""Skipping orders placement from layer {index}, bid price too low:\n\n{'{:^30}'.format(round(bid_market_price, 6))}""")
 				elif bid_size < minimum_order_size:
@@ -411,6 +441,13 @@ class Worker(WorkerBase):
 
 				if not (ask_quantity > 0):
 					continue
+
+				max_liquidity = self._max_liquidity_in_dollars[index-1]["ask"]["max_liquidity_in_dollars"]
+				if max_liquidity <= 0:
+					self.log(WARNING, f"""The max_liquidity_in_dollars for ask layer {index} has been reached, new orders will not be created for this layer.""")
+					continue
+				else:
+					self._max_liquidity_in_dollars[index-1]["ask"]["max_liquidity_in_dollars"] = max_liquidity - float(ask_size)
 
 				if ask_market_price < minimum_price_increment:
 					self.log(WARNING, f"""Skipping orders placement from layer {index}, ask price too low:\n\n{'{:^30}'.format(round(ask_market_price, 9))}""", True)
