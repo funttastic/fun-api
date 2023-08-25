@@ -11,7 +11,7 @@ processes: DotMap[str, StrategyBase] = DotMap({
 })
 
 
-async def controller_strategy_start(strategy: str, version: str, id: str) -> Dict[str, Any]:
+async def strategy_start(strategy: str, version: str, id: str) -> Dict[str, Any]:
 	full_id = f"""{strategy}:{version}:{id}"""
 
 	try:
@@ -21,7 +21,7 @@ async def controller_strategy_start(strategy: str, version: str, id: str) -> Dic
 			tasks[full_id].start = asyncio.create_task(processes[full_id].start())
 
 			return {
-				"message": "Successfully started"
+				"message": "Starting..."
 			}
 		else:
 			return {
@@ -37,7 +37,7 @@ async def controller_strategy_start(strategy: str, version: str, id: str) -> Dic
 		raise exception
 
 
-async def controller_strategy_status(strategy: str, version: str, id: str) -> Dict[str, Any]:
+async def strategy_status(strategy: str, version: str, id: str) -> Dict[str, Any]:
 	full_id = f"""{strategy}:{version}:{id}"""
 
 	try:
@@ -57,7 +57,7 @@ async def controller_strategy_status(strategy: str, version: str, id: str) -> Di
 		raise exception
 
 
-async def controller_strategy_stop(strategy: str, version: str, id: str):
+async def strategy_stop(strategy: str, version: str, id: str):
 	full_id = f"""{strategy}:{version}:{id}"""
 
 	try:

@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
 from core.constants import constants
-from core.controller import controller_strategy_start, controller_strategy_status, controller_strategy_stop
+from core import controller
 from core.properties import properties
 from core.types import HttpMethod
 from hummingbot.router import router
@@ -77,7 +77,7 @@ async def strategy_start(request: Request) -> Dict[str, Any]:
 	version = body["version"]
 	id = body["id"]
 
-	return await controller_strategy_start(strategy, version, id)
+	return await controller.strategy_start(strategy, version, id)
 
 
 @app.post("/strategy/status")
@@ -88,7 +88,7 @@ async def strategy_status(request: Request) -> Dict[str, Any]:
 	version = body["version"]
 	id = body["id"]
 
-	return await controller_strategy_status(strategy, version, id)
+	return await controller.strategy_status(strategy, version, id)
 
 
 @app.post("/strategy/stop")
@@ -99,7 +99,7 @@ async def strategy_stop(request: Request) -> Dict[str, Any]:
 	version = body["version"]
 	id = body["id"]
 
-	return await controller_strategy_stop(strategy, version, id)
+	return await controller.strategy_stop(strategy, version, id)
 
 
 async def start_api():

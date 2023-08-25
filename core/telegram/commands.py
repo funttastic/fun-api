@@ -5,7 +5,7 @@ from typing import Any
 from telegram import Update
 from telegram.ext import ContextTypes, MessageHandler, filters, CommandHandler
 
-from core.controller import controller_strategy_start, controller_strategy_stop, controller_strategy_status
+from core import controller
 from core.telegram.telegram import telegram
 from core.utils import dump
 
@@ -34,7 +34,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	strategy = args[0]
 	version = args[1]
 	id = args[2]
-	response = await controller_strategy_start(strategy, version, id)
+	response = await controller.strategy_start(strategy, version, id)
 	telegram.send(dump(response))
 
 
@@ -54,7 +54,7 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	strategy = args[0]
 	version = args[1]
 	id = args[2]
-	response = await controller_strategy_stop(strategy, version, id)
+	response = await controller.strategy_stop(strategy, version, id)
 	telegram.send(dump(response))
 
 
@@ -74,7 +74,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	strategy = args[0]
 	version = args[1]
 	id = args[2]
-	response = await controller_strategy_status(strategy, version, id)
+	response = await controller.strategy_status(strategy, version, id)
 	telegram.send(dump(response))
 
 
