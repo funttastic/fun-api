@@ -1,5 +1,4 @@
 POST https://localhost:5000/strategy/start
-Content-Type: application/json
 
 ###
 
@@ -15,6 +14,10 @@ Content-Type: application/json
 ###
 
 POST https://localhost:5000/strategy/stop
+
+###
+
+POST https://localhost:5000/strategy/stop
 Content-Type: application/json
 
 {
@@ -22,6 +25,10 @@ Content-Type: application/json
 	"version": "1.0.0",
     "id": "id"
 }
+
+###
+
+POST https://localhost:5000/strategy/status
 
 ###
 

@@ -4,6 +4,7 @@ import logging
 import os
 import signal
 import ssl
+from json import JSONDecodeError
 from typing import Any, Dict
 
 import nest_asyncio
@@ -13,8 +14,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
-from core.constants import constants
 from core import controller
+from core.constants import constants
 from core.properties import properties
 from core.types import HttpMethod
 from hummingbot.router import router
@@ -71,21 +72,30 @@ async def root(request: Request, subpath=''):
 
 @app.post("/strategy/start")
 async def strategy_start(request: Request) -> Dict[str, Any]:
-	body = await request.json()
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
 
 	return await controller.strategy_start(body)
 
 
 @app.post("/strategy/status")
 async def strategy_status(request: Request) -> Dict[str, Any]:
-	body = await request.json()
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
 
 	return await controller.strategy_status(body)
 
 
 @app.post("/strategy/stop")
 async def strategy_stop(request: Request) -> Dict[str, Any]:
-	body = await request.json()
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
 
 	return await controller.strategy_stop(body)
 
