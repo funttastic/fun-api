@@ -11,14 +11,31 @@ processes: DotMap[str, StrategyBase] = DotMap({
 })
 
 
-async def strategy_start(strategy: str, version: str, id: str) -> Dict[str, Any]:
-	full_id = f"""{strategy}:{version}:{id}"""
+def sanitize_options(options: DotMap[str, Any]) -> DotMap[str, Any]:
+	default_strategy = Strategy.get_default()
+
+	output = DotMap({
+		"strategy": options.get("strategy", default_strategy.ID),
+		"version": options.get("version", default_strategy.VERSION),
+		"id": options.get("id", "01"),
+		"worker_id": options.get("worker_id", options.get("workerId", None)),
+	})
+
+	output.full_id = f"""{output.strategy}:{output.version}:{output.id}"""
+	output.class_reference = Strategy.from_id_and_version(output.strategy, output.version).value
+
+	output._dynamic = False
+
+	return output
+
+
+async def strategy_start(options: DotMap[str, Any]) -> Dict[str, Any]:
+	options = sanitize_options(options)
 
 	try:
-		class_reference = Strategy.from_id_and_version(strategy, version).value
-		if not processes.get(full_id):
-			processes[full_id] = class_reference(id)
-			tasks[full_id].start = asyncio.create_task(processes[full_id].start())
+		if not processes.get(options.full_id):
+			processes[options.full_id] = options.class_reference(options.id)
+			tasks[options.full_id].start = asyncio.create_task(processes[options.full_id].start())
 
 			return {
 				"message": "Starting..."
@@ -28,43 +45,42 @@ async def strategy_start(strategy: str, version: str, id: str) -> Dict[str, Any]
 				"message": "Already running"
 			}
 	except Exception as exception:
-		if tasks.get(full_id):
-			tasks[full_id].start.cancel()
-			await tasks[full_id].start
-		processes[full_id] = None
-		tasks[full_id].start = None
+		if tasks.get(options.full_id):
+			tasks[options.full_id].start.cancel()
+			await tasks[options.full_id].start
+		processes[options.full_id] = None
+		tasks[options.full_id].start = None
 
 		raise exception
 
 
-async def strategy_status(strategy: str, version: str, id: str) -> Dict[str, Any]:
-	full_id = f"""{strategy}:{version}:{id}"""
+async def strategy_status(options: DotMap[str, Any]) -> Dict[str, Any]:
+	options = sanitize_options(options)
 
 	try:
-		if processes.get(full_id):
-			return processes[full_id].get_status()
+		if processes.get(options.full_id):
+			return processes[options.full_id].get_status()
 		else:
 			return {
 				"message": "Process not running"
 			}
 	except Exception as exception:
-		if tasks.get(full_id):
-			tasks[full_id].start.cancel()
-			await tasks[full_id].start
-		processes[full_id] = None
-		tasks[full_id].start = None
+		if tasks.get(options.full_id):
+			tasks[options.full_id].start.cancel()
+			await tasks[options.full_id].start
+		processes[options.full_id] = None
+		tasks[options.full_id].start = None
 
 		raise exception
 
 
-async def strategy_stop(strategy: str, version: str, id: str):
-	full_id = f"""{strategy}:{version}:{id}"""
+async def strategy_stop(options: DotMap[str, Any]):
+	options = sanitize_options(options)
 
 	try:
-		if processes.get(full_id):
-			tasks[full_id].start.cancel()
-			tasks[full_id].stop = asyncio.create_task(processes[full_id].stop())
-			# await tasks[full_id].stop
+		if processes.get(options.full_id):
+			tasks[options.full_id].start.cancel()
+			tasks[options.full_id].stop = asyncio.create_task(processes[options.full_id].stop())
 
 			return {
 				"message": "Stopping..."
@@ -74,11 +90,11 @@ async def strategy_stop(strategy: str, version: str, id: str):
 				"message": "Process not running"
 			}
 	except Exception as exception:
-		if tasks.get(full_id):
-			tasks[full_id].start.cancel()
-			await tasks[full_id].start
+		if tasks.get(options.full_id):
+			tasks[options.full_id].start.cancel()
+			await tasks[options.full_id].start
 
 		raise exception
 	finally:
-		processes[full_id] = None
-		tasks[full_id].start = None
+		processes[options.full_id] = None
+		tasks[options.full_id].start = None

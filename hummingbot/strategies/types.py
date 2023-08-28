@@ -11,3 +11,7 @@ class Strategy(Enum):
 		for strategy in Strategy.__members__.values():
 			if strategy.value.ID == id and strategy.value.VERSION == version:
 				return strategy
+
+	@staticmethod
+	def get_default():
+		return PureMarketMaking_1_0_0

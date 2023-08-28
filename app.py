@@ -73,33 +73,21 @@ async def root(request: Request, subpath=''):
 async def strategy_start(request: Request) -> Dict[str, Any]:
 	body = await request.json()
 
-	strategy = body["strategy"]
-	version = body["version"]
-	id = body["id"]
-
-	return await controller.strategy_start(strategy, version, id)
+	return await controller.strategy_start(body)
 
 
 @app.post("/strategy/status")
 async def strategy_status(request: Request) -> Dict[str, Any]:
 	body = await request.json()
 
-	strategy = body["strategy"]
-	version = body["version"]
-	id = body["id"]
-
-	return await controller.strategy_status(strategy, version, id)
+	return await controller.strategy_status(body)
 
 
 @app.post("/strategy/stop")
 async def strategy_stop(request: Request) -> Dict[str, Any]:
 	body = await request.json()
 
-	strategy = body["strategy"]
-	version = body["version"]
-	id = body["id"]
-
-	return await controller.strategy_stop(strategy, version, id)
+	return await controller.strategy_stop(body)
 
 
 async def start_api():

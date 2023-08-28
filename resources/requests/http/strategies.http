@@ -1,6 +1,11 @@
 POST https://localhost:5000/strategy/start
 Content-Type: application/json
 
+###
+
+POST https://localhost:5000/strategy/start
+Content-Type: application/json
+
 {
     "strategy": "pure_market_making",
 	"version": "1.0.0",
@@ -38,7 +43,7 @@ Content-Type: application/json
     "strategy": "pure_market_making",
 	"version": "1.0.0",
     "id": "id",
-    "worker": "worker-id"
+    "workerId": "workerId"
 }
 
 ###
@@ -50,7 +55,7 @@ Content-Type: application/json
     "strategy": "pure_market_making",
 	"version": "1.0.0",
     "id": "id",
-    "worker": "worker-id"
+    "workerId": "workerId"
 }
 
 ###
@@ -62,7 +67,7 @@ Content-Type: application/json
     "strategy": "pure_market_making",
 	"version": "1.0.0",
     "id": "id",
-    "worker": "worker-id"
+    "workerId": "workerId"
 }
 
 ###
@@ -110,7 +115,7 @@ Content-Type: application/json
     "strategy": "pure_market_making",
 	"version": "1.0.0",
     "id": "id",
-    "worker": "worker-id",
+    "workerId": "workerId",
     "task": "task-id"
 }
 
@@ -123,7 +128,7 @@ Content-Type: application/json
     "strategy": "pure_market_making",
 	"version": "1.0.0",
     "id": "id",
-    "worker": "worker-id",
+    "workerId": "workerId",
     "task": "task-id"
 }
 
@@ -136,7 +141,7 @@ Content-Type: application/json
     "strategy": "pure_market_making",
 	"version": "1.0.0",
     "id": "id",
-    "worker": "worker-id",
+    "workerId": "workerId",
     "task": "task-id"
 }
 

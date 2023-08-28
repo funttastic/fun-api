@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Any
 
+from dotmap import DotMap
+
 # noinspection PyUnresolvedReferences
 from telegram import Update
 from telegram.ext import ContextTypes, MessageHandler, filters, CommandHandler
@@ -18,43 +20,43 @@ def validate(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> bool:
 	return True
 
 
+def sanitize(_update: Update, context: ContextTypes.DEFAULT_TYPE) -> DotMap[str, Any]:
+	output = DotMap({})
+
+	# (empty)
+	# <supervisor_id>
+	# <strategy_id>:<strategy_version>:<supervisor_id>
+	# <supervisor_id> <worker_id>
+	# <strategy_id>:<strategy_version>:<supervisor_id> <worker_id>
+	if len(context.args):
+		supervisor = context.args[0].split(':')
+
+		if len(supervisor) > 1:
+			output.strategy = supervisor[0]
+
+			if len(supervisor) > 1:
+				output.version = supervisor[1]
+
+			if len(supervisor) > 2:
+				output.id = supervisor[2]
+		else:
+			output.id = context.args[0]
+
+		if len(context.args) > 1:
+			output.worker_id = context.args[1]
+
+	output._dynamic = False
+
+	return output
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	if not validate(update, context):
 		return
 
-	if not context.args:
-		telegram.send("You need to provide the strategy, version and id")
-		return
+	options = sanitize(update, context)
 
-	args = context.args[0].split(':')
-	if len(args) != 3:
-		telegram.send("You need to provide the strategy, version and id")
-		return
-
-	strategy = args[0]
-	version = args[1]
-	id = args[2]
-	response = await controller.strategy_start(strategy, version, id)
-	telegram.send(dump(response))
-
-
-async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	if not validate(update, context):
-		return
-
-	if not context.args:
-		telegram.send("You need to provide the strategy, version and id")
-		return
-
-	args = context.args[0].split(':')
-	if len(args) != 3:
-		telegram.send("You need to provide the strategy, version and id")
-		return
-
-	strategy = args[0]
-	version = args[1]
-	id = args[2]
-	response = await controller.strategy_stop(strategy, version, id)
+	response = await controller.strategy_start(options)
 	telegram.send(dump(response))
 
 
@@ -62,19 +64,19 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	if not validate(update, context):
 		return
 
-	if not context.args:
-		telegram.send("You need to provide the strategy, version and id")
+	options = sanitize(update, context)
+
+	response = await controller.strategy_status(options)
+	telegram.send(dump(response))
+
+
+async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	if not validate(update, context):
 		return
 
-	args = context.args[0].split(':')
-	if len(args) != 3:
-		telegram.send("You need to provide the strategy, version and id")
-		return
+	options = sanitize(update, context)
 
-	strategy = args[0]
-	version = args[1]
-	id = args[2]
-	response = await controller.strategy_status(strategy, version, id)
+	response = await controller.strategy_stop(options)
 	telegram.send(dump(response))
 
 
