@@ -106,8 +106,8 @@ async def start_api():
 
 	logger.log(logging.INFO, f'Environment: {properties.get("environment")}')
 
-	host = properties.get('server.host')
-	port = properties.get('server.port')
+	host = os.environ.get("HOST", properties.get('server.host'))
+	port = os.environ.get("PORT", properties.get('server.port'))
 	environment = properties.get_or_default('server.environment', constants.environments.production)
 
 	os.environ['ENV'] = environment
