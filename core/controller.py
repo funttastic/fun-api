@@ -59,7 +59,7 @@ async def strategy_status(options: DotMap[str, Any]) -> Dict[str, Any]:
 
 	try:
 		if processes.get(options.full_id):
-			return processes[options.full_id].get_status()
+			return processes[options.full_id].get_status().toDict()
 		else:
 			return {
 				"message": "Process not running"
@@ -98,9 +98,3 @@ async def strategy_stop(options: DotMap[str, Any]):
 	finally:
 		processes[options.full_id] = None
 		tasks[options.full_id].start = None
-
-async def strategy_statuses() -> Dict[str, Any]:
-	statuses = {}
-	for key in processes.keys():
-		statuses[key] = processes[key].get_status()
-	return statuses
