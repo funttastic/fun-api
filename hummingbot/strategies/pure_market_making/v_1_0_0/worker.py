@@ -1062,6 +1062,9 @@ class Worker(WorkerBase):
 		finally:
 			self.log(DEBUG, """end""")
 
+	async def get_id(self):
+		return self.id
+
 	# noinspection DuplicatedCode
 	def _get_summary(self) -> str:
 		summary = ""

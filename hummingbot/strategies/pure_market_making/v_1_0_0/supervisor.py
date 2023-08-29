@@ -94,7 +94,12 @@ class Supervisor(StrategyBase):
 		self.log(INFO, "end")
 
 	def get_status(self) -> Dict[str, Any]:
-		return {}
+		workers_status = {}
+		status = {}
+		for worker_id in self._configuration.workers.keys():
+			workers_status[worker_id] = asyncio.run(self._workers[worker_id].get_id())
+		status[self.ID + ":" + self.VERSION] = workers_status
+		return status
 
 	async def initialize(self):
 		try:

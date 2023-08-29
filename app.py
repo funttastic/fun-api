@@ -89,6 +89,10 @@ async def strategy_status(request: Request) -> Dict[str, Any]:
 
 	return await controller.strategy_status(body)
 
+@app.post("/strategy/statuses")
+async def strategy_status(request: Request) -> Dict[str, Any]:
+	return await controller.strategy_statuses()
+
 
 @app.post("/strategy/stop")
 async def strategy_stop(request: Request) -> Dict[str, Any]:
