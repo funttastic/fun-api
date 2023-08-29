@@ -1,3 +1,7 @@
+POST https://localhost:5000/strategy/statuses
+
+##
+
 POST https://localhost:5000/strategy/start
 
 ###
