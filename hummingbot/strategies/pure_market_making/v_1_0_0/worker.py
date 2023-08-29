@@ -86,6 +86,7 @@ class Worker(WorkerBase):
 				"orders": {
 					"new": DotMap({}, _dynamic=False),
 					"canceled": DotMap({}, _dynamic=False),
+					"filled": DotMap({}, _dynamic=False),
 				},
 				"gas_payed": {
 					"token": KUJIRA_NATIVE_TOKEN,
@@ -268,6 +269,7 @@ class Worker(WorkerBase):
 
 					self.summary.orders.new = DotMap({}, _dynamic=False)
 					self.summary.orders.canceled = DotMap({}, _dynamic=False)
+					self.summary.orders.filled = DotMap({}, _dynamic=False)
 
 					if self._configuration.strategy.withdraw_market_on_tick:
 						try:
@@ -711,6 +713,7 @@ class Worker(WorkerBase):
 
 	async def _get_last_filled_order(self) -> DotMap[str, Any]:
 		try:
+			response = None
 			self.log(INFO, "start")
 
 			filled_orders = await self._get_filled_orders()
@@ -754,7 +757,10 @@ class Worker(WorkerBase):
 
 				raise exception
 			finally:
+				self.summary.orders.filled = response
+
 				self.log(DEBUG, f"""gateway.kujira_get_filled_orders: response:\n{dump(response)}""")
+
 
 		finally:
 			self.log(INFO, "end")
@@ -1064,6 +1070,7 @@ class Worker(WorkerBase):
 
 		new_orders_summary = ""
 		canceled_orders_summary = ""
+		filled_orders_summary = ""
 
 		if self.summary.orders.new:
 			orders: List[DotMap[str, Any]] = list(self.summary.orders.new.values())
@@ -1093,6 +1100,23 @@ class Worker(WorkerBase):
 				groups[2].append(order.marketName)
 
 			canceled_orders_summary = format_lines(groups)
+
+		if self.summary.orders.filled:
+			orders: List[DotMap[str, Any]] = list(self.summary.orders.filled.values())
+			orders.sort(key=lambda item: item.id)
+
+			groups: array[array[str]] = [[], [], [], [], [], [], [], []]
+			for order in orders:
+				groups[0].append(order.id)
+				groups[1].append(str(order.side).lower())
+				groups[2].append(str(order.type).lower())
+				groups[3].append(format_currency(Decimal(order.amount), 3))
+				groups[4].append(self._base_token.symbol)
+				groups[5].append("by")
+				groups[6].append(format_currency(Decimal(order.price), 3))
+				groups[7].append(self._quote_token.symbol)
+
+			filled_orders_summary = format_lines(groups)
 
 		summary += textwrap.dedent(
 			f"""\n\n\
@@ -1161,6 +1185,9 @@ class Worker(WorkerBase):
 
 		if canceled_orders_summary:
 			summary += f"""\n<b> Canceled:</b>\n{canceled_orders_summary}"""
+
+		if canceled_orders_summary:
+			summary += f"""\n<b> Filled:</b>\n{filled_orders_summary}"""
 
 		summary +=\
 		textwrap.dedent(
