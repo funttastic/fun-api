@@ -7,7 +7,7 @@ import traceback
 from array import array
 from decimal import Decimal
 from logging import DEBUG, INFO, WARNING, CRITICAL
-from typing import Any, List, Optional
+from typing import Dict, Any, List, Optional
 
 import yaml
 from dotmap import DotMap
@@ -1067,8 +1067,15 @@ class Worker(WorkerBase):
 		finally:
 			self.log(DEBUG, """end""")
 
-	async def get_id(self):
-		return self.id
+	def get_status(self) -> DotMap[str, Any]:
+		status = DotMap({})
+
+		status.initialized = self._initialized
+		for (task_name, task) in self._tasks.items():
+			status.tasks[task_name] = "running" if task is not None else "stopped"
+		status._dynamic = False
+
+		return status
 
 	# noinspection DuplicatedCode
 	def _get_summary(self) -> str:

@@ -93,12 +93,23 @@ class Supervisor(StrategyBase):
 
 		self.log(INFO, "end")
 
-	def get_status(self) -> Dict[str, Any]:
-		workers_status = {}
-		status = {}
+	def get_status(self) -> DotMap[str, Any]:
+		status = DotMap({})
+
+		status.initialized = self._initialized
+		if not self._can_run and self._tasks.on_tick is None:
+			status.status = "stopped"
+		elif not self._can_run and self._tasks.on_tick is not None:
+			status.status = "stoppin ..."
+		if self._can_run and self._tasks.on_tick is not None:
+			status.status = "running"
+
+		for (task_name, task) in self._tasks.items():
+			status.tasks[task_name] = "running" if task is not None else "stopped"
+
 		for worker_id in self._configuration.workers.keys():
-			workers_status[worker_id] = asyncio.run(self._workers[worker_id].get_id())
-		status[self.ID + ":" + self.VERSION] = workers_status
+			status.workers[worker_id] = self._workers[worker_id].get_status()
+
 		return status
 
 	async def initialize(self):
