@@ -6,27 +6,27 @@ strategy:
     - bid:
         quantity: 1
         spread_percentage: 15
-        max_liquidity_in_dollars: 1
+        budget: 1 # in USD
       ask:
         quantity: 1
         spread_percentage: 15
-        max_liquidity_in_dollars: 1
+        budget: 1 # in USD
     - bid:
         quantity: 1
         spread_percentage: 25
-        max_liquidity_in_dollars: 1
+        budget: 1 # in USD
       ask:
         quantity: 1
         spread_percentage: 25
-        max_liquidity_in_dollars: 1
+        budget: 1 # in USD
     - bid:
         quantity: 1
         spread_percentage: 50
-        max_liquidity_in_dollars: 1
+        budget: 1 # in USD
       ask:
         quantity: 1
         spread_percentage: 50
-        max_liquidity_in_dollars: 1
+        budget: 1 # in USD
   tick_interval: 59
   order_type: LIMIT
   price_strategy: MIDDLE

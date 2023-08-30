@@ -376,8 +376,8 @@ class Worker(WorkerBase):
 				bid_quantity = int(layer.bid.quantity)
 				bid_spread_percentage = Decimal(layer.bid.spread_percentage)
 				bid_market_price = ((100 - bid_spread_percentage) / 100) * min(self._used_price, best_ask)
-				bid_max_liquidity_in_dollars = Decimal(layer.bid.max_liquidity_in_dollars)
-				bid_size = bid_max_liquidity_in_dollars / bid_market_price / bid_quantity if bid_quantity > 0 else 0
+				bid_budget = Decimal(layer.bid.budget)
+				bid_size = bid_budget / bid_market_price / bid_quantity if bid_quantity > 0 else 0
 
 				if not (bid_quantity > 0):
 					continue
@@ -406,8 +406,8 @@ class Worker(WorkerBase):
 				ask_quantity = int(layer.ask.quantity)
 				ask_spread_percentage = Decimal(layer.ask.spread_percentage)
 				ask_market_price = ((100 + ask_spread_percentage) / 100) * max(self._used_price, best_bid)
-				ask_max_liquidity_in_dollars = Decimal(layer.ask.max_liquidity_in_dollars)
-				ask_size = ask_max_liquidity_in_dollars / ask_market_price / ask_quantity if ask_quantity > 0 else 0
+				ask_budget = Decimal(layer.ask.budget)
+				ask_size = ask_budget / ask_market_price / ask_quantity if ask_quantity > 0 else 0
 
 				if not (ask_quantity > 0):
 					continue
