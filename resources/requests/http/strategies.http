@@ -1,3 +1,27 @@
+POST https://localhost:5000/strategy/stop_worker
+Content-Type: application/json
+
+{
+  "strategy": "pure_market_making",
+  "version": "1.0.0",
+  "id": "id",
+  "worker": "02"
+}
+
+###
+
+POST https://localhost:5000/strategy/start_worker
+Content-Type: application/json
+
+{
+  "strategy": "pure_market_making",
+  "version": "1.0.0",
+  "id": "id",
+  "worker": "02"
+}
+
+###
+
 POST https://localhost:5000/strategy/start
 
 ###

@@ -208,13 +208,16 @@ class Worker(WorkerBase):
 			self.log(INFO, "end")
 
 	async def start(self):
-		self.log(INFO, "start")
+		if self._tasks.on_tick is None:
+			self.log(INFO, "start")
 
-		await self.initialize()
+			await self.initialize()
 
-		self._tasks.on_tick = asyncio.create_task(self.on_tick())
+			self._tasks.on_tick = asyncio.create_task(self.on_tick())
 
-		self.log(INFO, "end")
+			self.log(INFO, "end")
+		else:
+			self.log(INFO, "Worker already initialized")
 
 	async def stop(self):
 		try:

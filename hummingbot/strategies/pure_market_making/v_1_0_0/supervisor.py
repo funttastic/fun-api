@@ -179,14 +179,34 @@ class Supervisor(StrategyBase):
 			self.telegram_log(INFO, "stopped.")
 			self.log(INFO, "end")
 
+	async def start_worker(self, worker_id: str):
+		self.log(INFO, "start")
+		# if not self._workers[worker_id] and not self._tasks.workers[worker_id]:
+		if not self._workers.get(worker_id):
+			self._workers[worker_id] = Worker(self, worker_id)
+			self._tasks.workers[worker_id] = asyncio.create_task(self._workers[worker_id].start())
+			coroutine = [self._tasks.workers[worker_id]]
+
+			await asyncio.gather(*coroutine, return_exceptions=True)
+
+			self._initialized = True
+			self._can_run = True
+		else:
+			self.log(INFO, "the especified worker is already running")
+
+		self.log(INFO, "end")
+
+
 	async def stop_worker(self, worker_id: str):
 		self.log(INFO, "start")
 
-		if self._tasks.workers[worker_id]:
+		if self._tasks.workers.get(worker_id):
 			await self._workers[worker_id].stop()
 			self._tasks.workers[worker_id].cancel()
 			# await self._tasks.workers[worker_id]
 			self._tasks.workers[worker_id] = None
+		else:
+			self.log(INFO, "the especified worker was not running")
 
 		self.log(INFO, "end")
 
