@@ -89,10 +89,6 @@ async def strategy_status(request: Request) -> Dict[str, Any]:
 
 	return await controller.strategy_status(body)
 
-@app.post("/strategy/statuses")
-async def strategy_status(request: Request) -> Dict[str, Any]:
-	return await controller.strategy_statuses()
-
 
 @app.post("/strategy/stop")
 async def strategy_stop(request: Request) -> Dict[str, Any]:
@@ -102,6 +98,26 @@ async def strategy_stop(request: Request) -> Dict[str, Any]:
 		body = {}
 
 	return await controller.strategy_stop(body)
+
+
+@app.post("/strategy/start_worker")
+async def strategy_start_worker(request: Request) -> Dict[str, Any]:
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
+
+	return await controller.strategy_start_worker(body)
+
+
+@app.post("/strategy/stop_worker")
+async def strategy_start_worker(request: Request) -> Dict[str, Any]:
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
+
+	return await controller.strategy_stop_worker(body)
 
 
 async def start_api():
