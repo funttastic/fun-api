@@ -713,7 +713,6 @@ class Worker(WorkerBase):
 
 	async def _get_last_filled_order(self) -> DotMap[str, Any]:
 		try:
-			response = None
 			self.log(INFO, "start")
 
 			filled_orders = await self._get_filled_orders()
@@ -751,16 +750,15 @@ class Worker(WorkerBase):
 					response = await Gateway.kujira_get_orders(request)
 					self._filled_orders = response
 
+				self.summary.orders.filled = response
+
 				return response
 			except Exception as exception:
 				response = traceback.format_exc()
 
 				raise exception
 			finally:
-				self.summary.orders.filled = response
-
 				self.log(DEBUG, f"""gateway.kujira_get_filled_orders: response:\n{dump(response)}""")
-
 
 		finally:
 			self.log(INFO, "end")
@@ -807,14 +805,14 @@ class Worker(WorkerBase):
 					self.log(WARNING, "No order was defined for placement/replacement. Skipping.", True)
 					response = []
 
+				self.summary.orders.new = response
+
 				return response
 			except Exception as exception:
 				response = traceback.format_exc()
 
 				raise exception
 			finally:
-				self.summary.orders.new = response
-
 				self.log(DEBUG, f"""gateway.kujira_post_orders: response:\n{dump(response)}""")
 		finally:
 			self.log(INFO, "end")
@@ -844,8 +842,6 @@ class Worker(WorkerBase):
 
 					response = await Gateway.kujira_delete_orders(request)
 
-					self.summary.orders.canceled = response
-
 					if response:
 						if not self._balances:
 							await self._get_balances(use_cache=False)
@@ -853,6 +849,8 @@ class Worker(WorkerBase):
 				else:
 					self.log(DEBUG, "No order needed to be canceled.")
 					response = {}
+
+				self.summary.orders.canceled = response
 
 				return response
 			except Exception as exception:
@@ -1186,7 +1184,7 @@ class Worker(WorkerBase):
 		if canceled_orders_summary:
 			summary += f"""\n<b> Canceled:</b>\n{canceled_orders_summary}"""
 
-		if canceled_orders_summary:
+		if filled_orders_summary:
 			summary += f"""\n<b> Filled:</b>\n{filled_orders_summary}"""
 
 		summary +=\
