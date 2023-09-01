@@ -100,8 +100,8 @@ async def strategy_stop(request: Request) -> Dict[str, Any]:
 	return await controller.strategy_stop(body)
 
 
-@app.post("/strategy/start_worker")
-async def strategy_start_worker(request: Request) -> Dict[str, Any]:
+@app.post("/strategy/worker/start")
+async def strategy_worker_start(request: Request) -> Dict[str, Any]:
 	try:
 		body = await request.json()
 	except JSONDecodeError:
@@ -110,8 +110,8 @@ async def strategy_start_worker(request: Request) -> Dict[str, Any]:
 	return await controller.strategy_start_worker(body)
 
 
-@app.post("/strategy/stop_worker")
-async def strategy_start_worker(request: Request) -> Dict[str, Any]:
+@app.post("/strategy/worker/stop")
+async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
 	try:
 		body = await request.json()
 	except JSONDecodeError:

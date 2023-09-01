@@ -100,39 +100,35 @@ async def strategy_stop(options: DotMap[str, Any]):
 		tasks[options.full_id].start = None
 
 async def strategy_start_worker(options: DotMap[str, Any]) -> Dict[str, Any]:
-	worker = options['worker']
 	options = sanitize_options(options)
-	options.worker = worker
 
 	try:
 		if processes.get(options.full_id):
-			asyncio.create_task(processes[options.full_id].start_worker(options.worker))
+			asyncio.create_task(processes[options.full_id].start_worker(options.worker_id))
 
 			return {
-				"message": "Starting worker {} ...".format(options.worker)
+				"message": f"Starting worker {options.worker_id} ..."
 			}
 		else:
 			return {
-				"message": "The supervisor {} is not running".format(options.full_id)
+				"message": f"Supervisor {options.full_id} is not running"
 			}
 	except Exception as exception:
 		raise exception
 
 async def strategy_stop_worker(options: DotMap[str, Any]) -> Dict[str, Any]:
-	worker = options['worker']
 	options = sanitize_options(options)
-	options.worker = worker
 
 	try:
 		if processes.get(options.full_id):
-			asyncio.create_task(processes[options.full_id].stop_worker(options.worker))
+			asyncio.create_task(processes[options.full_id].stop_worker(options.worker_id))
 
 			return {
-				"message": "Stopping worker {} ...".format(options.worker)
+				"message": f"Stopping worker {options.worker_id} ..."
 			}
 		else:
 			return {
-				"message": "The supervisor {} is not running".format(options.full_id)
+				"message": f"Supervisor {options.full_id} is not running"
 			}
 	except Exception as exception:
 		raise exception
