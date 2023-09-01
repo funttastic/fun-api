@@ -132,3 +132,21 @@ async def strategy_stop_worker(options: DotMap[str, Any]) -> Dict[str, Any]:
 			}
 	except Exception as exception:
 		raise exception
+async def strategy_status_worker(options: DotMap[str, Any]) -> Dict[str, Any]:
+	options = sanitize_options(options)
+
+	try:
+		if processes.get(options.full_id):
+			status = DotMap({})
+			status.supervisor_id = options.full_id
+			status.update(processes[options.full_id].status_worker(options.worker_id))
+			return status.toDict()
+
+		else:
+
+			return {
+				"message": f"Supervisor {options.full_id} is not running"
+			}
+
+	except Exception as exception:
+		raise exception

@@ -119,6 +119,15 @@ async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
 
 	return await controller.strategy_stop_worker(body)
 
+@app.post("/strategy/worker/status")
+async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
+
+	return await controller.strategy_status_worker(body)
+
 
 async def start_api():
 	signal.signal(signal.SIGTERM, shutdown)
