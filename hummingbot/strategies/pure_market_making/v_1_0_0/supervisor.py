@@ -182,7 +182,7 @@ class Supervisor(StrategyBase):
 	async def start_worker(self, worker_id: str):
 		self.log(INFO, "start")
 		try:
-			if not self._workers.get(worker_id) and not self._tasks.workers.get(worker_id):
+			if not self._tasks.workers.get(worker_id):
 				if not self._workers.get(worker_id):
 					self._workers[worker_id] = Worker(self, worker_id)
 
@@ -204,6 +204,20 @@ class Supervisor(StrategyBase):
 				self._tasks.workers[worker_id] = None
 			else:
 				self.log(INFO, f"Worker {worker_id} is not running")
+		finally:
+			self.log(INFO, "end")
+
+	def status_worker(self, worker_id: str) -> DotMap[str, Any]:
+		self.log(INFO, "start")
+		try:
+			status = DotMap({})
+			if self._tasks.workers.get(worker_id):
+				status.id = worker_id
+				status.update(self._workers[worker_id].get_status())
+			else:
+				self.log(INFO, f"Worker {worker_id} is not running")
+				status["message"] = f"Worker {worker_id} is not running"
+			return status
 		finally:
 			self.log(INFO, "end")
 
