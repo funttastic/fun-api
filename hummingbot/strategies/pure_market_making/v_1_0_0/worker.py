@@ -7,7 +7,7 @@ import traceback
 from array import array
 from decimal import Decimal
 from logging import DEBUG, INFO, WARNING, CRITICAL
-from typing import Dict, Any, List, Optional
+from typing import Any, List, Optional
 
 import yaml
 from dotmap import DotMap
@@ -204,16 +204,13 @@ class Worker(WorkerBase):
 			self.log(INFO, "end")
 
 	async def start(self):
-		if self._tasks.on_tick is None:
-			self.log(INFO, "start")
+		self.log(INFO, "start")
 
-			await self.initialize()
+		await self.initialize()
 
-			self._tasks.on_tick = asyncio.create_task(self.on_tick())
+		self._tasks.on_tick = asyncio.create_task(self.on_tick())
 
-			self.log(INFO, "end")
-		else:
-			self.log(INFO, "Worker already initialized")
+		self.log(INFO, "end")
 
 	async def stop(self):
 		try:
