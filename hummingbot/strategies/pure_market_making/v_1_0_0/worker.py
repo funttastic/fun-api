@@ -99,8 +99,12 @@ class Worker(WorkerBase):
 					"usd_amounts": {
 						"creation": DECIMAL_ZERO,
 						"cancellation": DECIMAL_ZERO,
-						"withdrawing": DECIMAL_ZERO,
-						"total": DECIMAL_ZERO
+						"withdrawing": {
+							"base": DECIMAL_ZERO,
+							"quote": DECIMAL_ZERO,
+							"total": DECIMAL_ZERO
+						},
+						"total": DECIMAL_ZERO,
 					}
 				},
 				"wallet": {
@@ -912,8 +916,10 @@ class Worker(WorkerBase):
 
 				response = await Gateway.kujira_post_market_withdraw(request)
 
-				# if response:
-				# 	self._calculate_gas_sum(response, "withdrawing")
+				if response:
+					if not self._balances:
+						await self._get_balances(use_cache=False)
+					self._calculate_gas_sum(response, "withdrawing")
 			except Exception as exception:
 				response = traceback.format_exc()
 
@@ -1035,28 +1041,24 @@ class Worker(WorkerBase):
 				if wallet_current_initial_pnl < 0:
 					if self._configuration.strategy.kill_switch.max_wallet_loss_from_initial_value:
 						if math.fabs(wallet_current_initial_pnl) >= math.fabs(max_wallet_loss_from_initial_value):
-							self.log(CRITICAL, f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_from_initial_value}% distant from the wallet initial value.\n/cc {users}""")
-							self.can_run = False
+							self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_initial_pnl, 3)}, which is at least {max_wallet_loss_from_initial_value}% distant from the wallet initial value.\n/cc {users}""")
 
 							await self.stop()
 
 					if self._configuration.strategy.kill_switch.max_wallet_loss_from_previous_value:
 						if math.fabs(wallet_current_previous_pnl) >= math.fabs(max_wallet_loss_from_previous_value):
-							self.log(CRITICAL, f"""The bot has been stopped because the wallet lost {-wallet_current_previous_pnl}%, which is at least {max_wallet_loss_from_previous_value}% distant from the wallet previous value.\n/cc {users}""")
-							self.can_run = False
+							self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_previous_pnl, 3)}, which is at least {max_wallet_loss_from_previous_value}% distant from the wallet previous value.\n/cc {users}""")
 
 							await self.stop()
 
 					if self._configuration.strategy.kill_switch.max_wallet_loss_compared_to_token_variation:
 						if math.fabs(wallet_current_initial_pnl - token_base_current_initial_pnl) >= math.fabs(max_wallet_loss_compared_to_token_variation):
-							self.log(CRITICAL, f"""The bot has been stopped because the wallet lost {-wallet_current_initial_pnl}%, which is at least {max_wallet_loss_compared_to_token_variation}% distant from the token price variation ({token_base_current_initial_pnl}) from its initial price.\n/cc {users}""")
-							self.can_run = False
+							self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_initial_pnl, 3)}, which is at least {max_wallet_loss_compared_to_token_variation}% distant from the token price variation ({token_base_current_initial_pnl}) from its initial price.\n/cc {users}""")
 
 							await self.stop()
 
 				if token_base_current_initial_pnl < 0 and math.fabs(token_base_current_initial_pnl) >= math.fabs(max_token_loss_from_initial):
-					self.log(CRITICAL, f"""The bot has been stopped because the token lost {-token_base_current_initial_pnl}%, which is at least {max_token_loss_from_initial}% distant from the token initial price.\n/cc {users}""")
-					self.can_run = False
+					self.log(CRITICAL, f"""\n\nThe bot has been stopped because the token lost {format_percentage(token_base_current_initial_pnl, 3)}, which is at least {max_token_loss_from_initial}% distant from the token initial price.\n/cc {users}""")
 
 					await self.stop()
 		finally:
@@ -1172,7 +1174,10 @@ class Worker(WorkerBase):
 				<b>   USD (~)</b>:
 				{format_line("   Create:", format_currency(self.summary.gas_payed.usd_amounts.creation, 5))}
 				{format_line("   Cancel:", format_currency(self.summary.gas_payed.usd_amounts.cancellation, 5))}
-				{format_line("   Withdraw:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing, 5))}
+				<code>   Withdraw:</code>
+				{format_line("     Base:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.base, 5))}
+				{format_line("     Quote:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.quote, 5))}
+				{format_line("     Total:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.total, 5))}
 				{format_line("   Total:", format_currency(self.summary.gas_payed.usd_amounts.total, 5))}\
 				
 			"""
@@ -1209,18 +1214,26 @@ class Worker(WorkerBase):
 		try:
 			self.log(DEBUG, f"""start""")
 
-			for order in response.values():
-				self.summary.gas_payed.token_amounts[transaction_type] += Decimal(order.fee)
-				self.summary.gas_payed.token_amounts.total += Decimal(order.fee)
-				values = [
-					Decimal(self._balances.tokens[self.summary.gas_payed.token.id].free),
-					Decimal(self._balances.tokens[self.summary.gas_payed.token.id].inUSD.free)
-				]
-				max_value = max(*values)
-				min_value = min(*values)
-				factor = min_value / max_value
-				self.summary.gas_payed.usd_amounts[transaction_type] += Decimal(order.fee) * factor
-				self.summary.gas_payed.usd_amounts.total += Decimal(order.fee) * factor
+			if not transaction_type == 'withdrawing':
+				for order in response.values():
+					self.summary.gas_payed.token_amounts[transaction_type] += Decimal(order.fee)
+					self.summary.gas_payed.token_amounts.total += Decimal(order.fee)
+					values = [
+						Decimal(self._balances.tokens[self.summary.gas_payed.token.id].free),
+						Decimal(self._balances.tokens[self.summary.gas_payed.token.id].inUSD.free)
+					]
+					max_value = max(*values)
+					min_value = min(*values)
+					factor = min_value / max_value
+					self.summary.gas_payed.usd_amounts[transaction_type] += Decimal(order.fee) * factor
+					self.summary.gas_payed.usd_amounts.total += Decimal(order.fee) * factor
+			else:
+				self.summary.gas_payed.token_amounts[transaction_type] += Decimal(response.tokens[self._base_token.id].fees.token)
+				self.summary.gas_payed.usd_amounts[transaction_type].base += Decimal(response.tokens[self._base_token.id].fees.USD)
+				if self._quote_token.id in response.tokens:
+					self.summary.gas_payed.usd_amounts[transaction_type].quote += Decimal(response.tokens[self._quote_token.id].fees.USD)
+				self.summary.gas_payed.usd_amounts[transaction_type].total += Decimal(response.total.fees)
+				self.summary.gas_payed.usd_amounts.total += Decimal(response.total.fees)
 		except Exception as exception:
 			self.log(DEBUG, f"""An error occurred during tax sum calculation...""")
 			raise exception
