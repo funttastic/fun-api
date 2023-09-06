@@ -694,7 +694,8 @@ class Worker(WorkerBase):
 					"connector": self._configuration.connector,
 					"marketId": self._market.id,
 					"ownerAddress": self._wallet_address,
-					"status": OrderStatus.OPEN.value[0]
+					"statuses": [OrderStatus.OPEN.value[0], OrderStatus.PARTIALLY_FILLED.value[0]]
+					# "status": OrderStatus.OPEN.value[0]
 				}
 
 				self.log(DEBUG, f"""gateway.kujira_get_open_orders: request:\n{dump(request)}""")
