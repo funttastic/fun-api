@@ -109,6 +109,7 @@ async def start_api():
 	host = os.environ.get("HOST", properties.get('server.host'))
 	port = int(os.environ.get("PORT", properties.get('server.port')))
 	environment = properties.get_or_default('server.environment', constants.environments.production)
+	server_private_key_password = os.environ.get("PASSWORD", properties.get("hummingbot.gateway.certificates.server_private_key_password"))
 
 	os.environ['ENV'] = environment
 
@@ -117,7 +118,7 @@ async def start_api():
 		os.path.join(properties.get("root_path"), properties.get("hummingbot.gateway.certificates.path.base.relative")),
 	)
 	certificates = DotMap({
-		"server_private_key_password": properties.get("hummingbot.gateway.certificates.server_private_key_password"),
+		"server_private_key_password": server_private_key_password,
 		"server_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.server_certificate")}"""),
 		"server_private_key": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.server_private_key")}"""),
 		"certificate_authority_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.certificate_authority_certificate")}""")
