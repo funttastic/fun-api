@@ -916,10 +916,10 @@ class Worker(WorkerBase):
 
 				response = await Gateway.kujira_post_market_withdraw(request)
 
-				if response:
-					if not self._balances:
-						await self._get_balances(use_cache=False)
-					self._calculate_gas_sum(response, "withdrawing")
+				# if response:
+				# 	if not self._balances:
+				# 		await self._get_balances(use_cache=False)
+				# 	self._calculate_gas_sum(response, "withdrawing")
 			except Exception as exception:
 				response = traceback.format_exc()
 
