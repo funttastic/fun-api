@@ -40,3 +40,26 @@ Content-Type: application/json
 }
 
 ###
+
+POST https://localhost:15888//wallet/add
+Content-Type: application/json
+
+{
+  "chain": "kujira",
+  "network": "testnet",
+  "connector": "kujira",
+  "privateKey": "your_mnemonic_here",
+  "accountNumber": 0
+}
+
+###
+
+DELETE https://localhost:15888//wallet/remove
+Content-Type: application/json
+
+{
+  "chain": "kujira",
+  "address": "your_publickey_here"
+}
+
+###
