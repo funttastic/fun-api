@@ -1169,22 +1169,19 @@ class Worker(WorkerBase):
 				<b>   {self.summary.gas_payed.token.symbol}</b>:
 				{format_line("   Create:", format_currency(self.summary.gas_payed.token_amounts.creation, 5))}
 				{format_line("   Cancel:", format_currency(self.summary.gas_payed.token_amounts.cancellation, 5))}
+				{format_line("   Withdraw:", format_currency(self.summary.gas_payed.token_amounts.withdrawing, 5))}
 				{format_line("   Total:", format_currency(self.summary.gas_payed.token_amounts.total, 5))}
 				<b>   USD (~)</b>:
 				{format_line("   Create:", format_currency(self.summary.gas_payed.usd_amounts.creation, 5))}
 				{format_line("   Cancel:", format_currency(self.summary.gas_payed.usd_amounts.cancellation, 5))}
+				<code>   Withdraw:</code>
+				{format_line("     Base:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.base, 5))}
+				{format_line("     Quote:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.quote, 5))}
+				{format_line("     Total:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.total, 5))}
 				{format_line("   Total:", format_currency(self.summary.gas_payed.usd_amounts.total, 5))}\
 				
 			"""
 		)
-
-		# {format_line("   Withdraw:", format_currency(self.summary.gas_payed.token_amounts.withdrawing, 5))}
-		#
-		# <code>   Withdraw:</code>
-		# {format_line("     Base:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.base, 5))}
-		# {format_line("     Quote:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.quote, 5))}
-		# {format_line("     Total:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.total, 5))}
-		# {format_line("   Total:", format_currency(self.summary.gas_payed.usd_amounts.total, 5))}
 
 		if new_orders_summary:
 			summary += f"""\n<b> New:</b>\n{new_orders_summary}"""
