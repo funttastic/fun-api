@@ -378,12 +378,13 @@ class Worker(WorkerBase):
 
 			bid_orders = []
 			for index, layer in enumerate(self._configuration.strategy.layers, start=1):
+				quotation = (await self._get_balances()).tokens[self._quote_token.id].inUSD.quotation
 				best_ask = Decimal(next(iter(asks), {"price": FLOAT_INFINITY}).price)
 				bid_quantity = int(layer.bid.quantity)
 				bid_spread_percentage = Decimal(layer.bid.spread_percentage)
 				bid_market_price = ((100 - bid_spread_percentage) / 100) * min(self._used_price, best_ask)
 				bid_budget = Decimal(layer.bid.budget)
-				bid_size = bid_budget / bid_market_price / bid_quantity if bid_quantity > 0 else 0
+				bid_size = bid_budget / quotation / bid_quantity if bid_quantity > 0 else 0
 
 				if not (bid_quantity > 0):
 					continue
@@ -408,12 +409,13 @@ class Worker(WorkerBase):
 
 			ask_orders = []
 			for index, layer in enumerate(self._configuration.strategy.layers, start=1):
+				quotation = (await self._get_balances()).tokens[self._base_token.id].inUSD.quotation
 				best_bid = Decimal(next(iter(bids), {"price": FLOAT_ZERO}).price)
 				ask_quantity = int(layer.ask.quantity)
 				ask_spread_percentage = Decimal(layer.ask.spread_percentage)
 				ask_market_price = ((100 + ask_spread_percentage) / 100) * max(self._used_price, best_bid)
 				ask_budget = Decimal(layer.ask.budget)
-				ask_size = ask_budget / ask_market_price / ask_quantity if ask_quantity > 0 else 0
+				ask_size = ask_budget / quotation / ask_quantity if ask_quantity > 0 else 0
 
 				if not (ask_quantity > 0):
 					continue
@@ -576,6 +578,7 @@ class Worker(WorkerBase):
 						balance.unsettled = Decimal(balance.unsettled)
 						balance.total = Decimal(balance.total)
 
+						balance.inUSD.quotation = Decimal(balance.inUSD.quotation)
 						balance.inUSD.free = Decimal(balance.inUSD.free)
 						balance.inUSD.lockedInOrders = Decimal(balance.inUSD.lockedInOrders)
 						balance.inUSD.unsettled = Decimal(balance.inUSD.unsettled)
@@ -1136,11 +1139,13 @@ class Worker(WorkerBase):
 				{format_line(f"  Total:", format_currency(self.summary.balances.total.total, 4))}
 				<b> Tokens</b>:
 				<b>  {self._base_token.symbol}</b>:
+				{format_line(f"   Quotation:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.quotation, 4))}
 				{format_line(f"   Free:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.free, 4))}
 				{format_line(f"   Orders (sell):", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.lockedInOrders, 4))}
 				{format_line(f"   Unsettled:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.unsettled, 4))}
 				{format_line(f"   Total:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.total, 4))}
 				<b>  {self._quote_token.symbol}</b>:
+				{format_line(f"   Quotation:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.quotation, 4))}
 				{format_line(f"   Free:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.free, 4))}
 				{format_line(f"   Orders (buy):", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.lockedInOrders, 4))}
 				{format_line(f"   Unsettled:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.unsettled, 4))}
