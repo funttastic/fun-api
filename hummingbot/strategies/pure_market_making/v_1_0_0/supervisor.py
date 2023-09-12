@@ -100,7 +100,7 @@ class Supervisor(StrategyBase):
 		if not self._can_run and self._tasks.on_tick is None:
 			status.status = "stopped"
 		elif not self._can_run and self._tasks.on_tick is not None:
-			status.status = "stopping ..."
+			status.status = "stopping..."
 		if self._can_run and self._tasks.on_tick is not None:
 			status.status = "running"
 
@@ -207,7 +207,7 @@ class Supervisor(StrategyBase):
 		finally:
 			self.log(INFO, "end")
 
-	def status_worker(self, worker_id: str) -> DotMap[str, Any]:
+	def worker_status(self, worker_id: str) -> DotMap[str, Any]:
 		self.log(INFO, "start")
 		try:
 			status = DotMap({})
@@ -217,6 +217,9 @@ class Supervisor(StrategyBase):
 			else:
 				self.log(INFO, f"Worker {worker_id} is not running")
 				status["message"] = f"Worker {worker_id} is not running"
+
+			status._dynamic = False
+
 			return status
 		finally:
 			self.log(INFO, "end")

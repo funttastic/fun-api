@@ -41,6 +41,7 @@ async def strategy_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 				"message": "Starting..."
 			}
 		else:
+
 			return {
 				"message": "Already running"
 			}
@@ -59,8 +60,10 @@ async def strategy_status(options: DotMap[str, Any]) -> Dict[str, Any]:
 
 	try:
 		if processes.get(options.full_id):
+
 			return processes[options.full_id].get_status().toDict()
 		else:
+
 			return {
 				"message": "Process not running"
 			}
@@ -86,6 +89,7 @@ async def strategy_stop(options: DotMap[str, Any]):
 				"message": "Stopping..."
 			}
 		else:
+
 			return {
 				"message": "Process not running"
 			}
@@ -99,7 +103,7 @@ async def strategy_stop(options: DotMap[str, Any]):
 		processes[options.full_id] = None
 		tasks[options.full_id].start = None
 
-async def strategy_start_worker(options: DotMap[str, Any]) -> Dict[str, Any]:
+async def strategy_worker_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)
 
 	try:
@@ -110,13 +114,14 @@ async def strategy_start_worker(options: DotMap[str, Any]) -> Dict[str, Any]:
 				"message": f"Starting worker {options.worker_id} ..."
 			}
 		else:
+
 			return {
 				"message": f"Supervisor {options.full_id} is not running"
 			}
 	except Exception as exception:
 		raise exception
 
-async def strategy_stop_worker(options: DotMap[str, Any]) -> Dict[str, Any]:
+async def strategy_worker_stop(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)
 
 	try:
@@ -127,19 +132,22 @@ async def strategy_stop_worker(options: DotMap[str, Any]) -> Dict[str, Any]:
 				"message": f"Stopping worker {options.worker_id} ..."
 			}
 		else:
+
 			return {
 				"message": f"Supervisor {options.full_id} is not running"
 			}
 	except Exception as exception:
 		raise exception
-async def strategy_status_worker(options: DotMap[str, Any]) -> Dict[str, Any]:
+
+async def strategy_worker_status(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)
 
 	try:
 		if processes.get(options.full_id):
 			status = DotMap({})
 			status.supervisor_id = options.full_id
-			status.update(processes[options.full_id].status_worker(options.worker_id))
+			status.update(processes[options.full_id].worker_status(options.worker_id))
+
 			return status.toDict()
 
 		else:
