@@ -85,6 +85,7 @@ class Worker(WorkerBase):
 				"balance": DotMap({}, _dynamic=False),
 				"orders": {
 					"new": DotMap({}, _dynamic=False),
+					"open": DotMap({}, _dynamic=False),
 					"canceled": DotMap({}, _dynamic=False),
 					"filled": DotMap({}, _dynamic=False),
 				},
@@ -251,7 +252,6 @@ class Worker(WorkerBase):
 			self.telegram_log(INFO, "stopped.")
 			self.log(INFO, "end")
 
-
 	async def exit(self):
 		self.log(INFO, "start")
 		self.log(INFO, "end")
@@ -273,6 +273,7 @@ class Worker(WorkerBase):
 					self._reload_configuration()
 
 					self.summary.orders.new = DotMap({}, _dynamic=False)
+					self.summary.orders.open = DotMap({}, _dynamic=False)
 					self.summary.orders.canceled = DotMap({}, _dynamic=False)
 					self.summary.orders.filled = DotMap({}, _dynamic=False)
 
@@ -293,6 +294,11 @@ class Worker(WorkerBase):
 					open_orders = await self._get_open_orders(use_cache=False)
 					open_orders_ids = list(open_orders.keys())
 					await self._cancel_currently_untracked_orders(open_orders_ids)
+
+					open_orders = await self._get_open_orders(use_cache=False)
+					open_orders_ids = list(open_orders.keys())
+
+					self.summary.orders.open = self._get_currently_untracked_orders(open_orders_ids)
 
 					await self._get_balances(use_cache=False)
 
@@ -1089,6 +1095,7 @@ class Worker(WorkerBase):
 		summary = ""
 
 		new_orders_summary = ""
+		open_orders_summary = ""
 		canceled_orders_summary = ""
 		filled_orders_summary = ""
 
@@ -1108,6 +1115,23 @@ class Worker(WorkerBase):
 				groups[7].append(self._quote_token.symbol)
 
 			new_orders_summary = format_lines(groups)
+
+		if self.summary.orders.open:
+			orders: List[DotMap[str, Any]] = list(self.summary.orders.open.values())
+			orders.sort(key=lambda item: item.id)
+
+			groups: array[array[str]] = [[], [], [], [], [], [], [], []]
+			for order in orders:
+				groups[0].append(order.id)
+				groups[2].append(str(order.type).lower())
+				groups[1].append(str(order.side).lower())
+				groups[3].append(format_currency(Decimal(order.amount), 3))
+				groups[4].append(self._base_token.symbol)
+				groups[5].append("by")
+				groups[6].append(format_currency(Decimal(order.price), 3))
+				groups[7].append(self._quote_token.symbol)
+
+			open_orders_summary = format_lines(groups)
 
 		if self.summary.orders.canceled:
 			orders: List[DotMap[str, Any]] = list(self.summary.orders.canceled.values())
@@ -1209,6 +1233,9 @@ class Worker(WorkerBase):
 		if new_orders_summary:
 			summary += f"""\n<b> New:</b>\n{new_orders_summary}"""
 
+		if open_orders_summary:
+			summary += f"""\n<b> Untracked:</b>\n{open_orders_summary}"""
+
 		if canceled_orders_summary:
 			summary += f"""\n<b> Canceled:</b>\n{canceled_orders_summary}"""
 
@@ -1262,3 +1289,17 @@ class Worker(WorkerBase):
 			raise exception
 		finally:
 			self.log(DEBUG, f"""end""")
+
+	def _get_currently_untracked_orders(self, open_orders_ids: List[str]):
+		currently_untracked_orders_ids = list(
+			set(self._all_tracked_orders_ids).intersection(set(open_orders_ids)) - set(
+				self._currently_tracked_orders_ids))
+
+		currently_untracked_open_orders = DotMap({}, _dynamic=False)
+
+		if len(currently_untracked_orders_ids) > 0:
+			for orderId in currently_untracked_orders_ids:
+				order = self._open_orders[orderId]
+				currently_untracked_open_orders[orderId] = order
+
+		return currently_untracked_open_orders
