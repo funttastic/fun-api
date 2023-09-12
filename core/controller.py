@@ -41,7 +41,6 @@ async def strategy_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 				"message": "Starting..."
 			}
 		else:
-
 			return {
 				"message": "Already running"
 			}
@@ -60,10 +59,8 @@ async def strategy_status(options: DotMap[str, Any]) -> Dict[str, Any]:
 
 	try:
 		if processes.get(options.full_id):
-
 			return processes[options.full_id].get_status().toDict()
 		else:
-
 			return {
 				"message": "Process not running"
 			}
@@ -89,7 +86,6 @@ async def strategy_stop(options: DotMap[str, Any]):
 				"message": "Stopping..."
 			}
 		else:
-
 			return {
 				"message": "Process not running"
 			}
@@ -114,7 +110,6 @@ async def strategy_worker_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 				"message": f"Starting worker {options.worker_id} ..."
 			}
 		else:
-
 			return {
 				"message": f"Supervisor {options.full_id} is not running"
 			}
@@ -132,7 +127,6 @@ async def strategy_worker_stop(options: DotMap[str, Any]) -> Dict[str, Any]:
 				"message": f"Stopping worker {options.worker_id} ..."
 			}
 		else:
-
 			return {
 				"message": f"Supervisor {options.full_id} is not running"
 			}
@@ -151,7 +145,6 @@ async def strategy_worker_status(options: DotMap[str, Any]) -> Dict[str, Any]:
 			return status.toDict()
 
 		else:
-
 			return {
 				"message": f"Supervisor {options.full_id} is not running"
 			}
