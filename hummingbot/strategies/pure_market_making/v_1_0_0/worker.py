@@ -114,6 +114,7 @@ class Worker(WorkerBase):
 					"previous_initial_pnl": DECIMAL_ZERO,
 					"current_initial_pnl": DECIMAL_ZERO,
 					"current_previous_pnl": DECIMAL_ZERO,
+					"current_initial_pnl_in_usd": DECIMAL_ZERO,
 				},
 				"token": {
 					"base": {
@@ -1010,6 +1011,10 @@ class Worker(WorkerBase):
 					100 * ((self.summary.wallet.previous_value / self.summary.wallet.initial_value) - 1),
 					DEFAULT_PRECISION
 				))
+				wallet_current_initial_pnl_in_usd = Decimal(round(
+					self.summary.wallet.current_value - self.summary.wallet.initial_value,
+					DEFAULT_PRECISION
+				))
 				wallet_current_initial_pnl = Decimal(round(
 					100 * ((self.summary.wallet.current_value / self.summary.wallet.initial_value) - 1),
 					DEFAULT_PRECISION
@@ -1034,6 +1039,8 @@ class Worker(WorkerBase):
 				self.summary.wallet.previous_initial_pnl = wallet_previous_initial_pnl
 				self.summary.wallet.current_initial_pnl = wallet_current_initial_pnl
 				self.summary.wallet.current_previous_pnl = wallet_current_previous_pnl
+
+				self.summary.wallet.current_initial_pnl_in_usd = wallet_current_initial_pnl_in_usd
 
 				self.summary.token.base.previous_initial_pnl = token_base_previous_initial_pnl
 				self.summary.token.base.current_initial_pnl = token_base_current_initial_pnl
@@ -1106,11 +1113,11 @@ class Worker(WorkerBase):
 			orders: List[DotMap[str, Any]] = list(self.summary.orders.canceled.values())
 			# orders.sort(key=lambda item: item.price)
 
-			groups: array[array[str]] = [[], [], []]
+			groups: array[array[str]] = [[]]
 			for order in orders:
 				groups[0].append(order.id)
-				groups[1].append(str(order.type).lower())
-				groups[2].append(order.marketName)
+				# groups[1].append(str(order.type).lower())
+				# groups[2].append(order.marketName)
 
 			canceled_orders_summary = format_lines(groups)
 
@@ -1139,7 +1146,8 @@ class Worker(WorkerBase):
 				 Market: <b>{self._market.name}</b>
 				 Wallet: ...{str(self._wallet_address)[-4:]}
 				 
-				{format_line("<b>PnL</b>: ", format_percentage(self.summary.wallet.current_initial_pnl, 3), alignment_column + 6)}
+				{format_line("<b>PnL (%)</b>: ", format_percentage(self.summary.wallet.current_initial_pnl, 3), alignment_column + 6)}
+				{format_line("<b>PnL (USD)</b>: ", format_currency(self.summary.wallet.current_initial_pnl_in_usd, 4), alignment_column + 7)}
 				
 				<b>Balances (in USD)</b>:
 				<b> Total</b>:
@@ -1149,15 +1157,15 @@ class Worker(WorkerBase):
 				{format_line(f"  Total:", format_currency(self.summary.balances.total.total, 4))}
 				<b> Tokens</b>:
 				<b>  {self._base_token.symbol}</b>:
-				{format_line(f"   Quotation:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.quotation, 4))}
+				{format_line(f"   Price:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.quotation, 4))}
 				{format_line(f"   Free:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.free, 4))}
-				{format_line(f"   Orders (sell):", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.lockedInOrders, 4))}
+				{format_line(f"   Sell Orders:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.lockedInOrders, 4))}
 				{format_line(f"   Unsettled:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.unsettled, 4))}
 				{format_line(f"   Total:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.total, 4))}
 				<b>  {self._quote_token.symbol}</b>:
-				{format_line(f"   Quotation:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.quotation, 4))}
+				{format_line(f"   Price:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.quotation, 4))}
 				{format_line(f"   Free:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.free, 4))}
-				{format_line(f"   Orders (buy):", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.lockedInOrders, 4))}
+				{format_line(f"   Buy Orders:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.lockedInOrders, 4))}
 				{format_line(f"   Unsettled:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.unsettled, 4))}
 				{format_line(f"   Total:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.total, 4))}
 				<b>Wallet (in USD)</b>:
