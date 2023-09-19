@@ -408,20 +408,21 @@ class Supervisor(StrategyBase):
 			f"""\n\n\
 				<b>Supervisor</b>
 				 Id: {self._client_id}
-				 Allowed Workers: {allowed_workers['all_ids']}
-				 Active Workers:  {active_workers}
-				 Stopped Workers: {stopped_workers}
 				 
-				 <b>General PnL</b>
-				{format_line("<b>Percentage</b>: ", format_percentage(self.summary.workers_wallets.current_pnl_percentage, 3), alignment_column + 6)}
-				{format_line("<b>USD</b>: ", format_currency(self.summary.workers_wallets.current_pnl, 4), alignment_column + 7)}
+				<b>Supervised Workers</b>
+				 Allowed Workers:	{allowed_workers['all_ids']}
+				 Active Workers:	{active_workers}
+				 Stopped Workers:	{stopped_workers}
+				 
+				<b>General PnL</b>:
+				{format_line("<b> Percentage</b>: ", format_percentage(self.summary.workers_wallets.current_pnl_percentage, 3), alignment_column + 6)}
+				{format_line("<b> USD</b>: ", format_currency(self.summary.workers_wallets.current_pnl, 4), alignment_column + 7)}
 				
 				<b>Active Workers Balances (in USD)</b>:
-				<b> Total</b>:
-				{format_line(f"  Free:", format_currency(free_balances_usd, 4))}
-				{format_line(f"  Orders:", format_currency(locked_in_orders_balances_usd, 4))}
-				{format_line(f"  Unsettled:", format_currency(unsettled_balances_usd, 4))}
-				{format_line(f"  Total:", format_currency(total_balances_usd, 4))}\
+				{format_line(f" Free:", format_currency(free_balances_usd, 4))}
+				{format_line(f" Orders:", format_currency(locked_in_orders_balances_usd, 4))}
+				{format_line(f" Unsettled:", format_currency(unsettled_balances_usd, 4))}
+				{format_line(f" Total:", format_currency(total_balances_usd, 4))}\
 			"""
 		)
 
