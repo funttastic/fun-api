@@ -6,6 +6,7 @@ resources/requests/http/http-client.private.env.json
 resources/strategies/*
 resources/logs/
 resources/temporary/
+resources/databases/
 
 *.iml
 __pycache__/
