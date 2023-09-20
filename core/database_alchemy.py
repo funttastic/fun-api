@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 from sqlalchemy import (
     create_engine,
     Column,
@@ -6,7 +7,8 @@ from sqlalchemy import (
     String,
     Text,
     DECIMAL,
-    JSON
+    JSON,
+    ForeignKey
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -20,22 +22,31 @@ working_directory = os.path.dirname(
 ClientBase = declarative_base()
 
 
+class Owner(ClientBase):
+    __tablename__ = "Owner"
+
+    owner_address = Column(Text, primary_key=True, nullable=False)
+    orders = relationship('Order', backref='Owner')
+
+
 class Order(ClientBase):
     __tablename__ = "Order"
 
-    exchange_id = Column(String(32), primary_key=True, nullable=False)
+    exchange_order_id = Column(String(32), primary_key=True, nullable=False)
     price = Column(DECIMAL(6), nullable=False)
     amount = Column(DECIMAL(6), nullable=False)
     order_type = Column(Text, nullable=False)
     market_name = Column(String(32), nullable=False)
     market_id = Column(Text, nullable=False)
-    base_symbol = Column(String(32), nullable=False)
-    quote_symbol = Column(String(32), nullable=False)
-    base_id = Column(Text, nullable=False)
-    quote_id = Column(Text, nullable=False)
+    base_token_symbol = Column(String(32), nullable=False)
+    quote_token_symbol = Column(String(32), nullable=False)
+    base_token_id = Column(Text, nullable=False)
+    quote_token_id = Column(Text, nullable=False)
     current_status = Column(Text, nullable=False)
     creation_timestamp = Column(BigInteger, nullable=False)
-    transaction_response_body = Column(JSON, nullable=False)
+    cancellation_timestamp = Column(BigInteger)
+    transaction_response_body = Column(JSON)
+    owner_address = Column(Text, ForeignKey('Owner.owner_address'))
 
 
 class DataBaseManipulator:
@@ -73,7 +84,6 @@ class DataBaseManipulator:
 if __name__ == '__main__':
 
     strategy_name = "pure_market_making"
-    strategy_id = "01"
     strategy_version = "1.0.0"
     worker_id = "01"
 
@@ -84,4 +94,96 @@ if __name__ == '__main__':
         worker_id
     )
     session = manipulator.create_session(db_path, db_name)
+
+    order_json_body = {
+        "id": "1387375",
+        "marketName": "KUJI/USK",
+        "marketId": "kujira193dzcmy7lwuj4eda3zpwwt9ejal00xva0vawcvhgsyyp5cfh6jyq66wfrf",
+        "market": {
+            "id": "kujira193dzcmy7lwuj4eda3zpwwt9ejal00xva0vawcvhgsyyp5cfh6jyq66wfrf",
+            "name": "KUJI/USK",
+            "baseToken": {
+                "id": "ukuji",
+                "name": "KUJI",
+                "symbol": "KUJI",
+                "decimals": 6
+            },
+            "quoteToken": {
+                "id": "factory/kujira1qk00h5atutpsv900x202pxx42npjr9thg58dnqpa72f2p7m2luase444a7/uusk",
+                "name": "USK",
+                "symbol": "USK",
+                "decimals": 6
+            },
+            "precision": 3,
+            "minimumOrderSize": "0.001",
+            "minimumPriceIncrement": "0.001",
+            "minimumBaseAmountIncrement": "0.001",
+            "minimumQuoteAmountIncrement": "0.001",
+            "fees": {
+                "maker": "0.075",
+                "taker": "0.15",
+                "serviceProvider": "0"
+            },
+            "deprecated": False,
+            "connectorMarket": {
+                "address": "kujira193dzcmy7lwuj4eda3zpwwt9ejal00xva0vawcvhgsyyp5cfh6jyq66wfrf",
+                "denoms": [
+                    {
+                        "reference": "ukuji",
+                        "decimals": 6,
+                        "symbol": "KUJI"
+                    },
+                    {
+                        "reference": "factory/kujira1qk00h5atutpsv900x202pxx42npjr9thg58dnqpa72f2p7m2luase444a7/uusk",
+                        "decimals": 6,
+                        "symbol": "USK"
+                    }
+                ],
+                "precision": {
+                    "decimal_places": 3
+                },
+                "decimalDelta": 0,
+                "multiswap": True,
+                "pool": "kujira1g9xcvvh48jlckgzw8ajl6dkvhsuqgsx2g8u3v0a6fx69h7f8hffqaqu36t",
+                "calc": "kujira1e6fjnq7q20sh9cca76wdkfg69esha5zn53jjewrtjgm4nktk824stzyysu"
+            }
+        },
+        "ownerAddress": "kujira1ga9qk68ne00wfflv7y2v92epaajt59e554uulc",
+        "payerAddress": "kujira1ga9qk68ne00wfflv7y2v92epaajt59e554uulc",
+        "price": "0.001",
+        "amount": "0.1",
+        "side": "BUY",
+        "status": "OPEN",
+        "type": "LIMIT",
+        "fee": "0.00033",
+        "hashes": {
+            "creation": "908800826D48782041DACD6C96ADA5D296B31374EB236E9136BB4450910D366B"
+        }
+    }
+
+    owner = Owner(owner_address=order_json_body["ownerAddress"])
+
+    order = Order(
+        exchange_order_id=order_json_body["id"],
+        price=Decimal(order_json_body["price"]),
+        amount=Decimal(order_json_body["amount"]),
+        order_type=order_json_body["type"],
+        market_name=order_json_body["marketName"],
+        market_id=order_json_body["marketId"],
+        base_token_symbol=order_json_body["market"]["baseToken"]["symbol"],
+        quote_token_symbol=order_json_body["market"]["quoteToken"]["symbol"],
+        base_token_id=order_json_body["market"]["baseToken"]["id"],
+        quote_token_id=order_json_body["market"]["quoteToken"]["id"],
+        current_status=order_json_body["status"],
+        creation_timestamp=order_json_body["hashes"]["creation"],
+        transaction_response_body=order_json_body,
+        owner_address=order_json_body["ownerAddress"]
+    )
+
+    session.add(owner)
+    session.add(order)
+    session.commit()
+
+    owner_records = session.query(Owner).all()
+
     session.close()
