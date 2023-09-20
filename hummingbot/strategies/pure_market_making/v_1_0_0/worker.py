@@ -4,6 +4,7 @@ import math
 import os
 import textwrap
 import traceback
+import json
 from array import array
 from decimal import Decimal
 from logging import DEBUG, INFO, WARNING, CRITICAL
@@ -15,6 +16,10 @@ from dotmap import DotMap
 from core.decorators import log_class_exceptions
 from core.properties import properties
 from core.utils import dump, deep_merge
+from core.database_alchemy import (
+	Owner as OwnerDatabase,
+	Order as OrderDatabase
+)
 from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
@@ -28,10 +33,11 @@ from hummingbot.utils import calculate_middle_price, format_currency, format_lin
 class Worker(WorkerBase):
 	CATEGORY = "worker"
 
-	def __init__(self, parent: Any, client_id: str):
+	def __init__(self, parent: Any, client_id: str, db_session: Any):
 		try:
 			self._parent = parent
 			self._client_id = client_id
+			self._db_session = db_session
 
 			self._configuration: DotMap[str, Any]
 			self._reload_configuration()
@@ -60,6 +66,7 @@ class Worker(WorkerBase):
 			self._currently_tracked_orders_ids: [str] = []
 			self._open_orders: DotMap[str, Any]
 			self._filled_orders: DotMap[str, Any]
+			self._owner_database = None
 
 			self._wallet_previous_value: Optional[float] = None
 			self._token_previous_price: Optional[float] = None
@@ -174,6 +181,9 @@ class Worker(WorkerBase):
 			self._market_name = self._configuration.market
 
 			self._wallet_address = self._configuration.wallet
+
+			self._owner_database = OwnerDatabase(owner_address=self._wallet_address)
+			self._db_session.add(self._owner_database)
 
 			self._market = await self._get_market()
 
@@ -310,6 +320,8 @@ class Worker(WorkerBase):
 						self.telegram_log(INFO, summary)
 
 					self._first_time = False
+
+					self._db_session.close()
 
 					await self._should_stop_loss()
 				except Exception as exception:
@@ -766,6 +778,15 @@ class Worker(WorkerBase):
 
 				self.summary.orders.filled = response
 
+				for order in response.values():
+					order_status_update = self._db_session.query(OrderDatabase).filter_by(
+						exchange_order_id=order.id
+					).first()
+
+					if order_status_update:
+						order_status_update.current_status = order.status
+						# self._db_session.commit()
+
 				return response
 			except Exception as exception:
 				response = traceback.format_exc()
@@ -815,6 +836,27 @@ class Worker(WorkerBase):
 							await self._get_balances(use_cache=False)
 						self._calculate_gas_sum(response, "creation")
 
+						for order in response.values():
+							database_order = OrderDatabase(
+								exchange_order_id=order.id,
+								price=Decimal(order.price),
+								amount=Decimal(order.amount),
+								order_type=order.type,
+								market_name=order.marketName,
+								market_id=order.marketId,
+								base_token_symbol=order.market.baseToken.symbol,
+								quote_token_symbol=order.market.quoteToken.symbol,
+								base_token_id=order.market.baseToken.id,
+								quote_token_id=order.market.quoteToken.id,
+								current_status=order.status,
+								creation_timestamp=order.hashes.creation,
+								transaction_response_body=json.dumps(order.toDict()),
+								owner_address=order.ownerAddress
+							)
+
+							self._db_session.add(database_order)
+							self._db_session.commit()
+
 				else:
 					self.log(WARNING, "No order was defined for placement/replacement. Skipping.", True)
 					response = []
@@ -860,6 +902,18 @@ class Worker(WorkerBase):
 						if not self._balances:
 							await self._get_balances(use_cache=False)
 						self._calculate_gas_sum(response, "cancellation")
+
+						for order in response.values():
+							order_status_update = self._db_session.query(OrderDatabase).filter_by(
+								exchange_order_id=order.id
+							).first()
+
+							if order_status_update:
+								order_status_update.current_status = order.status,
+								order_status_update.cancellation_timestamp = order.hashes.cancellation
+								# order_status_update.update({OrderDatabase.transaction_response_body: json.dumps(order.toDict())})
+								# self._db_session.commit()
+
 				else:
 					self.log(DEBUG, "No order needed to be canceled.")
 					response = {}
@@ -899,6 +953,18 @@ class Worker(WorkerBase):
 					if not self._balances:
 						await self._get_balances(use_cache=False)
 					self._calculate_gas_sum(response, "cancellation")
+
+					for order in response.values():
+						order_status_update = self._db_session.query(OrderDatabase).filter_by(
+							exchange_order_id=order.id
+						).first()
+
+						if order_status_update:
+							order_status_update.current_status = order.status,
+							order_status_update.cancellation_timestamp = order.hashes.cancellation
+							# order_status_update.update({OrderDatabase.transaction_response_body: json.dumps(order.toDict())})
+							# self._db_session.commit()
+
 			except Exception as exception:
 				response = traceback.format_exc()
 

@@ -4,7 +4,7 @@ import os
 import traceback
 from _decimal import Decimal
 from logging import DEBUG, INFO
-from typing import Dict, Any
+from typing import Any
 
 import yaml
 from dotmap import DotMap
@@ -13,6 +13,7 @@ from core.decorators import log_class_exceptions
 from core.properties import properties
 from core.utils import deep_merge
 from core.utils import dump
+from core.database_alchemy import DataBaseManipulator
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.pure_market_making.v_1_0_0.worker import Worker
 from hummingbot.strategies.strategy_base import StrategyBase
@@ -39,12 +40,14 @@ class Supervisor(StrategyBase):
 			super().__init__()
 
 			self._reload_configuration()
+			self._database_manipulator = DataBaseManipulator()
 
 			self._is_busy: bool = False
 			self._can_run: bool = True
 			self._refresh_timestamp: int = 0
 
 			self._workers: DotMap[str, WorkerBase] = DotMap({})
+			self._database_session = None
 
 			self._tasks: DotMap[str, asyncio.Task] = DotMap({
 				"on_tick": None,
@@ -123,9 +126,11 @@ class Supervisor(StrategyBase):
 			self._refresh_timestamp = self.clock.now()
 			(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
 
+			self._initialize_databases()
+
 			coroutines = []
 			for worker_id in self._configuration.workers.keys():
-				self._workers[worker_id] = Worker(self, worker_id)
+				self._workers[worker_id] = Worker(self, worker_id, self._database_session)
 				self._tasks.workers[worker_id] = asyncio.create_task(self._workers[worker_id].start())
 				coroutines.append(self._tasks.workers[worker_id])
 
@@ -319,3 +324,12 @@ class Supervisor(StrategyBase):
 				self.log(DEBUG, f"""gateway.kujira_get_balances: response:\n{dump(response)}""")
 		finally:
 			self.log(INFO, "end")
+
+	def _initialize_databases(self):
+		for worker in self._configuration.workers.keys():
+			db_path, file_name = self._database_manipulator.create_db_path(
+				_strategy_name=self.ID,
+				_strategy_version=self.VERSION,
+				_worker_id=worker
+			)
+			self._database_session = self._database_manipulator.create_session(db_path, file_name)
