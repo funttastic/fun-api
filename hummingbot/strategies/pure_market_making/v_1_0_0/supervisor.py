@@ -398,11 +398,14 @@ class Supervisor(StrategyBase):
 			self.summary.workers_wallets.current_value = total_balances_usd
 
 			self.summary.workers_wallets.previous_pnl = self.summary.workers_wallets.current_pnl
-			self.summary.workers_wallets.current_pnl = total_balances_usd - self.summary.workers_wallets.previous_value
+			self.summary.workers_wallets.current_pnl = 0 - (
+					self.summary.workers_wallets.initial_value - self.summary.workers_wallets.current_value
+			)
 			if self.summary.workers_wallets.current_pnl != DECIMAL_ZERO or 0:
-				self.summary.workers_wallets.current_pnl_percentage = 100 * (1 - (
-						self.summary.workers_wallets.initial_value / self.summary.workers_wallets.current_value
-				))
+				if self.summary.workers_wallets.current_value != DECIMAL_ZERO or 0:
+					self.summary.workers_wallets.current_pnl_percentage = 100 * (1 - (
+							self.summary.workers_wallets.initial_value / self.summary.workers_wallets.current_value
+					))
 
 		summary += textwrap.dedent(
 			f"""\n\n\
@@ -422,7 +425,9 @@ class Supervisor(StrategyBase):
 				{format_line(f" Free:", format_currency(free_balances_usd, 4))}
 				{format_line(f" Orders:", format_currency(locked_in_orders_balances_usd, 4))}
 				{format_line(f" Unsettled:", format_currency(unsettled_balances_usd, 4))}
-				{format_line(f" Total:", format_currency(total_balances_usd, 4))}\
+				{format_line(f" Total:", format_currency(total_balances_usd, 4))}
+				
+				{format_line(f"	Total (Initial):", format_currency(self.summary.workers_wallets.initial_value, 4))}\
 			"""
 		)
 
