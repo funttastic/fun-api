@@ -785,7 +785,8 @@ class Worker(WorkerBase):
 
 					if order_status_update:
 						order_status_update.current_status = order.status
-						# self._db_session.commit()
+
+				self._db_session.commit()
 
 				return response
 			except Exception as exception:
@@ -855,7 +856,8 @@ class Worker(WorkerBase):
 							)
 
 							self._db_session.add(database_order)
-							self._db_session.commit()
+
+						self._db_session.commit()
 
 				else:
 					self.log(WARNING, "No order was defined for placement/replacement. Skipping.", True)
@@ -909,10 +911,11 @@ class Worker(WorkerBase):
 							).first()
 
 							if order_status_update:
-								order_status_update.current_status = order.status,
+								order_status_update.current_status = order.status
 								order_status_update.cancellation_timestamp = order.hashes.cancellation
-								# order_status_update.update({OrderDatabase.transaction_response_body: json.dumps(order.toDict())})
-								# self._db_session.commit()
+								order_status_update.transaction_response_body = json.dumps(order.toDict())
+
+						self._db_session.commit()
 
 				else:
 					self.log(DEBUG, "No order needed to be canceled.")
@@ -960,10 +963,11 @@ class Worker(WorkerBase):
 						).first()
 
 						if order_status_update:
-							order_status_update.current_status = order.status,
+							order_status_update.current_status = order.status
 							order_status_update.cancellation_timestamp = order.hashes.cancellation
-							# order_status_update.update({OrderDatabase.transaction_response_body: json.dumps(order.toDict())})
-							# self._db_session.commit()
+							order_status_update.transaction_response_body = json.dumps(order.toDict())
+
+					self._db_session.commit()
 
 			except Exception as exception:
 				response = traceback.format_exc()
