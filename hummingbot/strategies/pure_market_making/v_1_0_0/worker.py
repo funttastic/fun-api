@@ -20,7 +20,7 @@ from core.database_alchemy import (
 	Owner as OwnerDatabase,
 	Order as OrderDatabase
 )
-from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column
+from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column, DB_MAXIMUM_CANCELLED_ORDERS
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
@@ -281,6 +281,27 @@ class Worker(WorkerBase):
 					self._is_busy = True
 
 					self._reload_configuration()
+
+					self._db_session.close() 	# This prevents errors if execution was terminated before the database was closed.
+
+					db_cancelled_orders = self._db_session.query(OrderDatabase).filter(
+						OrderDatabase.current_status == OrderStatus.CANCELLED.name
+					)
+
+					cancelled_orders_exchange_ids = []
+					if db_cancelled_orders.count() > 0:
+						for order in db_cancelled_orders.all():
+							cancelled_orders_exchange_ids.append(int(order.exchange_order_id))
+
+					while db_cancelled_orders.count() > DB_MAXIMUM_CANCELLED_ORDERS:
+						order_to_delete_exchange_id = str(min(*cancelled_orders_exchange_ids))
+
+						order_to_delete = self._db_session.query(OrderDatabase).filter(
+							OrderDatabase.exchange_order_id == order_to_delete_exchange_id
+						).first()
+
+						self._db_session.delete(order_to_delete)
+						self._db_session.commit()
 
 					self.summary.orders.new = DotMap({}, _dynamic=False)
 					self.summary.orders.open = DotMap({}, _dynamic=False)
