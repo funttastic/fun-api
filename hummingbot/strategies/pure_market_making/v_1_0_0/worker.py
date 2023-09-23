@@ -199,6 +199,36 @@ class Worker(WorkerBase):
 				except Exception as exception:
 					self.ignore_exception(exception)
 
+			market_open_orders = await self._get_open_orders(use_cache=False)
+
+			self._db_session.close() 	# This prevents errors if execution was terminated before the database was closed.
+
+			if len(market_open_orders):
+				db_open_orders = self._db_session.query(OrderDatabase).filter(
+					OrderDatabase.current_status == OrderStatus.OPEN.name
+				).all()
+
+				market_open_orders_exchnage_id = []
+
+				for market_order in market_open_orders.values():
+					market_open_orders_exchnage_id.append(market_order.id)
+
+				for db_order in db_open_orders:
+					if db_order.exchange_order_id in market_open_orders_exchnage_id:
+						pass
+					else:
+						order_status_update = self._db_session.query(OrderDatabase).filter_by(
+							exchange_order_id=db_order.exchange_order_id
+						)
+
+						if order_status_update:
+							order_status_update.first().current_status = OrderStatus.CANCELLED.name
+							order_status_update.first().transaction_response_body = None
+
+						self._db_session.commit()
+
+				self._db_session.close()
+
 			if self._configuration.strategy.withdraw_market_on_start:
 				try:
 					await self._market_withdraw()
@@ -256,6 +286,9 @@ class Worker(WorkerBase):
 						await self._market_withdraw()
 					except Exception as exception:
 						self.ignore_exception(exception)
+
+			self._db_session.commit()
+			self._db_session.close()
 		finally:
 			await self.exit()
 
@@ -282,8 +315,6 @@ class Worker(WorkerBase):
 
 					self._reload_configuration()
 
-					self._db_session.close() 	# This prevents errors if execution was terminated before the database was closed.
-
 					db_cancelled_orders = self._db_session.query(OrderDatabase).filter(
 						OrderDatabase.current_status == OrderStatus.CANCELLED.name
 					)
@@ -296,12 +327,17 @@ class Worker(WorkerBase):
 					while db_cancelled_orders.count() > DB_MAXIMUM_CANCELLED_ORDERS:
 						order_to_delete_exchange_id = str(min(*cancelled_orders_exchange_ids))
 
-						order_to_delete = self._db_session.query(OrderDatabase).filter(
-							OrderDatabase.exchange_order_id == order_to_delete_exchange_id
-						).first()
+						order_to_delete = self._db_session.query(OrderDatabase).filter_by(
+							exchange_order_id=order_to_delete_exchange_id
+						)
 
-						self._db_session.delete(order_to_delete)
+						if order_to_delete and order_to_delete.first():
+							self._db_session.delete(order_to_delete.first())
+
 						self._db_session.commit()
+						cancelled_orders_exchange_ids.remove(int(order_to_delete_exchange_id))
+
+					self._db_session.close()
 
 					self.summary.orders.new = DotMap({}, _dynamic=False)
 					self.summary.orders.open = DotMap({}, _dynamic=False)
@@ -802,12 +838,14 @@ class Worker(WorkerBase):
 				for order in response.values():
 					order_status_update = self._db_session.query(OrderDatabase).filter_by(
 						exchange_order_id=order.id
-					).first()
+					)
 
 					if order_status_update:
-						order_status_update.current_status = order.status
+						order_status_update.first().current_status = order.status
 
-				self._db_session.commit()
+					self._db_session.commit()
+
+				self._db_session.close()
 
 				return response
 			except Exception as exception:
@@ -878,7 +916,9 @@ class Worker(WorkerBase):
 
 							self._db_session.add(database_order)
 
-						self._db_session.commit()
+							self._db_session.commit()
+
+						self._db_session.close()
 
 				else:
 					self.log(WARNING, "No order was defined for placement/replacement. Skipping.", True)
@@ -929,14 +969,16 @@ class Worker(WorkerBase):
 						for order in response.values():
 							order_status_update = self._db_session.query(OrderDatabase).filter_by(
 								exchange_order_id=order.id
-							).first()
+							)
 
 							if order_status_update:
-								order_status_update.current_status = order.status
-								order_status_update.cancellation_timestamp = order.hashes.cancellation
-								order_status_update.transaction_response_body = json.dumps(order.toDict())
+								order_status_update.first().current_status = order.status
+								order_status_update.first().cancellation_timestamp = order.hashes.cancellation
+								order_status_update.first().transaction_response_body = json.dumps(order.toDict())
 
-						self._db_session.commit()
+							self._db_session.commit()
+
+						self._db_session.close()
 
 				else:
 					self.log(DEBUG, "No order needed to be canceled.")
@@ -981,14 +1023,16 @@ class Worker(WorkerBase):
 					for order in response.values():
 						order_status_update = self._db_session.query(OrderDatabase).filter_by(
 							exchange_order_id=order.id
-						).first()
+						)
 
 						if order_status_update:
-							order_status_update.current_status = order.status
-							order_status_update.cancellation_timestamp = order.hashes.cancellation
-							order_status_update.transaction_response_body = json.dumps(order.toDict())
+							order_status_update.first().current_status = order.status
+							order_status_update.first().cancellation_timestamp = order.hashes.cancellation
+							order_status_update.first().transaction_response_body = json.dumps(order.toDict())
 
-					self._db_session.commit()
+						self._db_session.commit()
+
+					self._db_session.close()
 
 			except Exception as exception:
 				response = traceback.format_exc()
