@@ -17,3 +17,6 @@ constants = DotMap({
 		'production': 'production'
 	},
 })
+
+DB_MAXIMUM_FILLED_ORDERS = 150
+DB_MAXIMUM_CANCELLED_ORDERS = 150

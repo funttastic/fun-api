@@ -15,12 +15,13 @@ from dotmap import DotMap
 
 from core.decorators import log_class_exceptions
 from core.properties import properties
+from core.types import MaximumOrdersInDBForOrderStatus
 from core.utils import dump, deep_merge
 from core.database_alchemy import (
 	Owner as OwnerDatabase,
 	Order as OrderDatabase
 )
-from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column, DB_MAXIMUM_CANCELLED_ORDERS
+from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
@@ -92,7 +93,7 @@ class Worker(WorkerBase):
 				"balance": DotMap({}, _dynamic=False),
 				"orders": {
 					"new": DotMap({}, _dynamic=False),
-					"open": DotMap({}, _dynamic=False),
+					"untracked": DotMap({}, _dynamic=False),
 					"canceled": DotMap({}, _dynamic=False),
 					"filled": DotMap({}, _dynamic=False),
 				},
@@ -183,6 +184,8 @@ class Worker(WorkerBase):
 			self._wallet_address = self._configuration.wallet
 
 			self._owner_database = OwnerDatabase(owner_address=self._wallet_address)
+			if not self._db_session.is_active:
+				pass
 			self._db_session.add(self._owner_database)
 
 			self._market = await self._get_market()
@@ -200,8 +203,6 @@ class Worker(WorkerBase):
 					self.ignore_exception(exception)
 
 			market_open_orders = await self._get_open_orders(use_cache=False)
-
-			self._db_session.close() 	# This prevents errors if execution was terminated before the database was closed.
 
 			if len(market_open_orders):
 				db_open_orders = self._db_session.query(OrderDatabase).filter(
@@ -315,32 +316,11 @@ class Worker(WorkerBase):
 
 					self._reload_configuration()
 
-					db_cancelled_orders = self._db_session.query(OrderDatabase).filter(
-						OrderDatabase.current_status == OrderStatus.CANCELLED.name
-					)
-
-					cancelled_orders_exchange_ids = []
-					if db_cancelled_orders.count() > 0:
-						for order in db_cancelled_orders.all():
-							cancelled_orders_exchange_ids.append(int(order.exchange_order_id))
-
-					while db_cancelled_orders.count() > DB_MAXIMUM_CANCELLED_ORDERS:
-						order_to_delete_exchange_id = str(min(*cancelled_orders_exchange_ids))
-
-						order_to_delete = self._db_session.query(OrderDatabase).filter_by(
-							exchange_order_id=order_to_delete_exchange_id
-						)
-
-						if order_to_delete and order_to_delete.first():
-							self._db_session.delete(order_to_delete.first())
-
-						self._db_session.commit()
-						cancelled_orders_exchange_ids.remove(int(order_to_delete_exchange_id))
-
-					self._db_session.close()
+					self._db_orders_count_control(OrderStatus.CANCELLED)
+					self._db_orders_count_control(OrderStatus.FILLED)
 
 					self.summary.orders.new = DotMap({}, _dynamic=False)
-					self.summary.orders.open = DotMap({}, _dynamic=False)
+					self.summary.orders.untracked = DotMap({}, _dynamic=False)
 					self.summary.orders.canceled = DotMap({}, _dynamic=False)
 					self.summary.orders.filled = DotMap({}, _dynamic=False)
 
@@ -365,7 +345,7 @@ class Worker(WorkerBase):
 					open_orders = await self._get_open_orders(use_cache=False)
 					open_orders_ids = list(open_orders.keys())
 
-					self.summary.orders.open = self._get_currently_untracked_orders(open_orders_ids)
+					self.summary.orders.untracked = self._get_currently_untracked_orders(open_orders_ids)
 
 					await self._get_balances(use_cache=False)
 
@@ -1251,8 +1231,8 @@ class Worker(WorkerBase):
 
 			new_orders_summary = format_lines(groups)
 
-		if self.summary.orders.open:
-			orders: List[DotMap[str, Any]] = list(self.summary.orders.open.values())
+		if self.summary.orders.untracked:
+			orders: List[DotMap[str, Any]] = list(self.summary.orders.untracked.values())
 			orders.sort(key=lambda item: item.id)
 
 			groups: array[array[str]] = [[], [], [], [], [], [], [], []]
@@ -1438,3 +1418,38 @@ class Worker(WorkerBase):
 				currently_untracked_open_orders[orderId] = order
 
 		return currently_untracked_open_orders
+
+	def _db_orders_count_control(self, order_status: OrderStatus):
+		try:
+			if order_status == OrderStatus.OPEN:
+				return
+			else:
+				db_orders = self._db_session.query(OrderDatabase).filter(
+					OrderDatabase.current_status == order_status.name
+				)
+				orders_exchange_ids = []
+				maximum_order_in_db = MaximumOrdersInDBForOrderStatus[order_status.name].value
+
+				if db_orders.count() > maximum_order_in_db:
+					for order in db_orders.all():
+						orders_exchange_ids.append(int(order.exchange_order_id))
+
+				while db_orders.count() > maximum_order_in_db:
+					order_to_delete_exchange_id = str(min(*orders_exchange_ids))
+
+					order_to_delete = self._db_session.query(OrderDatabase).filter_by(
+						exchange_order_id=order_to_delete_exchange_id
+					)
+
+					if order_to_delete and order_to_delete.first():
+						self._db_session.delete(order_to_delete.first())
+
+					self._db_session.commit()
+					orders_exchange_ids.remove(int(order_to_delete_exchange_id))
+
+				self._db_session.close()
+		except Exception as exception:
+			self.log(DEBUG, f"""An error occurred during database orders count control: """)
+			raise exception
+		finally:
+			return
