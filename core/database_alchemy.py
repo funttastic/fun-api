@@ -11,7 +11,7 @@ from sqlalchemy import (
     ForeignKey
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship, scoped_session
 
 working_directory = os.path.dirname(
     os.path.dirname(os.path.realpath(__file__))
@@ -67,18 +67,18 @@ class DataBaseManipulator:
 
         return _db_path, file_name
 
-    def create_session(self, _db_path: str, _db_name: str):
-        db_session = None
+    def get_session_creator(self, _db_path: str, _db_name: str):
+        session_creator = None
         try:
             os.makedirs(_db_path, exist_ok=True)
             url = f"{self._RDBMS}:///{_db_path}/{_db_name}"
             db_engine = create_engine(url)
             ClientBase.metadata.create_all(db_engine)
-            db_session = sessionmaker(bind=db_engine)()
+            session_creator = scoped_session(sessionmaker(bind=db_engine))
         except Exception as e:
             raise f"An error occurred during database session creation: {e}"
         finally:
-            return db_session
+            return session_creator
 
 
 if __name__ == '__main__':
@@ -93,7 +93,7 @@ if __name__ == '__main__':
         strategy_version,
         worker_id
     )
-    session = manipulator.create_session(db_path, db_name)
+    session = manipulator.get_session_creator(db_path, db_name)
 
     creation_order_json_body = {
         "id": "1387375",

@@ -332,4 +332,4 @@ class Supervisor(StrategyBase):
 				_strategy_version=self.VERSION,
 				_worker_id=worker
 			)
-			self._database_session = self._database_manipulator.create_session(db_path, file_name)
+			self._database_session = self._database_manipulator.get_session_creator(db_path, file_name)

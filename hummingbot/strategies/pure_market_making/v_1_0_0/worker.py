@@ -183,10 +183,14 @@ class Worker(WorkerBase):
 
 			self._wallet_address = self._configuration.wallet
 
-			self._owner_database = OwnerDatabase(owner_address=self._wallet_address)
-			if not self._db_session.is_active:
-				pass
-			self._db_session.add(self._owner_database)
+			existing_owner = self._db_session.query(OwnerDatabase).filter_by(
+				owner_address=self._wallet_address
+			).first()
+			if not existing_owner:
+				self._owner_database = OwnerDatabase(owner_address=self._wallet_address)
+				self._db_session.add(self._owner_database)
+				self._db_session.commit()
+				self._db_session.remove()
 
 			self._market = await self._get_market()
 
@@ -228,7 +232,7 @@ class Worker(WorkerBase):
 
 						self._db_session.commit()
 
-				self._db_session.close()
+				self._db_session.remove()
 
 			if self._configuration.strategy.withdraw_market_on_start:
 				try:
@@ -289,7 +293,7 @@ class Worker(WorkerBase):
 						self.ignore_exception(exception)
 
 			self._db_session.commit()
-			self._db_session.close()
+			self._db_session.remove()
 		finally:
 			await self.exit()
 
@@ -358,7 +362,7 @@ class Worker(WorkerBase):
 
 					self._first_time = False
 
-					self._db_session.close()
+					self._db_session.remove()
 
 					await self._should_stop_loss()
 				except Exception as exception:
@@ -825,7 +829,7 @@ class Worker(WorkerBase):
 
 					self._db_session.commit()
 
-				self._db_session.close()
+				self._db_session.remove()
 
 				return response
 			except Exception as exception:
@@ -898,7 +902,7 @@ class Worker(WorkerBase):
 
 							self._db_session.commit()
 
-						self._db_session.close()
+						self._db_session.remove()
 
 				else:
 					self.log(WARNING, "No order was defined for placement/replacement. Skipping.", True)
@@ -958,7 +962,7 @@ class Worker(WorkerBase):
 
 							self._db_session.commit()
 
-						self._db_session.close()
+						self._db_session.remove()
 
 				else:
 					self.log(DEBUG, "No order needed to be canceled.")
@@ -1012,7 +1016,7 @@ class Worker(WorkerBase):
 
 						self._db_session.commit()
 
-					self._db_session.close()
+					self._db_session.remove()
 
 			except Exception as exception:
 				response = traceback.format_exc()
@@ -1447,7 +1451,7 @@ class Worker(WorkerBase):
 					self._db_session.commit()
 					orders_exchange_ids.remove(int(order_to_delete_exchange_id))
 
-				self._db_session.close()
+				self._db_session.remove()
 		except Exception as exception:
 			self.log(DEBUG, f"""An error occurred during database orders count control: """)
 			raise exception
