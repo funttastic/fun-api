@@ -1046,8 +1046,6 @@ class Worker(WorkerBase):
 				response = await Gateway.kujira_post_market_withdraw(request)
 
 				if response:
-					if not self._balances:
-						await self._get_balances(use_cache=False)
 					self._calculate_gas_sum(response, "withdrawing")
 			except Exception as exception:
 				response = traceback.format_exc()
@@ -1384,7 +1382,16 @@ class Worker(WorkerBase):
 			self.log(DEBUG, f"""start""")
 
 			if not transaction_type == 'withdrawing':
-				for order in response.values():
+				unique_transaction_hashes = {}
+				sample_orders_for_each_transaction = {}
+
+				for order_id, order in response.items():
+					transaction_hash = order.hashes[transaction_type]
+					if transaction_hash not in unique_transaction_hashes:
+						unique_transaction_hashes[transaction_hash] = True
+						sample_orders_for_each_transaction[order_id] = order
+
+				for order in sample_orders_for_each_transaction.values():
 					self.summary.gas_payed.token_amounts[transaction_type] += Decimal(order.fee)
 					self.summary.gas_payed.token_amounts.total += Decimal(order.fee)
 					values = [
@@ -1393,7 +1400,10 @@ class Worker(WorkerBase):
 					]
 					max_value = max(*values)
 					min_value = min(*values)
-					factor = min_value / max_value
+					quotation = self._balances.tokens[self.summary.gas_payed.token.id].inUSD.quotation
+
+					factor = quotation if quotation else min_value / max_value
+
 					self.summary.gas_payed.usd_amounts[transaction_type] += Decimal(order.fee) * factor
 					self.summary.gas_payed.usd_amounts.total += Decimal(order.fee) * factor
 			else:
