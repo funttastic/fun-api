@@ -274,7 +274,7 @@ class Worker(WorkerBase):
 					self._reload_configuration()
 
 					self.summary.orders.new = DotMap({}, _dynamic=False)
-					self.summary.orders.open = DotMap({}, _dynamic=False)
+					self.summary.orders.untracked = DotMap({}, _dynamic=False)
 					self.summary.orders.canceled = DotMap({}, _dynamic=False)
 					self.summary.orders.filled = DotMap({}, _dynamic=False)
 
@@ -299,7 +299,7 @@ class Worker(WorkerBase):
 					open_orders = await self._get_open_orders(use_cache=False)
 					open_orders_ids = list(open_orders.keys())
 
-					self.summary.orders.open = self._get_currently_untracked_orders(open_orders_ids)
+					self.summary.orders.untracked = self._get_currently_untracked_orders(open_orders_ids)
 
 					await self._get_balances(use_cache=False)
 
@@ -840,16 +840,14 @@ class Worker(WorkerBase):
 			# request = None
 			response = None
 			try:
-				untracked_orders_ids = list(
-					set(self._all_tracked_orders_ids).intersection(set(open_orders_ids)) - set(
-						self._currently_tracked_orders_ids))
+				currently_untracked_orders_ids = self._get_currently_untracked_orders_ids(open_orders_ids)
 
-				if len(untracked_orders_ids) > 0:
+				if len(currently_untracked_orders_ids) > 0:
 					request = {
 						"chain": self._configuration.chain,
 						"network": self._configuration.network,
 						"connector": self._configuration.connector,
-						"ids": untracked_orders_ids,
+						"ids": currently_untracked_orders_ids,
 						"marketId": self._market.id,
 						"ownerAddress": self._wallet_address,
 					}
@@ -1095,7 +1093,7 @@ class Worker(WorkerBase):
 		summary = ""
 
 		new_orders_summary = ""
-		open_orders_summary = ""
+		untracked_orders_summary = ""
 		canceled_orders_summary = ""
 		filled_orders_summary = ""
 
@@ -1116,8 +1114,8 @@ class Worker(WorkerBase):
 
 			new_orders_summary = format_lines(groups)
 
-		if self.summary.orders.open:
-			orders: List[DotMap[str, Any]] = list(self.summary.orders.open.values())
+		if self.summary.orders.untracked:
+			orders: List[DotMap[str, Any]] = list(self.summary.orders.untracked.values())
 			orders.sort(key=lambda item: item.id)
 
 			groups: array[array[str]] = [[], [], [], [], [], [], [], []]
@@ -1131,7 +1129,7 @@ class Worker(WorkerBase):
 				groups[6].append(format_currency(Decimal(order.price), 3))
 				groups[7].append(self._quote_token.symbol)
 
-			open_orders_summary = format_lines(groups)
+			untracked_orders_summary = format_lines(groups)
 
 		if self.summary.orders.canceled:
 			orders: List[DotMap[str, Any]] = list(self.summary.orders.canceled.values())
@@ -1233,8 +1231,8 @@ class Worker(WorkerBase):
 		if new_orders_summary:
 			summary += f"""\n<b> New:</b>\n{new_orders_summary}"""
 
-		if open_orders_summary:
-			summary += f"""\n<b> Untracked:</b>\n{open_orders_summary}"""
+		if untracked_orders_summary:
+			summary += f"""\n<b> Untracked:</b>\n{untracked_orders_summary}"""
 
 		if canceled_orders_summary:
 			summary += f"""\n<b> Canceled:</b>\n{canceled_orders_summary}"""
@@ -1302,16 +1300,21 @@ class Worker(WorkerBase):
 		finally:
 			self.log(DEBUG, f"""end""")
 
-	def _get_currently_untracked_orders(self, open_orders_ids: List[str]):
+	def _get_currently_untracked_orders_ids(self, open_orders_ids: List[str]):
 		currently_untracked_orders_ids = list(
 			set(self._all_tracked_orders_ids).intersection(set(open_orders_ids)) - set(
 				self._currently_tracked_orders_ids))
 
-		currently_untracked_open_orders = DotMap({}, _dynamic=False)
+		return currently_untracked_orders_ids
+
+	def _get_currently_untracked_orders(self, open_orders_ids: List[str]):
+		currently_untracked_orders_ids = self._get_currently_untracked_orders_ids(open_orders_ids)
+
+		currently_untracked_orders = DotMap({}, _dynamic=False)
 
 		if len(currently_untracked_orders_ids) > 0:
 			for orderId in currently_untracked_orders_ids:
 				order = self._open_orders[orderId]
-				currently_untracked_open_orders[orderId] = order
+				currently_untracked_orders[orderId] = order
 
-		return currently_untracked_open_orders
+		return currently_untracked_orders
