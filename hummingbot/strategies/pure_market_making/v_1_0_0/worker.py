@@ -997,9 +997,6 @@ class Worker(WorkerBase):
 				if current_total_original_calculation != current_total_new_calculation:
 					considered_total = current_total_new_calculation
 
-				current_total = DECIMAL_ZERO
-				previous_total = DECIMAL_ZERO
-
 				if comparison == "wc/wo":
 					current_total = considered_total
 					previous_total = self.summary.wallet.initial_value
