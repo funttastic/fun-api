@@ -986,13 +986,57 @@ class Worker(WorkerBase):
 			self.log(INFO, "end")
 
 	async def _should_stop_loss(self):
+		async def continue_stop(pnl_type: str, expected_pnl_percentage: Decimal):
+			await self._get_balances(use_cache=False)
+
+			if pnl_type == "wallet":
+				total_original_calculation = self._balances.total.total
+				total_new_calculation = self._balances.total.free + self._balances.total.lockedInOrders + self._balances.total.unsettled
+				considered_total = total_original_calculation
+
+				if total_original_calculation != total_new_calculation:
+					considered_total = total_new_calculation
+
+				recalculated_wallet_current_initial_pnl_percentage = Decimal(round(
+					100 * ((self.summary.wallet.current_value / considered_total) - 1),
+					DEFAULT_PRECISION
+				))
+
+				if math.fabs(recalculated_wallet_current_initial_pnl_percentage) >= math.fabs(expected_pnl_percentage):
+					return True
+				else:
+					return False
+			else:
+				base_token_usd_quotation = balances.tokens[self._base_token.id].inUSD.quotation
+				quote_token_usd_quotation = balances.tokens[self._quote_token.id].inUSD.quotation
+
+				price_original_calculation = self.summary.token.base.initial_price
+				price_new_calculation = base_token_usd_quotation / quote_token_usd_quotation or await self._get_market_price()
+				considered_price = price_original_calculation
+
+				if price_original_calculation != price_new_calculation:
+					considered_price = price_new_calculation
+
+				recalculated_token_base_current_initial_pnl_percentage = Decimal(round(
+					100 * ((self.summary.token.base.current_price / considered_price) - 1),
+					DEFAULT_PRECISION
+				))
+
+				if math.fabs(recalculated_token_base_current_initial_pnl_percentage) >= math.fabs(expected_pnl_percentage):
+					return True
+				else:
+					return False
+
 		try:
 			self.log(INFO, """start""")
 
 			balances = await self._get_balances()
 
 			if self.summary.wallet.initial_value == DECIMAL_ZERO:
-				self.summary.token.base.initial_price = await self._get_market_price()
+				base_usd_quotation = balances.tokens[self._base_token.id].inUSD.quotation
+				quote_usd_quotation = balances.tokens[self._quote_token.id].inUSD.quotation
+
+				self.summary.token.base.initial_price = base_usd_quotation / quote_usd_quotation or await self._get_market_price()
 				self.summary.token.base.previous_price = self.summary.token.base.initial_price
 				self.summary.token.base.current_price = self.summary.token.base.initial_price
 
@@ -1005,8 +1049,11 @@ class Worker(WorkerBase):
 				max_wallet_loss_compared_to_token_variation = round(self._configuration.strategy.kill_switch.max_wallet_loss_compared_to_token_variation, 9)
 				max_token_loss_from_initial = round(self._configuration.strategy.kill_switch.max_token_loss_from_initial, 9)
 
+				base_usd_quotation = balances.tokens[self._base_token.id].inUSD.quotation
+				quote_usd_quotation = balances.tokens[self._quote_token.id].inUSD.quotation
+
 				self.summary.token.base.previous_price = self.summary.token.base.current_price
-				self.summary.token.base.current_price = await self._get_market_price()
+				self.summary.token.base.current_price = base_usd_quotation / quote_usd_quotation or await self._get_market_price()
 
 				self.summary.wallet.previous_value = self.summary.wallet.current_value
 				self.summary.wallet.current_value = balances.total.total
@@ -1054,13 +1101,13 @@ class Worker(WorkerBase):
 
 				if wallet_current_initial_pnl < 0:
 					if self._configuration.strategy.kill_switch.max_wallet_loss_from_initial_value:
-						if math.fabs(wallet_current_initial_pnl) >= math.fabs(max_wallet_loss_from_initial_value):
+						if math.fabs(wallet_current_initial_pnl) >= math.fabs(max_wallet_loss_from_initial_value) and continue_stop("wallet", wallet_current_initial_pnl):
 							self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_initial_pnl, 3)}, which is at least {max_wallet_loss_from_initial_value}% distant from the wallet initial value.\n/cc {users}""")
 
 							await self.stop()
 
 					if self._configuration.strategy.kill_switch.max_wallet_loss_from_previous_value:
-						if math.fabs(wallet_current_previous_pnl) >= math.fabs(max_wallet_loss_from_previous_value):
+						if math.fabs(wallet_current_previous_pnl) >= math.fabs(max_wallet_loss_from_previous_value) and continue_stop("wallet", wallet_current_previous_pnl):
 							self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_previous_pnl, 3)}, which is at least {max_wallet_loss_from_previous_value}% distant from the wallet previous value.\n/cc {users}""")
 
 							await self.stop()
@@ -1071,7 +1118,7 @@ class Worker(WorkerBase):
 
 							await self.stop()
 
-				if token_base_current_initial_pnl < 0 and math.fabs(token_base_current_initial_pnl) >= math.fabs(max_token_loss_from_initial):
+				if token_base_current_initial_pnl < 0 and math.fabs(token_base_current_initial_pnl) >= math.fabs(max_token_loss_from_initial) and continue_stop("token", token_base_current_initial_pnl):
 					self.log(CRITICAL, f"""\n\nThe bot has been stopped because the token lost {format_percentage(token_base_current_initial_pnl, 3)}, which is at least {max_token_loss_from_initial}% distant from the token initial price.\n/cc {users}""")
 
 					await self.stop()
