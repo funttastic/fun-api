@@ -56,6 +56,7 @@ class Worker(WorkerBase):
 			self._base_token_name = None
 			self._tickers: DotMap[str, Any]
 			self._balances: DotMap[str, Any] = DotMap({}, _dynamic=False)
+			self.public_balances = None
 			self._all_tracked_orders_ids: [str] = []
 			self._currently_tracked_orders_ids: [str] = []
 			self._open_orders: DotMap[str, Any]
@@ -573,6 +574,7 @@ class Worker(WorkerBase):
 					response = await Gateway.kujira_get_balances(request)
 
 					self._balances = DotMap(copy.deepcopy(response), _dynamic=False)
+					self.public_balances = self._balances
 
 					self._balances.total.free = Decimal(self._balances.total.free)
 					self._balances.total.lockedInOrders = Decimal(self._balances.total.lockedInOrders)
