@@ -986,23 +986,36 @@ class Worker(WorkerBase):
 			self.log(INFO, "end")
 
 	async def _should_stop_loss(self):
-		async def continue_stop(pnl_type: str, expected_pnl_percentage: Decimal):
+		async def continue_stop(pnl_type: str, expected_pnl_percentage: Decimal, comparison: str = "wc/wo"):
 			await self._get_balances(use_cache=False)
 
 			if pnl_type == "wallet":
-				total_original_calculation = self._balances.total.total
-				total_new_calculation = self._balances.total.free + self._balances.total.lockedInOrders + self._balances.total.unsettled
-				considered_total = total_original_calculation
+				current_total_original_calculation = self._balances.total.total
+				current_total_new_calculation = self._balances.total.free + self._balances.total.lockedInOrders + self._balances.total.unsettled
+				considered_total = current_total_original_calculation
 
-				if total_original_calculation != total_new_calculation:
-					considered_total = total_new_calculation
+				if current_total_original_calculation != current_total_new_calculation:
+					considered_total = current_total_new_calculation
 
-				recalculated_wallet_current_initial_pnl_percentage = Decimal(round(
-					100 * ((self.summary.wallet.current_value / considered_total) - 1),
+				current_total = DECIMAL_ZERO
+				previous_total = DECIMAL_ZERO
+
+				if comparison == "wc/wo":
+					current_total = considered_total
+					previous_total = self.summary.wallet.initial_value
+				elif comparison == "wp/wo":
+					current_total = self.summary.wallet.previous_value
+					previous_total = self.summary.wallet.initial_value
+				else:
+					current_total = considered_total
+					previous_total = self.summary.wallet.previous_value
+
+				recalculated_wallet_pnl_percentage = Decimal(round(
+					100 * ((current_total / previous_total) - 1),
 					DEFAULT_PRECISION
 				))
 
-				if math.fabs(recalculated_wallet_current_initial_pnl_percentage) >= math.fabs(expected_pnl_percentage):
+				if math.fabs(recalculated_wallet_pnl_percentage) >= math.fabs(expected_pnl_percentage):
 					return True
 				else:
 					return False
@@ -1099,15 +1112,19 @@ class Worker(WorkerBase):
 
 				users = ', '.join(self._configuration.strategy.kill_switch.notify.telegram.users)
 
-				if wallet_current_initial_pnl < 0:
+				if wallet_current_initial_pnl < DECIMAL_ZERO or wallet_previous_initial_pnl < DECIMAL_ZERO or wallet_current_previous_pnl < DECIMAL_ZERO:
 					if self._configuration.strategy.kill_switch.max_wallet_loss_from_initial_value:
-						if math.fabs(wallet_current_initial_pnl) >= math.fabs(max_wallet_loss_from_initial_value) and continue_stop("wallet", wallet_current_initial_pnl):
+						if math.fabs(wallet_current_initial_pnl) >= math.fabs(max_wallet_loss_from_initial_value) and (
+								await continue_stop("wallet", wallet_current_initial_pnl)
+						):
 							self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_initial_pnl, 3)}, which is at least {max_wallet_loss_from_initial_value}% distant from the wallet initial value.\n/cc {users}""")
 
 							await self.stop()
 
 					if self._configuration.strategy.kill_switch.max_wallet_loss_from_previous_value:
-						if math.fabs(wallet_current_previous_pnl) >= math.fabs(max_wallet_loss_from_previous_value) and continue_stop("wallet", wallet_current_previous_pnl):
+						if math.fabs(wallet_current_previous_pnl) >= math.fabs(max_wallet_loss_from_previous_value) and (
+								await continue_stop("wallet", wallet_current_previous_pnl, "wc/wp")
+						):
 							self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_previous_pnl, 3)}, which is at least {max_wallet_loss_from_previous_value}% distant from the wallet previous value.\n/cc {users}""")
 
 							await self.stop()
@@ -1118,7 +1135,9 @@ class Worker(WorkerBase):
 
 							await self.stop()
 
-				if token_base_current_initial_pnl < 0 and math.fabs(token_base_current_initial_pnl) >= math.fabs(max_token_loss_from_initial) and continue_stop("token", token_base_current_initial_pnl):
+				if token_base_current_initial_pnl < 0 and math.fabs(token_base_current_initial_pnl) >= math.fabs(max_token_loss_from_initial) and (
+						await continue_stop("token", token_base_current_initial_pnl)
+				):
 					self.log(CRITICAL, f"""\n\nThe bot has been stopped because the token lost {format_percentage(token_base_current_initial_pnl, 3)}, which is at least {max_token_loss_from_initial}% distant from the token initial price.\n/cc {users}""")
 
 					await self.stop()
