@@ -1244,6 +1244,7 @@ class Worker(WorkerBase):
 		textwrap.dedent(
 			f"""\n\n\
 				<b>Settings</b>:
+				 TickInterval: {self._configuration.strategy.tick_interval}
 				 OrderType: {self._order_type.name}
 				 PriceStrategy: {self._price_strategy.name}
 				 MiddlePriceStrategy: {self._middle_price_strategy.name}\
