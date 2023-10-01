@@ -278,6 +278,8 @@ class Worker(WorkerBase):
 					self.summary.orders.canceled = DotMap({}, _dynamic=False)
 					self.summary.orders.filled = DotMap({}, _dynamic=False)
 
+					await self._should_stop_loss()
+
 					if self._configuration.strategy.withdraw_market_on_tick:
 						try:
 							await self._market_withdraw()
@@ -311,8 +313,6 @@ class Worker(WorkerBase):
 						self.telegram_log(INFO, summary)
 
 					self._first_time = False
-
-					await self._should_stop_loss()
 				except Exception as exception:
 					self.ignore_exception(exception)
 				finally:
@@ -988,6 +988,9 @@ class Worker(WorkerBase):
 	async def _should_stop_loss(self):
 		try:
 			self.log(INFO, """start""")
+
+			if self._first_time:
+				return
 
 			balances = await self._get_balances()
 
