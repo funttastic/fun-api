@@ -1062,19 +1062,19 @@ class Worker(WorkerBase):
 
 							await self.stop()
 
-					if self._configuration.strategy.kill_switch.max_wallet_loss_from_previous_value:
+					elif self._configuration.strategy.kill_switch.max_wallet_loss_from_previous_value:
 						if math.fabs(wallet_current_previous_pnl) >= math.fabs(max_wallet_loss_from_previous_value):
 							self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_previous_pnl, 3)}, which is at least {max_wallet_loss_from_previous_value}% distant from the wallet previous value.\n/cc {users}""")
 
 							await self.stop()
 
-					if self._configuration.strategy.kill_switch.max_wallet_loss_compared_to_token_variation:
+					elif self._configuration.strategy.kill_switch.max_wallet_loss_compared_to_token_variation:
 						if math.fabs(wallet_current_initial_pnl - token_base_current_initial_pnl) >= math.fabs(max_wallet_loss_compared_to_token_variation):
 							self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_initial_pnl, 3)}, which is at least {max_wallet_loss_compared_to_token_variation}% distant from the token price variation ({token_base_current_initial_pnl}) from its initial price.\n/cc {users}""")
 
 							await self.stop()
 
-				if token_base_current_initial_pnl < 0 and math.fabs(token_base_current_initial_pnl) >= math.fabs(max_token_loss_from_initial):
+				elif token_base_current_initial_pnl < 0 and math.fabs(token_base_current_initial_pnl) >= math.fabs(max_token_loss_from_initial):
 					self.log(CRITICAL, f"""\n\nThe bot has been stopped because the token lost {format_percentage(token_base_current_initial_pnl, 3)}, which is at least {max_token_loss_from_initial}% distant from the token initial price.\n/cc {users}""")
 
 					await self.stop()
