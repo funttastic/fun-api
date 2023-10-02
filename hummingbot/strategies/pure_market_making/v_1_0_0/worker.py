@@ -992,10 +992,10 @@ class Worker(WorkerBase):
 			if self._first_time:
 				return
 
-			balances = await self._get_balances()
+			balances = await self._get_balances(use_cache=False)
 
 			if self.summary.wallet.initial_value == DECIMAL_ZERO:
-				self.summary.token.base.initial_price = await self._get_market_price()
+				self.summary.token.base.initial_price = await self._get_market_price(use_cache=False)
 				self.summary.token.base.previous_price = self.summary.token.base.initial_price
 				self.summary.token.base.current_price = self.summary.token.base.initial_price
 
@@ -1009,7 +1009,7 @@ class Worker(WorkerBase):
 				max_token_loss_from_initial = round(self._configuration.strategy.kill_switch.max_token_loss_from_initial, 9)
 
 				self.summary.token.base.previous_price = self.summary.token.base.current_price
-				self.summary.token.base.current_price = await self._get_market_price()
+				self.summary.token.base.current_price = await self._get_market_price(use_cache=False)
 
 				self.summary.wallet.previous_value = self.summary.wallet.current_value
 				self.summary.wallet.current_value = balances.total.total
