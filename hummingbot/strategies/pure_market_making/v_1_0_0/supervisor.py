@@ -270,9 +270,7 @@ class Supervisor(StrategyBase):
 					self._reload_configuration()
 
 					self._is_busy = True
-				except Exception as exception:
-					self.ignore_exception(exception)
-				finally:
+
 					waiting_time = self._calculate_waiting_time(self._tick_interval)
 
 					self._refresh_timestamp = waiting_time + self.clock.now()
@@ -295,6 +293,10 @@ class Supervisor(StrategyBase):
 					self.log(INFO, f"loop - sleeping for {waiting_time}...")
 					await asyncio.sleep(waiting_time)
 					self.log(INFO, "loop - awaken")
+				except asyncio.exceptions.CancelledError:
+					return
+				except Exception as exception:
+					self.ignore_exception(exception)
 		finally:
 			self.log(INFO, "end")
 
