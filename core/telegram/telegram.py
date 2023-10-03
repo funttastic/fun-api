@@ -36,7 +36,7 @@ class Telegram(object):
 		for command in Command:
 			application.add_handler(command.handler)
 
-		application.run_polling()
+		application.run_polling(drop_pending_updates=True)
 
 	def send(self, text):
 		if not self.enabled:
