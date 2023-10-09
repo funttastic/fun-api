@@ -290,7 +290,7 @@ class Worker(WorkerBase):
 
 					proposed_orders: List[Order] = await self._create_proposal()
 
-					if True:
+					if self.smart_check:
 						proposed_orders: List[Order] = await self._should_proposal_be_allowed(proposed_orders)
 
 					candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
@@ -461,6 +461,7 @@ class Worker(WorkerBase):
 
 	async def _should_proposal_be_allowed(self, proposed_orders: List[Order]) -> List[Order]:
 		try:
+			# self._currently_tracked_orders_ids -= order; //remove a ordem que deveria sair do mercado
 			return proposed_orders
 		finally:
 			pass
@@ -819,6 +820,11 @@ class Worker(WorkerBase):
 
 				if len(orders):
 					response = await Gateway.kujira_post_orders(request)
+
+					# if self.smart_check:
+					# 	self._currently_tracked_orders_ids += list(response.keys())
+					# else:
+					# 	self._currently_tracked_orders_ids = list(response.keys())
 
 					self._currently_tracked_orders_ids = list(response.keys())
 					self._all_tracked_orders_ids.extend(self._currently_tracked_orders_ids)
