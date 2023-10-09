@@ -289,6 +289,10 @@ class Worker(WorkerBase):
 					await self._get_balances(use_cache=False)
 
 					proposed_orders: List[Order] = await self._create_proposal()
+
+					if True:
+						proposed_orders: List[Order] = await self._should_proposal_be_allowed(proposed_orders)
+
 					candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
 
 					await self._place_orders(candidate_orders)
@@ -454,6 +458,12 @@ class Worker(WorkerBase):
 			return proposal
 		finally:
 			self.log(INFO, "end")
+
+	async def _should_proposal_be_allowed(self, proposed_orders: List[Order]) -> List[Order]:
+		try:
+			return proposed_orders
+		finally:
+			pass
 
 	async def _adjust_proposal_to_budget(self, candidate_proposal: List[Order]) -> List[Order]:
 		try:
