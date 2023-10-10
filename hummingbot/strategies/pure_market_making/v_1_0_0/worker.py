@@ -459,97 +459,97 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-    async def _should_proposal_be_allowed(self, proposed_orders: List[Order]) -> List[Order]:
-        def decimal_range(start, end, step):
-            while start < end:
-                yield start
-                start += step
+	async def _should_proposal_be_allowed(self, proposed_orders: List[Order]) -> List[Order]:
+		def decimal_range(start, end, step):
+			while start < end:
+				yield start
+				start += step
 
-        try:
-            proposed_bid_orders = DotMap[str, Any]
-            proposed_ask_orders = DotMap[str, Any]
+		try:
+			proposed_bid_orders = DotMap[str, Any]
+			proposed_ask_orders = DotMap[str, Any]
 
-            proposed_bid_prices = []
-            proposed_ask_prices = []
+			proposed_bid_prices = []
+			proposed_ask_prices = []
 
-            for order in proposed_orders:
-                if order.side == OrderSide.BUY:
-                    proposed_bid_orders[order.id] = order
-                    proposed_bid_prices.append(order.price)
-                else:
-                    proposed_ask_orders[order.id] = order
-                    proposed_ask_prices.append(order.price)
+			for order in proposed_orders:
+				if order.side == OrderSide.BUY:
+					proposed_bid_orders[order.id] = order
+					proposed_bid_prices.append(order.price)
+				else:
+					proposed_ask_orders[order.id] = order
+					proposed_ask_prices.append(order.price)
 
-            bid_orders_to_remove_ids = []
-            ask_orders_to_remove_ids = []
+			bid_orders_to_remove_ids = []
+			ask_orders_to_remove_ids = []
 
-            price_tolerance_interval = self._configuration.strategy.smart_fee_loss_minimizing.proposal_max_order_price_spread_tolerance / 100
+			price_tolerance_interval = self._configuration.strategy.smart_fee_loss_minimizing.proposal_max_order_price_spread_tolerance / 100
 
-            for orderId in self._currently_tracked_orders_ids:
-                order = self._open_orders[orderId]
+			for orderId in self._currently_tracked_orders_ids:
+				order = self._open_orders[orderId]
 
-                if order.side == OrderSide.BUY:
-                    minimum_proposal_price = min(proposed_bid_prices)
-                    maximum_proposal_price = max(proposed_bid_prices)
-                    proposal_price_range = decimal_range(minimum_proposal_price, maximum_proposal_price, 0.001)
+				if order.side == OrderSide.BUY:
+					minimum_proposal_price = min(proposed_bid_prices)
+					maximum_proposal_price = max(proposed_bid_prices)
+					proposal_price_range = decimal_range(minimum_proposal_price, maximum_proposal_price, 0.001)
 
-                    minimum_order_price = order.price - order.price * abs(price_tolerance_interval)
-                    maximum_order_price = order.price + order.price * abs(price_tolerance_interval)
+					minimum_order_price = order.price - order.price * abs(price_tolerance_interval)
+					maximum_order_price = order.price + order.price * abs(price_tolerance_interval)
 
-                    if minimum_order_price not in proposal_price_range and maximum_order_price not in proposal_price_range:
-                        bid_orders_to_remove_ids.append(order.id)
-                else:
-                    minimum_proposal_price = min(proposed_ask_prices)
-                    maximum_proposal_price = max(proposed_ask_prices)
-                    proposal_price_range = decimal_range(minimum_proposal_price, maximum_proposal_price, 0.001)
+					if minimum_order_price not in proposal_price_range and maximum_order_price not in proposal_price_range:
+						bid_orders_to_remove_ids.append(order.id)
+				else:
+					minimum_proposal_price = min(proposed_ask_prices)
+					maximum_proposal_price = max(proposed_ask_prices)
+					proposal_price_range = decimal_range(minimum_proposal_price, maximum_proposal_price, 0.001)
 
-                    minimum_order_price = order.price - order.price * abs(price_tolerance_interval)
-                    maximum_order_price = order.price + order.price * abs(price_tolerance_interval)
+					minimum_order_price = order.price - order.price * abs(price_tolerance_interval)
+					maximum_order_price = order.price + order.price * abs(price_tolerance_interval)
 
-                    if minimum_order_price not in proposal_price_range and maximum_order_price not in proposal_price_range:
-                        ask_orders_to_remove_ids.append(order.id)
+					if minimum_order_price not in proposal_price_range and maximum_order_price not in proposal_price_range:
+						ask_orders_to_remove_ids.append(order.id)
 
-            currently_bid_tracked_orders = DotMap[str, Any]
-            currently_ask_tracked_orders = DotMap[str, Any]
+			currently_bid_tracked_orders = DotMap[str, Any]
+			currently_ask_tracked_orders = DotMap[str, Any]
 
-            for orderId in self._currently_tracked_orders_ids:
-                order = self._open_orders[orderId]
-                if order.side == OrderSide.BUY:
-                    currently_bid_tracked_orders[order.id] = order
-                else:
-                    currently_ask_tracked_orders[order.id] = order
+			for orderId in self._currently_tracked_orders_ids:
+				order = self._open_orders[orderId]
+				if order.side == OrderSide.BUY:
+					currently_bid_tracked_orders[order.id] = order
+				else:
+					currently_ask_tracked_orders[order.id] = order
 
-            for orderId in bid_orders_to_remove_ids:
-                currently_bid_tracked_orders.pop(orderId)
+			for orderId in bid_orders_to_remove_ids:
+				currently_bid_tracked_orders.pop(orderId)
 
-            for orderId in ask_orders_to_remove_ids:
-                currently_ask_tracked_orders.pop(orderId)
+			for orderId in ask_orders_to_remove_ids:
+				currently_ask_tracked_orders.pop(orderId)
 
-            new_currently_tracked_orders_ids = []
-            for order in [*currently_bid_tracked_orders, *currently_ask_tracked_orders]:
-                new_currently_tracked_orders_ids.append(order.id)
+			new_currently_tracked_orders_ids = []
+			for order in [*currently_bid_tracked_orders, *currently_ask_tracked_orders]:
+				new_currently_tracked_orders_ids.append(order.id)
 
-            self._currently_tracked_orders_ids = new_currently_tracked_orders_ids
+			self._currently_tracked_orders_ids = new_currently_tracked_orders_ids
 
-            while len_orders := len(proposed_bid_orders) > len(bid_orders_to_remove_ids):
-                proposed_bid_orders.pop(
-                    list(proposed_bid_orders.keys())[-1]
-                )
+			while len_orders := len(proposed_bid_orders) > len(bid_orders_to_remove_ids):
+				proposed_bid_orders.pop(
+					list(proposed_bid_orders.keys())[-1]
+				)
 
-                len_orders -= 1
+				len_orders -= 1
 
-            while len_orders := len(proposed_ask_orders) > len(ask_orders_to_remove_ids):
-                proposed_ask_orders.pop(
-                    list(proposed_ask_orders.keys())[-1]
-                )
+			while len_orders := len(proposed_ask_orders) > len(ask_orders_to_remove_ids):
+				proposed_ask_orders.pop(
+					list(proposed_ask_orders.keys())[-1]
+				)
 
-                len_orders -= 1
+				len_orders -= 1
 
-            proposed_orders = [*proposed_bid_orders, *proposed_ask_orders]
+			proposed_orders = [*proposed_bid_orders, *proposed_ask_orders]
 
-            return proposed_orders
-        except Exception:
-            raise Exception
+			return proposed_orders
+		except Exception:
+			raise Exception
 
 	async def _adjust_proposal_to_budget(self, candidate_proposal: List[Order]) -> List[Order]:
 		try:
