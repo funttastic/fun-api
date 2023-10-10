@@ -36,6 +36,9 @@ strategy:
   withdraw_market_on_tick: false
   cancel_all_orders_on_stop: true
   withdraw_market_on_stop: true
+  smart_fee_loss_minimizing:
+    active: false
+    proposal_max_order_price_spread_tolerance: 20
   run_only_once: false
   kill_switch:
     max_wallet_loss_from_initial_value: 5
