@@ -288,14 +288,11 @@ class Worker(WorkerBase):
 					await self._get_filled_orders(use_cache=False)
 					await self._get_balances(use_cache=False)
 
-					proposed_orders: List[Order] = await self._create_proposal()
+					proposal: List[Order] = await self._create_proposal()
 
-					if self.smart_check:
-						proposed_orders: List[Order] = await self._should_proposal_be_allowed(proposed_orders)
+					refined_proposal: List[Order] = await self._refine_proposal(proposal)
 
-					candidate_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
-
-					await self._place_orders(candidate_orders)
+					await self._place_orders(refined_proposal.solution.orders.create)
 
 					open_orders = await self._get_open_orders(use_cache=False)
 					open_orders_ids = list(open_orders.keys())
@@ -459,97 +456,80 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	async def _should_proposal_be_allowed(self, proposed_orders: List[Order]) -> List[Order]:
-		def decimal_range(start, end, step):
-			while start < end:
-				yield start
-				start += step
-
+	async def _refine_proposal(self, current_orders: List[Order], proposed_orders: List[Order]) -> DotMap[str, Any]:
 		try:
-			proposed_bid_orders = DotMap[str, Any]
-			proposed_ask_orders = DotMap[str, Any]
+			self.log(INFO, "start")
 
-			proposed_bid_prices = []
-			proposed_ask_prices = []
+			problem = DotMap({
+				"tolerance": {
+					"absolute": {
+						"price": None,
+						"amount": None,
+					},
+					"percentage": {
+						"price": None,
+						"amount": None,
+					}
+				},
+				"orders": {
+					"current": current_orders,
+					"proposed": proposed_orders
+				}
+			}, _dynamic=False)
 
-			for order in proposed_orders:
-				if order.side == OrderSide.BUY:
-					proposed_bid_orders[order.id] = order
-					proposed_bid_prices.append(order.price)
-				else:
-					proposed_ask_orders[order.id] = order
-					proposed_ask_prices.append(order.price)
+			if self._configuration.strategy.minimize_fees_cost.active:
+				problem.tolerance.absolute.price = self._configuration.strategy.minimize_fees_cost.tolerance.orders.absolute.price
+				problem.tolerance.absolute.amount = self._configuration.strategy.minimize_fees_cost.tolerance.orders.absolute.amount
+				problem.tolerance.percentage.price = self._configuration.strategy.minimize_fees_cost.tolerance.orders.percentage.price
+				problem.tolerance.percentage.amount = self._configuration.strategy.minimize_fees_cost.tolerance.orders.percentage.amount
 
-			bid_orders_to_remove_ids = []
-			ask_orders_to_remove_ids = []
+				output = self._minimize_fees_cost(problem)
+			else:
+				refined_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
 
-			price_tolerance_interval = self._configuration.strategy.smart_fee_loss_minimizing.proposal_max_order_price_spread_tolerance / 100
+				output = DotMap({
+					'problem': problem,
+					'solution': {
+						'orders': {
+							'cancel': [],
+							'keep': [],
+							'create': refined_orders,
+						},
+						'meta': {
+							'cancel': [],
+							'keep': {},
+							'create': [order.id for order in refined_orders],
+						}
+					}
+				}, _dynamic=False)
 
-			for orderId in self._currently_tracked_orders_ids:
-				order = self._open_orders[orderId]
+			return output
+		finally:
+			self.log(INFO, "end")
 
-				if order.side == OrderSide.BUY:
-					minimum_proposal_price = min(proposed_bid_prices)
-					maximum_proposal_price = max(proposed_bid_prices)
-					proposal_price_range = decimal_range(minimum_proposal_price, maximum_proposal_price, 0.001)
+	async def _minimize_fees_cost(self, problem: DotMap[str, Any]) -> DotMap[str, Any]:
+		try:
+			self.log(INFO, "start")
 
-					minimum_order_price = order.price - order.price * abs(price_tolerance_interval)
-					maximum_order_price = order.price + order.price * abs(price_tolerance_interval)
+			output = DotMap({
+				'problem': None,
+				'solution': {
+					'orders': {
+						'cancel': None,
+						'keep': None,
+						'create': None,
+					},
+					'meta': {
+						'cancel': None,
+						'keep': None,
+						'create': None,
+					}
+				}
+			}, _dynamic=False)
 
-					if minimum_order_price not in proposal_price_range and maximum_order_price not in proposal_price_range:
-						bid_orders_to_remove_ids.append(order.id)
-				else:
-					minimum_proposal_price = min(proposed_ask_prices)
-					maximum_proposal_price = max(proposed_ask_prices)
-					proposal_price_range = decimal_range(minimum_proposal_price, maximum_proposal_price, 0.001)
-
-					minimum_order_price = order.price - order.price * abs(price_tolerance_interval)
-					maximum_order_price = order.price + order.price * abs(price_tolerance_interval)
-
-					if minimum_order_price not in proposal_price_range and maximum_order_price not in proposal_price_range:
-						ask_orders_to_remove_ids.append(order.id)
-
-			currently_bid_tracked_orders = DotMap[str, Any]
-			currently_ask_tracked_orders = DotMap[str, Any]
-
-			for orderId in self._currently_tracked_orders_ids:
-				order = self._open_orders[orderId]
-				if order.side == OrderSide.BUY:
-					currently_bid_tracked_orders[order.id] = order
-				else:
-					currently_ask_tracked_orders[order.id] = order
-
-			for orderId in bid_orders_to_remove_ids:
-				currently_bid_tracked_orders.pop(orderId)
-
-			for orderId in ask_orders_to_remove_ids:
-				currently_ask_tracked_orders.pop(orderId)
-
-			new_currently_tracked_orders_ids = []
-			for order in [*currently_bid_tracked_orders, *currently_ask_tracked_orders]:
-				new_currently_tracked_orders_ids.append(order.id)
-
-			self._currently_tracked_orders_ids = new_currently_tracked_orders_ids
-
-			while len_orders := len(proposed_bid_orders) > len(bid_orders_to_remove_ids):
-				proposed_bid_orders.pop(
-					list(proposed_bid_orders.keys())[-1]
-				)
-
-				len_orders -= 1
-
-			while len_orders := len(proposed_ask_orders) > len(ask_orders_to_remove_ids):
-				proposed_ask_orders.pop(
-					list(proposed_ask_orders.keys())[-1]
-				)
-
-				len_orders -= 1
-
-			proposed_orders = [*proposed_bid_orders, *proposed_ask_orders]
-
-			return proposed_orders
-		except Exception:
-			raise Exception
+			return output
+		finally:
+			self.log(INFO, "end")
 
 	async def _adjust_proposal_to_budget(self, candidate_proposal: List[Order]) -> List[Order]:
 		try:
