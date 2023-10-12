@@ -183,15 +183,17 @@ class Worker(WorkerBase):
 			self._base_token_name = self._market.baseToken.name
 			self._quote_token_name = self._market.quoteToken.name
 
-			if self._configuration.strategy.cancel_all_orders_on_start:
-				try:
-					await self._cancel_all_orders()
-				except Exception as exception:
-					self.ignore_exception(exception)
-
 			if self._configuration.strategy.withdraw_market_on_start:
 				try:
 					await self._market_withdraw()
+					await asyncio.sleep(self._configuration.strategy.sleep_time_after_withdraw)
+				except Exception as exception:
+					self.ignore_exception(exception)
+
+			if self._configuration.strategy.cancel_all_orders_on_start:
+				try:
+					await self._cancel_all_orders()
+					await asyncio.sleep(self._configuration.strategy.sleep_time_after_orders_cancellation)
 				except Exception as exception:
 					self.ignore_exception(exception)
 
@@ -277,34 +279,32 @@ class Worker(WorkerBase):
 					self.summary.orders.canceled = DotMap({}, _dynamic=False)
 					self.summary.orders.filled = DotMap({}, _dynamic=False)
 
+					await self._get_balances(use_cache=False)
+					await self._get_market_price(use_cache=False)
+
 					await self._should_stop_loss()
 
-					if self._configuration.strategy.withdraw_market_on_tick:
-						try:
-							await self._market_withdraw()
-						except Exception as exception:
-							self.ignore_exception(exception)
+					await self._withdraw_from_market_if_necessary()
+					await asyncio.sleep(self._configuration.strategy.sleep_time_after_withdraw)
 
 					await self._get_filled_orders(use_cache=False)
-					await self._get_balances(use_cache=False)
+					proposed_orders: List[Order] = await self._create_proposal()
+					current_open_orders = await self._get_open_orders(use_cache=False)
+					refined_proposal = await self._refine_proposal(current_open_orders, proposed_orders)
 
-					proposal: List[Order] = await self._create_proposal()
-
-					refined_proposal: List[Order] = await self._refine_proposal(proposal)
-
-					await self._place_orders(refined_proposal.solution.orders.create)
-
-					open_orders = await self._get_open_orders(use_cache=False)
-					open_orders_ids = list(open_orders.keys())
-					await self._cancel_currently_untracked_orders(open_orders_ids)
-
-					open_orders = await self._get_open_orders(use_cache=False)
-					open_orders_ids = list(open_orders.keys())
-
-					self.summary.orders.untracked = self._get_currently_untracked_orders(open_orders_ids)
+					await self._cancel_untracked_orders(refined_proposal.solution.orders.cancel, current_open_orders)
+					await asyncio.sleep(self._configuration.strategy.sleep_time_after_order_cancellation)
 
 					await self._get_balances(use_cache=False)
+					adjusted_orders_to_create = await self._adjust_proposal_to_budget(refined_proposal.solution.orders.create)
+					await self._place_orders(adjusted_orders_to_create)
+					self._currently_tracked_orders_ids.extend(list(refined_proposal.solution.meta.keep.keys()))
+					await asyncio.sleep(self._configuration.strategy.sleep_time_after_order_creation)
 
+					current_open_orders = await self._get_open_orders(use_cache=False)
+					self.summary.orders.untracked = self._get_untracked_orders(current_open_orders)
+
+					await self._get_balances(use_cache=False)
 					self.summary.balances = self._balances
 
 					if self._first_time is False:
@@ -331,6 +331,35 @@ class Worker(WorkerBase):
 					self.log(INFO, "loop - awaken")
 				except asyncio.exceptions.CancelledError:
 					return
+				except Exception as exception:
+					self.ignore_exception(exception)
+		finally:
+			self.log(INFO, "end")
+
+	async def _withdraw_from_market_if_necessary(self):
+		try:
+			self.log(INFO, "start")
+
+			if self._configuration.strategy.withdraw_market_on_tick:
+				try:
+					if self._configuration.strategy.minimize_fees_cost.active:
+						if self._configuration.strategy.minimize_fees_cost.tolerance.withdraw.absolute:
+							difference = Decimal(self._configuration.strategy.minimize_fees_cost.tolerance.withdraw.absolute)
+
+							if self._balances.total.unsettled >= difference:
+								await self._market_withdraw()
+
+								return
+						if self._configuration.strategy.minimize_fees_cost.tolerance.withdraw.percentage:
+							percentage = Decimal(self._configuration.strategy.minimize_fees_cost.tolerance.withdraw.absolute)
+							difference = percentage * self._balances.total.total / 100
+
+							if self._balances.total.unsettled >= difference:
+								await self._market_withdraw()
+
+								return
+					else:
+						await self._market_withdraw()
 				except Exception as exception:
 					self.ignore_exception(exception)
 		finally:
@@ -478,27 +507,25 @@ class Worker(WorkerBase):
 			}, _dynamic=False)
 
 			if self._configuration.strategy.minimize_fees_cost.active:
-				problem.tolerance.absolute.price = self._configuration.strategy.minimize_fees_cost.tolerance.orders.absolute.price
-				problem.tolerance.absolute.amount = self._configuration.strategy.minimize_fees_cost.tolerance.orders.absolute.amount
-				problem.tolerance.percentage.price = self._configuration.strategy.minimize_fees_cost.tolerance.orders.percentage.price
-				problem.tolerance.percentage.amount = self._configuration.strategy.minimize_fees_cost.tolerance.orders.percentage.amount
+				problem.tolerance.absolute.price = Decimal(self._configuration.strategy.minimize_fees_cost.tolerance.orders.absolute.price)
+				problem.tolerance.absolute.amount = Decimal(self._configuration.strategy.minimize_fees_cost.tolerance.orders.absolute.amount)
+				problem.tolerance.percentage.price = Decimal(self._configuration.strategy.minimize_fees_cost.tolerance.orders.percentage.price)
+				problem.tolerance.percentage.amount = Decimal(self._configuration.strategy.minimize_fees_cost.tolerance.orders.percentage.amount)
 
 				output = self._minimize_fees_cost(problem)
 			else:
-				refined_orders: List[Order] = await self._adjust_proposal_to_budget(proposed_orders)
-
 				output = DotMap({
 					'problem': problem,
 					'solution': {
 						'orders': {
-							'cancel': [],
+							'cancel': current_orders,
 							'keep': [],
-							'create': refined_orders,
+							'create': proposed_orders,
 						},
 						'meta': {
-							'cancel': [],
+							'cancel': [order.id for order in current_orders],
 							'keep': {},
-							'create': [order.id for order in refined_orders],
+							'create': [order.id for order in proposed_orders],
 						}
 					}
 				}, _dynamic=False)
@@ -510,24 +537,71 @@ class Worker(WorkerBase):
 	async def _minimize_fees_cost(self, problem: DotMap[str, Any]) -> DotMap[str, Any]:
 		try:
 			self.log(INFO, "start")
+			def calculate_tolerance(value, absolute_tolerance, percentage_tolerance):
+				return max(absolute_tolerance, value * (percentage_tolerance / 100))
 
-			output = DotMap({
-				'problem': None,
-				'solution': {
-					'orders': {
-						'cancel': None,
-						'keep': None,
-						'create': None,
-					},
-					'meta': {
-						'cancel': None,
-						'keep': None,
-						'create': None,
-					}
+			current_orders = problem.orders.current
+			proposed_orders = problem.orders.proposed
+
+			cancel = []
+			keep = []
+			create = []
+			keep_map = {}
+
+			mapped_proposed = set()
+
+			for current_order in current_orders:
+				matched = False
+				for proposed_order in proposed_orders:
+					if proposed_order.id in mapped_proposed:
+						continue
+
+					price_tolerance = calculate_tolerance(
+						current_order.price,
+						problem.tolerance.absolute.price,
+						problem.tolerance.percentage.price
+					)
+
+					amount_tolerance = calculate_tolerance(
+						current_order.amount,
+						problem.tolerance.absolute.amount,
+						problem.tolerance.percentage.amount
+					)
+
+					if (
+						(abs(current_order.price - proposed_order.price) <= price_tolerance)
+						and (abs(current_order.amount - proposed_order.amount) <= amount_tolerance)
+					):
+						keep.append(current_order)
+						keep_map[current_order.id] = proposed_order.id
+						mapped_proposed.add(proposed_order.id)
+						matched = True
+						break
+
+				if not matched:
+					cancel.append(current_order)
+
+			for proposed_order in proposed_orders:
+				if proposed_order.id not in mapped_proposed:
+					create.append(proposed_order)
+
+			solution = {
+				'orders': {
+					'cancel': cancel,
+					'keep': keep,
+					'create': create,
+				},
+				'meta': {
+					'cancel': [order.id for order in cancel],
+					'keep': keep_map,
+					'create': [order.id for order in create],
 				}
-			}, _dynamic=False)
+			}
 
-			return output
+			return DotMap({
+				'problem': problem,
+				'solution': solution
+			}, _dynamic=False)
 		finally:
 			self.log(INFO, "end")
 
@@ -910,21 +984,24 @@ class Worker(WorkerBase):
 		finally:
 			self.log(INFO, "end")
 
-	async def _cancel_currently_untracked_orders(self, open_orders_ids: List[str]):
+	async def _cancel_untracked_orders(self, orders_to_cancel: List[DotMap[str, Any]], current_open_orders: DotMap[str, Any]):
 		try:
 			self.log(INFO, "start")
 
 			# request = None
 			response = None
 			try:
-				currently_untracked_orders_ids = self._get_currently_untracked_orders_ids(open_orders_ids)
+				orders_to_cancel_ids = [order.id for order in orders_to_cancel]
+				current_open_orders_ids = list(current_open_orders.keys())
 
-				if len(currently_untracked_orders_ids) > 0:
+				target_orders_ids = self._get_untracked_orders_ids(current_open_orders_ids, orders_to_cancel_ids)
+
+				if len(target_orders_ids) > 0:
 					request = {
 						"chain": self._configuration.chain,
 						"network": self._configuration.network,
 						"connector": self._configuration.connector,
-						"ids": currently_untracked_orders_ids,
+						"ids": target_orders_ids,
 						"marketId": self._market.id,
 						"ownerAddress": self._wallet_address,
 					}
@@ -934,8 +1011,6 @@ class Worker(WorkerBase):
 					response = await Gateway.kujira_delete_orders(request)
 
 					if response:
-						if not self._balances:
-							await self._get_balances(use_cache=False)
 						self._calculate_gas_sum(response, "cancellation")
 				else:
 					self.log(DEBUG, "No order needed to be canceled.")
@@ -1069,10 +1144,10 @@ class Worker(WorkerBase):
 			if self._first_time:
 				return
 
-			balances = await self._get_balances(use_cache=False)
+			balances = await self._get_balances()
 
 			if self.summary.wallet.initial_value == DECIMAL_ZERO:
-				self.summary.token.base.initial_price = await self._get_market_price(use_cache=False)
+				self.summary.token.base.initial_price = await self._get_market_price()
 				self.summary.token.base.previous_price = self.summary.token.base.initial_price
 				self.summary.token.base.current_price = self.summary.token.base.initial_price
 
@@ -1086,7 +1161,7 @@ class Worker(WorkerBase):
 				max_token_loss_from_initial = round(self._configuration.strategy.kill_switch.max_token_loss_from_initial, 9)
 
 				self.summary.token.base.previous_price = self.summary.token.base.current_price
-				self.summary.token.base.current_price = await self._get_market_price(use_cache=False)
+				self.summary.token.base.current_price = await self._get_market_price()
 
 				self.summary.wallet.previous_value = self.summary.wallet.current_value
 				self.summary.wallet.current_value = balances.total.total
@@ -1384,21 +1459,26 @@ class Worker(WorkerBase):
 		finally:
 			self.log(DEBUG, f"""end""")
 
-	def _get_currently_untracked_orders_ids(self, open_orders_ids: List[str]):
+	def _get_untracked_orders_ids(self, open_orders_ids: List[str], orders_to_cancel_ids: List[str]):
 		currently_untracked_orders_ids = list(
-			set(self._all_tracked_orders_ids).intersection(set(open_orders_ids)) - set(
-				self._currently_tracked_orders_ids))
+			set(
+				set(self._all_tracked_orders_ids).intersection(set(open_orders_ids))
+				- set(self._currently_tracked_orders_ids)
+			).union(orders_to_cancel_ids)
+		)
 
 		return currently_untracked_orders_ids
 
-	def _get_currently_untracked_orders(self, open_orders_ids: List[str]):
-		currently_untracked_orders_ids = self._get_currently_untracked_orders_ids(open_orders_ids)
+	def _get_untracked_orders(self, open_orders: DotMap[str, Any]):
+		open_orders_ids = list(open_orders.keys())
+
+		currently_untracked_orders_ids = self._get_untracked_orders_ids(open_orders_ids, [])
 
 		currently_untracked_orders = DotMap({}, _dynamic=False)
 
 		if len(currently_untracked_orders_ids) > 0:
-			for orderId in currently_untracked_orders_ids:
-				order = self._open_orders[orderId]
-				currently_untracked_orders[orderId] = order
+			for order_id in currently_untracked_orders_ids:
+				order = self._open_orders[order_id]
+				currently_untracked_orders[order_id] = order
 
 		return currently_untracked_orders
