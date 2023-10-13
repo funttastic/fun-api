@@ -441,6 +441,7 @@ class Worker(WorkerBase):
 				else:
 					for i in range(bid_quantity):
 						bid_order = Order()
+						bid_order.id = str(client_id) # This is a temporary id
 						bid_order.client_id = str(client_id)
 						bid_order.market_name = self._market_name
 						bid_order.type = self._order_type
@@ -472,6 +473,7 @@ class Worker(WorkerBase):
 				else:
 					for i in range(ask_quantity):
 						ask_order = Order()
+						ask_order.id = str(client_id) # This is a temporary id
 						ask_order.client_id = str(client_id)
 						ask_order.market_name = self._market_name
 						ask_order.type = self._order_type
