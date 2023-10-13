@@ -94,7 +94,11 @@ class Worker(WorkerBase):
 					"token_amounts": {
 						"creation": DECIMAL_ZERO,
 						"cancellation": DECIMAL_ZERO,
-						"withdrawing": DECIMAL_ZERO,
+						"withdrawing": {
+							"native": DECIMAL_ZERO,
+							"base": DECIMAL_ZERO,
+							"quote": DECIMAL_ZERO
+						},
 						"total": DECIMAL_ZERO
 					},
 					"usd_amounts": {
@@ -1374,7 +1378,10 @@ class Worker(WorkerBase):
 				<b>   {self.summary.gas_payed.token.symbol}</b>:
 				{format_line("   Create:", format_currency(self.summary.gas_payed.token_amounts.creation, 5))}
 				{format_line("   Cancel:", format_currency(self.summary.gas_payed.token_amounts.cancellation, 5))}
-				{format_line("   Withdraw:", format_currency(self.summary.gas_payed.token_amounts.withdrawing, 5))}
+				<code>   Withdraw:</code>
+				{format_line("     Native:", format_currency(self.summary.gas_payed.token_amounts.withdrawing.native, 5))}
+				{format_line("     Base:", format_currency(self.summary.gas_payed.token_amounts.withdrawing.base, 5))}
+				{format_line("     Quote:", format_currency(self.summary.gas_payed.token_amounts.withdrawing.quote, 5))}
 				{format_line("   Total:", format_currency(self.summary.gas_payed.token_amounts.total, 5))}
 				<b>   USD (~)</b>:
 				{format_line("   Create:", format_currency(self.summary.gas_payed.usd_amounts.creation, 5))}
@@ -1449,9 +1456,13 @@ class Worker(WorkerBase):
 					self.summary.gas_payed.usd_amounts[transaction_type] += Decimal(order.fee) * factor
 					self.summary.gas_payed.usd_amounts.total += Decimal(order.fee) * factor
 			else:
-				self.summary.gas_payed.token_amounts[transaction_type] += Decimal(response.tokens[self._base_token.id].fees.token)
-				self.summary.gas_payed.usd_amounts[transaction_type].base += Decimal(response.tokens[self._base_token.id].fees.USD)
+				if self._base_token.id != KUJIRA_NATIVE_TOKEN.id and self._quote_token.id != KUJIRA_NATIVE_TOKEN.id:
+					self.summary.gas_payed.token_amounts[transaction_type].native += Decimal(response.tokens[KUJIRA_NATIVE_TOKEN.id].fees.token)
+				if self._base_token.id in response.tokens:
+					self.summary.gas_payed.token_amounts[transaction_type].base += Decimal(response.tokens[self._base_token.id].fees.token)
+					self.summary.gas_payed.usd_amounts[transaction_type].base += Decimal(response.tokens[self._base_token.id].fees.USD)
 				if self._quote_token.id in response.tokens:
+					self.summary.gas_payed.token_amounts[transaction_type].quote += Decimal(response.tokens[self._quote_token.id].fees.token)
 					self.summary.gas_payed.usd_amounts[transaction_type].quote += Decimal(response.tokens[self._quote_token.id].fees.USD)
 				self.summary.gas_payed.usd_amounts[transaction_type].total += Decimal(response.total.fees)
 				self.summary.gas_payed.usd_amounts.total += Decimal(response.total.fees)
