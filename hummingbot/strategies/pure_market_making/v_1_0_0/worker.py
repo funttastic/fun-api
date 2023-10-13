@@ -197,6 +197,8 @@ class Worker(WorkerBase):
 				except Exception as exception:
 					self.ignore_exception(exception)
 
+			await self._get_balances(use_cache=False)
+
 			self.clock.start()
 			self._refresh_timestamp = self.clock.now()
 			(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
