@@ -497,6 +497,23 @@ class Worker(WorkerBase):
 		try:
 			self.log(INFO, "start")
 
+			current_orders_buy = []
+			current_orders_sell = []
+			proposed_orders_buy = []
+			proposed_orders_sell = []
+
+			for order in current_orders.values():
+				if order.side == OrderSide.BUY.name:
+					current_orders_buy.append(order)
+				else:
+					current_orders_sell.append(order)
+
+			for order in proposed_orders:
+				if order.side == OrderSide.BUY:
+					proposed_orders_buy.append(order)
+				else:
+					proposed_orders_sell.append(order)
+
 			problem = DotMap({
 				"tolerance": {
 					"absolute": {
@@ -509,8 +526,8 @@ class Worker(WorkerBase):
 					}
 				},
 				"orders": {
-					"current": current_orders,
-					"proposed": proposed_orders
+					"current": [current_orders_buy, current_orders_sell],
+					"proposed": [proposed_orders_buy, proposed_orders_sell]
 				}
 			}, _dynamic=False)
 
@@ -548,8 +565,8 @@ class Worker(WorkerBase):
 			def calculate_tolerance(value, absolute_tolerance, percentage_tolerance):
 				return max(absolute_tolerance, value * (percentage_tolerance / 100))
 
-			current_orders = problem.orders.current
-			proposed_orders = problem.orders.proposed
+			[current_orders_buy, current_orders_sell] = problem.orders.current
+			[proposed_orders_buy, proposed_orders_sell] = problem.orders.proposed
 
 			cancel = []
 			keep = []
@@ -557,41 +574,41 @@ class Worker(WorkerBase):
 			keep_map = {}
 
 			mapped_proposed = set()
+			sides = [(current_orders_buy, proposed_orders_buy), (current_orders_sell, proposed_orders_sell)]
+			for (current_orders, proposed_orders) in sides:
+				for current_order in current_orders:
+					matched = False
+					for proposed_order in proposed_orders:
+						if proposed_order.id in mapped_proposed:
+							continue
 
-			for current_order in current_orders.values():
-				matched = False
+						price_tolerance = calculate_tolerance(
+							Decimal(current_order.price),
+							problem.tolerance.absolute.price,
+							problem.tolerance.percentage.price
+						)
+
+						amount_tolerance = calculate_tolerance(
+							Decimal(current_order.amount),
+							problem.tolerance.absolute.amount,
+							problem.tolerance.percentage.amount
+						)
+
+						if (
+							(abs(Decimal(current_order.price) - proposed_order.price) <= price_tolerance)
+							and (abs(Decimal(current_order.amount) - proposed_order.amount) <= amount_tolerance)
+						):
+							keep.append(current_order)
+							keep_map[current_order.id] = proposed_order.id
+							mapped_proposed.add(proposed_order.id)
+							matched = True
+							break
+
+					if not matched:
+						cancel.append(current_order)
 				for proposed_order in proposed_orders:
-					if proposed_order.id in mapped_proposed:
-						continue
-
-					price_tolerance = calculate_tolerance(
-						Decimal(current_order.price),
-						problem.tolerance.absolute.price,
-						problem.tolerance.percentage.price
-					)
-
-					amount_tolerance = calculate_tolerance(
-						Decimal(current_order.amount),
-						problem.tolerance.absolute.amount,
-						problem.tolerance.percentage.amount
-					)
-
-					if (
-						(abs(Decimal(current_order.price) - proposed_order.price) <= price_tolerance)
-						and (abs(Decimal(current_order.amount) - proposed_order.amount) <= amount_tolerance)
-					):
-						keep.append(current_order)
-						keep_map[current_order.id] = proposed_order.id
-						mapped_proposed.add(proposed_order.id)
-						matched = True
-						break
-
-				if not matched:
-					cancel.append(current_order)
-
-			for proposed_order in proposed_orders:
-				if proposed_order.id not in mapped_proposed:
-					create.append(proposed_order)
+					if proposed_order.id not in mapped_proposed:
+						create.append(proposed_order)
 
 			solution = {
 				'orders': {
