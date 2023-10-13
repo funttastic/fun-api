@@ -512,7 +512,7 @@ class Worker(WorkerBase):
 				problem.tolerance.percentage.price = Decimal(self._configuration.strategy.minimize_fees_cost.tolerance.orders.percentage.price)
 				problem.tolerance.percentage.amount = Decimal(self._configuration.strategy.minimize_fees_cost.tolerance.orders.percentage.amount)
 
-				output = self._minimize_fees_cost(problem)
+				output = await self._minimize_fees_cost(problem)
 			else:
 				output = DotMap({
 					'problem': problem,
