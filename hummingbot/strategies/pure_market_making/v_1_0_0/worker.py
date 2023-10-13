@@ -299,13 +299,13 @@ class Worker(WorkerBase):
 					refined_proposal = await self._refine_proposal(current_open_orders, proposed_orders)
 
 					await self._cancel_untracked_orders(refined_proposal.solution.orders.cancel, current_open_orders)
-					await asyncio.sleep(self._configuration.strategy.sleep_time_after_order_cancellation)
+					await asyncio.sleep(self._configuration.strategy.sleep_time_after_orders_cancellation)
 
 					await self._get_balances(use_cache=False)
 					adjusted_orders_to_create = await self._adjust_proposal_to_budget(refined_proposal.solution.orders.create)
 					await self._place_orders(adjusted_orders_to_create)
 					self._currently_tracked_orders_ids.extend(list(refined_proposal.solution.meta.keep.keys()))
-					await asyncio.sleep(self._configuration.strategy.sleep_time_after_order_creation)
+					await asyncio.sleep(self._configuration.strategy.sleep_time_after_orders_creation)
 
 					current_open_orders = await self._get_open_orders(use_cache=False)
 					self.summary.orders.untracked = self._get_untracked_orders(current_open_orders)
