@@ -558,27 +558,27 @@ class Worker(WorkerBase):
 
 			mapped_proposed = set()
 
-			for current_order in current_orders:
+			for current_order in current_orders.values():
 				matched = False
 				for proposed_order in proposed_orders:
 					if proposed_order.id in mapped_proposed:
 						continue
 
 					price_tolerance = calculate_tolerance(
-						current_order.price,
+						Decimal(current_order.price),
 						problem.tolerance.absolute.price,
 						problem.tolerance.percentage.price
 					)
 
 					amount_tolerance = calculate_tolerance(
-						current_order.amount,
+						Decimal(current_order.amount),
 						problem.tolerance.absolute.amount,
 						problem.tolerance.percentage.amount
 					)
 
 					if (
-						(abs(current_order.price - proposed_order.price) <= price_tolerance)
-						and (abs(current_order.amount - proposed_order.amount) <= amount_tolerance)
+						(abs(Decimal(current_order.price) - proposed_order.price) <= price_tolerance)
+						and (abs(Decimal(current_order.amount) - proposed_order.amount) <= amount_tolerance)
 					):
 						keep.append(current_order)
 						keep_map[current_order.id] = proposed_order.id
