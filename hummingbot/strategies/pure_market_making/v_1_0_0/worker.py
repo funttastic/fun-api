@@ -994,7 +994,7 @@ class Worker(WorkerBase):
 						self._calculate_gas_sum(response, "creation")
 
 				else:
-					self.log(WARNING, "No order was defined for placement/replacement. Skipping.", True)
+					self.log(INFO, "No order was defined for placement/replacement. Skipping.", True)
 					response = []
 
 				self.summary.orders.new = response
