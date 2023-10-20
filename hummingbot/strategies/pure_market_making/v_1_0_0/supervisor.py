@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import os
+import textwrap
 import traceback
 from _decimal import Decimal
 from logging import DEBUG, INFO
@@ -18,6 +19,8 @@ from hummingbot.gateway import Gateway
 from hummingbot.strategies.pure_market_making.v_1_0_0.worker import Worker
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.worker_base import WorkerBase
+from hummingbot.constants import DECIMAL_ZERO, alignment_column
+from hummingbot.utils import format_currency, format_line, format_percentage
 
 
 @log_class_exceptions
@@ -34,6 +37,7 @@ class Supervisor(StrategyBase):
 			self._client_id = client_id
 			self.base_id = f"""{self.SHORT_ID}:{self.VERSION}:{self._client_id}"""
 			self.id = f"""{self.base_id}:{self.CATEGORY}"""
+			self._workers_balances = DotMap()
 
 			self.log(INFO, "start")
 
@@ -44,6 +48,7 @@ class Supervisor(StrategyBase):
 
 			self._is_busy: bool = False
 			self._can_run: bool = True
+			self._first_time = True
 			self._refresh_timestamp: int = 0
 
 			self._workers: DotMap[str, WorkerBase] = DotMap({})
@@ -52,6 +57,24 @@ class Supervisor(StrategyBase):
 			self._tasks: DotMap[str, asyncio.Task] = DotMap({
 				"on_tick": None,
 				"workers": {
+				}
+			}, _dynamic=False)
+
+			self.summary: DotMap[str, Any] = DotMap({
+				"configurations": {
+					"tick_interval": str,
+					"run_only_once": bool
+				},
+				"active_workers": [],
+				"balance": DotMap({}, _dynamic=False),
+				"workers_wallets": {
+					"initial_value": DECIMAL_ZERO,
+					"previous_value": DECIMAL_ZERO,
+					"current_value": DECIMAL_ZERO,
+					"initial_pnl": DECIMAL_ZERO,
+					"previous_pnl": DECIMAL_ZERO,
+					"current_pnl": DECIMAL_ZERO,
+					"current_pnl_percentage": DECIMAL_ZERO
 				}
 			}, _dynamic=False)
 
@@ -94,6 +117,9 @@ class Supervisor(StrategyBase):
 
 		self._configuration = DotMap(configuration, _dynamic=False)
 
+		self._tick_interval = self._configuration.strategy.tick_interval
+		self._run_only_once = self._configuration.strategy.run_only_once
+
 		self.log(INFO, "end")
 
 	def get_status(self) -> DotMap[str, Any]:
@@ -130,7 +156,8 @@ class Supervisor(StrategyBase):
 
 			coroutines = []
 			for worker_id in self._configuration.workers.keys():
-				self._workers[worker_id] = Worker(self, worker_id, self._database_session)
+				worker = Worker(self, worker_id, self._database_session)
+				self._workers[worker_id] = worker
 				self._tasks.workers[worker_id] = asyncio.create_task(self._workers[worker_id].start())
 				coroutines.append(self._tasks.workers[worker_id])
 
@@ -248,10 +275,8 @@ class Supervisor(StrategyBase):
 					self._reload_configuration()
 
 					self._is_busy = True
-				except Exception as exception:
-					self.ignore_exception(exception)
-				finally:
-					waiting_time = self._calculate_waiting_time(self._configuration.strategy.tick_interval)
+
+					waiting_time = self._calculate_waiting_time(self._tick_interval)
 
 					self._refresh_timestamp = waiting_time + self.clock.now()
 					(self._refresh_timestamp, self._events.on_tick) = self.clock.register(self._refresh_timestamp)
@@ -259,14 +284,24 @@ class Supervisor(StrategyBase):
 
 					self.log(INFO, "loop - end")
 
-					if self._configuration.strategy.run_only_once:
+					if self._run_only_once:
 						await self.stop()
 
 						return
 
+					summary = self._get_summary()
+					self.log(INFO, summary)
+					self.telegram_log(INFO, summary)
+
+					self._first_time = False
+
 					self.log(INFO, f"loop - sleeping for {waiting_time}...")
 					await asyncio.sleep(waiting_time)
 					self.log(INFO, "loop - awaken")
+				except asyncio.exceptions.CancelledError:
+					return
+				except Exception as exception:
+					self.ignore_exception(exception)
 		finally:
 			self.log(INFO, "end")
 
@@ -279,7 +314,7 @@ class Supervisor(StrategyBase):
 		wallets = []
 
 		for worker_id in self._configuration.workers.keys():
-				wallets.append(self._workers[worker_id]._configuration.wallet)
+			wallets.append(self._workers[worker_id]._configuration.wallet)
 
 		return wallets
 
@@ -333,3 +368,92 @@ class Supervisor(StrategyBase):
 				_worker_id=worker
 			)
 			self._database_session = self._database_manipulator.get_session_creator(db_path, file_name)
+
+	def _get_summary(self) -> str:
+		summary = ""
+
+		active_workers = []
+		stopped_workers = []
+		allowed_workers = {'all_ids': []}
+		workers = self._configuration.workers
+
+		for worker_id in workers:
+			worker = workers[worker_id]
+			allowed_workers[worker.id] = {
+				"id": worker.id,
+				"wallet": worker.wallet,
+				"market": worker.market,
+				"balances": self._workers[worker.id].public_balances
+			}
+			allowed_workers['all_ids'].append(worker.id)
+
+			if self._tasks.workers.get(worker_id) and "message" not in self.worker_status(worker_id):
+				active_workers.append(worker_id)
+				allowed_workers[worker.id]['status'] = "running"
+			else:
+				stopped_workers.append(worker.id)
+				allowed_workers[worker.id]['status'] = "stopped"
+
+		free_balances_usd = DECIMAL_ZERO
+		locked_in_orders_balances_usd = DECIMAL_ZERO
+		unsettled_balances_usd = DECIMAL_ZERO
+		total_balances_usd = DECIMAL_ZERO
+
+		for worker_id in active_workers:
+			free_balances_usd += allowed_workers[worker_id]['balances'].total.free
+			locked_in_orders_balances_usd += allowed_workers[worker_id]['balances'].total.lockedInOrders
+			unsettled_balances_usd += allowed_workers[worker_id]['balances'].total.unsettled
+			total_balances_usd += allowed_workers[worker_id]['balances'].total.total
+
+		if self._first_time:
+			self.summary.workers_wallets.initial_value = total_balances_usd
+			self.summary.workers_wallets.previous_value = total_balances_usd
+			self.summary.workers_wallets.current_value = total_balances_usd
+		else:
+			self.summary.workers_wallets.previous_value = self.summary.workers_wallets.current_value
+			self.summary.workers_wallets.current_value = total_balances_usd
+
+			self.summary.workers_wallets.previous_pnl = self.summary.workers_wallets.current_pnl
+			self.summary.workers_wallets.current_pnl = 0 - (
+					self.summary.workers_wallets.initial_value - self.summary.workers_wallets.current_value
+			)
+			if self.summary.workers_wallets.current_pnl != DECIMAL_ZERO or 0:
+				if self.summary.workers_wallets.current_value != DECIMAL_ZERO or 0:
+					self.summary.workers_wallets.current_pnl_percentage = 100 * (1 - (
+							self.summary.workers_wallets.initial_value / self.summary.workers_wallets.current_value
+					))
+
+		summary += textwrap.dedent(
+			f"""\n\n\
+				<b>Supervisor</b>
+				 Id: {self._client_id}
+				 
+				<b>Supervised Workers</b>
+				 Allowed Workers:	{allowed_workers['all_ids']}
+				 Active Workers:	{active_workers}
+				 Stopped Workers:	{stopped_workers}
+				 
+				<b>General PnL</b>:
+				{format_line("<b> Percentage</b>: ", format_percentage(self.summary.workers_wallets.current_pnl_percentage, 3), alignment_column + 6)}
+				{format_line("<b> USD</b>: ", format_currency(self.summary.workers_wallets.current_pnl, 4), alignment_column + 7)}
+				
+				<b>Active Workers Balances (in USD)</b>:
+				{format_line(f" Free:", format_currency(free_balances_usd, 4))}
+				{format_line(f" Orders:", format_currency(locked_in_orders_balances_usd, 4))}
+				{format_line(f" Unsettled:", format_currency(unsettled_balances_usd, 4))}
+				{format_line(f" Total:", format_currency(total_balances_usd, 4))}
+				
+				{format_line(f"	Total (Initial):", format_currency(self.summary.workers_wallets.initial_value, 4))}\
+			"""
+		)
+
+		summary += \
+			textwrap.dedent(
+				f"""\n\n\
+				<b>Settings</b>:
+				 Tick Interval: {self._tick_interval}
+				 Run Only Once: {self._run_only_once}\
+			"""
+			)
+
+		return summary
