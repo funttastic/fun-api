@@ -233,8 +233,9 @@ class Worker(WorkerBase):
 						)
 
 						if order_status_update:
-							order_status_update.first().current_status = OrderStatus.CANCELLED.name
-							order_status_update.first().transaction_response_body = None
+							if order_status_update.first() != None and order_status_update.count() > 0:
+								order_status_update.first().current_status = OrderStatus.CANCELLED.name
+								order_status_update.first().transaction_response_body = None
 
 						self._db_session.commit()
 
@@ -1004,7 +1005,8 @@ class Worker(WorkerBase):
 					)
 
 					if order_status_update:
-						order_status_update.first().current_status = order.status
+						if order_status_update.first() != None and order_status_update.count() > 0:
+							order_status_update.first().current_status = order.status
 
 					self._db_session.commit()
 
@@ -1074,7 +1076,7 @@ class Worker(WorkerBase):
 								current_status=order.status,
 								creation_timestamp=order.hashes.creation,
 								transaction_response_body=json.dumps(order.toDict()),
-								owner_address=order.ownerAddress
+								owner_address=self._wallet_address # TODO - Change the place_orders response to brings the owner_address in the order body.
 							)
 
 							self._db_session.add(database_order)
@@ -1134,9 +1136,10 @@ class Worker(WorkerBase):
 							)
 
 							if order_status_update:
-								order_status_update.first().current_status = order.status
-								order_status_update.first().cancellation_timestamp = order.hashes.cancellation
-								order_status_update.first().transaction_response_body = json.dumps(order.toDict())
+								if order_status_update.first() != None and order_status_update.count() > 0:
+									order_status_update.first().current_status = order.status
+									order_status_update.first().cancellation_timestamp = order.hashes.cancellation
+									order_status_update.first().transaction_response_body = json.dumps(order.toDict())
 
 							self._db_session.commit()
 
@@ -1188,9 +1191,10 @@ class Worker(WorkerBase):
 						)
 
 						if order_status_update:
-							order_status_update.first().current_status = order.status
-							order_status_update.first().cancellation_timestamp = order.hashes.cancellation
-							order_status_update.first().transaction_response_body = json.dumps(order.toDict())
+							if order_status_update.first() != None and order_status_update.count() > 0:
+								order_status_update.first().current_status = order.status
+								order_status_update.first().cancellation_timestamp = order.hashes.cancellation
+								order_status_update.first().transaction_response_body = json.dumps(order.toDict())
 
 						self._db_session.commit()
 
