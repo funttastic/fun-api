@@ -1535,6 +1535,10 @@ class Worker(WorkerBase):
 			raise TypeError("Non serializable type: {}".format(type(target)))
 
 		filepath = self._database_path
+		dirpath = os.path.dirname(filepath)
+		if not os.path.exists(dirpath):
+			os.makedirs(dirpath, exist_ok=True)
+
 		with open(filepath, "w+") as file:
 			json.dump(self.state.toDict(), file, indent=2, default=handle_serialization)
 
@@ -1543,6 +1547,10 @@ class Worker(WorkerBase):
 			self._recreate_state()
 		else:
 			filepath = self._database_path
+			dirpath = os.path.dirname(filepath)
+			if not os.path.exists(dirpath):
+				os.makedirs(dirpath, exist_ok=True)
+
 			with open(filepath, "a+") as file:
 				file.seek(0)
 				content = file.read()
