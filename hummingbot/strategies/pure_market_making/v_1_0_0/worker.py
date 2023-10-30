@@ -258,10 +258,9 @@ class Worker(WorkerBase):
 
 					self._save_state()
 
-					if self._first_time is False:
-						summary = self._get_summary()
-						self.log(INFO, summary)
-						self.telegram_log(INFO, summary)
+					summary = self._get_summary()
+					self.log(INFO, summary)
+					self.telegram_log(INFO, summary)
 
 					self._first_time = False
 
