@@ -1,10 +1,11 @@
 import asyncio
 import copy
+import json
 import os
 import textwrap
 import traceback
 from array import array
-from decimal import Decimal
+from decimal import Decimal, DecimalException
 from logging import DEBUG, INFO, WARNING, CRITICAL
 from typing import Any, List, Optional
 
@@ -33,6 +34,7 @@ class Worker(WorkerBase):
 			self._client_id = client_id
 
 			self._configuration: DotMap[str, Any]
+			self._database_path: str
 			self._reload_configuration()
 
 			self.id = f"""{self._parent.base_id}:{self.CATEGORY}:{self._configuration.id}"""
@@ -75,69 +77,6 @@ class Worker(WorkerBase):
 				"balances": None,
 			}, _dynamic=False)
 
-			self.summary: DotMap[str, Any] = DotMap({
-				"configurations": {
-					"order_type": str,
-					"price_strategy": str,
-					"middle_price_strategy": str,
-					"use_adjusted_price": bool
-				},
-				"balance": DotMap({}, _dynamic=False),
-				"orders": {
-					"new": DotMap({}, _dynamic=False),
-					"open": DotMap({}, _dynamic=False),
-					"canceled": DotMap({}, _dynamic=False),
-					"filled": DotMap({}, _dynamic=False),
-				},
-				"gas_payed": {
-					"token": KUJIRA_NATIVE_TOKEN,
-					"token_amounts": {
-						"creation": DECIMAL_ZERO,
-						"cancellation": DECIMAL_ZERO,
-						"withdrawing": {
-							"native": DECIMAL_ZERO,
-							"base": DECIMAL_ZERO,
-							"quote": DECIMAL_ZERO
-						},
-						"total": DECIMAL_ZERO
-					},
-					"usd_amounts": {
-						"creation": DECIMAL_ZERO,
-						"cancellation": DECIMAL_ZERO,
-						"withdrawing": {
-							"base": DECIMAL_ZERO,
-							"quote": DECIMAL_ZERO,
-							"total": DECIMAL_ZERO
-						},
-						"total": DECIMAL_ZERO,
-					}
-				},
-				"wallet": {
-					"initial_value": DECIMAL_ZERO,
-					"previous_value": DECIMAL_ZERO,
-					"current_value": DECIMAL_ZERO,
-					"previous_initial_pnl": DECIMAL_ZERO,
-					"current_initial_pnl": DECIMAL_ZERO,
-					"current_previous_pnl": DECIMAL_ZERO,
-					"current_initial_pnl_in_usd": DECIMAL_ZERO,
-				},
-				"token": {
-					"base": {
-						"initial_price": DECIMAL_ZERO,
-						"previous_price": DECIMAL_ZERO,
-						"current_price": DECIMAL_ZERO,
-						"previous_initial_pnl": DECIMAL_ZERO,
-						"current_initial_pnl": DECIMAL_ZERO,
-						"current_previous_pnl": DECIMAL_ZERO,
-					},
-				},
-				"price": {
-					"used_price": DECIMAL_ZERO,
-					"ticker_price": DECIMAL_ZERO,
-					"last_filled_order_price": DECIMAL_ZERO,
-				}
-			}, _dynamic=False)
-
 			self._events: DotMap[str, asyncio.Event] = DotMap({
 				"on_tick": None,
 			}, _dynamic=False)
@@ -166,6 +105,8 @@ class Worker(WorkerBase):
 
 		self._configuration = DotMap(configuration, _dynamic=False)
 
+		self._database_path = os.path.join(root_path, "resources", "databases", self._parent.ID, self._parent.VERSION, "workers", f"{self._client_id}.json")
+
 		self.log(INFO, "end")
 
 	async def initialize(self):
@@ -174,6 +115,8 @@ class Worker(WorkerBase):
 			self.telegram_log(INFO, "initializing...")
 
 			self._initialized = False
+
+			self._load_state()
 
 			self._market_name = self._configuration.market
 
@@ -280,10 +223,10 @@ class Worker(WorkerBase):
 
 					self._reload_configuration()
 
-					self.summary.orders.new = DotMap({}, _dynamic=False)
-					self.summary.orders.untracked = DotMap({}, _dynamic=False)
-					self.summary.orders.canceled = DotMap({}, _dynamic=False)
-					self.summary.orders.filled = DotMap({}, _dynamic=False)
+					self.state.orders.new = DotMap({}, _dynamic=False)
+					self.state.orders.untracked = DotMap({}, _dynamic=False)
+					self.state.orders.canceled = DotMap({}, _dynamic=False)
+					self.state.orders.filled = DotMap({}, _dynamic=False)
 
 					await self._get_balances(use_cache=False)
 					await self._get_market_price(use_cache=False)
@@ -308,10 +251,12 @@ class Worker(WorkerBase):
 					await asyncio.sleep(self._configuration.strategy.sleep_time_after_orders_creation)
 
 					current_open_orders = await self._get_open_orders(use_cache=False)
-					self.summary.orders.untracked = self._get_untracked_orders(current_open_orders)
+					self.state.orders.untracked = self._get_untracked_orders(current_open_orders)
 
 					await self._get_balances(use_cache=False)
-					self.summary.balances = self._balances
+					self.state.balances = self._balances
+
+					self._save_state()
 
 					if self._first_time is False:
 						summary = self._get_summary()
@@ -379,7 +324,7 @@ class Worker(WorkerBase):
 			bids, asks = parse_order_book(order_book)
 
 			ticker_price = await self._get_market_price(use_cache=False)
-			self.summary.price.ticker_price = ticker_price
+			self.state.price.ticker_price = ticker_price
 
 			try:
 				last_filled_order_price = await self._get_last_filled_order_price()
@@ -388,7 +333,7 @@ class Worker(WorkerBase):
 
 				last_filled_order_price = DECIMAL_ZERO
 
-			self.summary.price.last_filled_order_price = last_filled_order_price
+			self.state.price.last_filled_order_price = last_filled_order_price
 
 			self._price_strategy = PriceStrategy[self._configuration.strategy.get("price_strategy", PriceStrategy.TICKER.name)]
 			if self._price_strategy == PriceStrategy.TICKER:
@@ -411,7 +356,7 @@ class Worker(WorkerBase):
 			if self._used_price is None or self._used_price <= DECIMAL_ZERO:
 				raise ValueError(f"Invalid price: {self._used_price}")
 
-			self.summary.price.used_price = self._used_price
+			self.state.price.used_price = self._used_price
 
 			self._order_type = OrderType[self._configuration.strategy.get("order_type", OrderType.LIMIT.name)]
 
@@ -942,7 +887,7 @@ class Worker(WorkerBase):
 					response = await Gateway.kujira_get_orders(request)
 					self._filled_orders = response
 
-				self.summary.orders.filled = response
+				self.state.orders.filled = response
 
 				return response
 			except Exception as exception:
@@ -997,7 +942,7 @@ class Worker(WorkerBase):
 					self.log(INFO, "No order was defined for placement/replacement. Skipping.", True)
 					response = []
 
-				self.summary.orders.new = response
+				self.state.orders.new = response
 
 				return response
 			except Exception as exception:
@@ -1041,7 +986,7 @@ class Worker(WorkerBase):
 					self.log(DEBUG, "No order needed to be canceled.")
 					response = {}
 
-				self.summary.orders.canceled = response
+				self.state.orders.canceled = response
 
 				return response
 			except Exception as exception:
@@ -1171,64 +1116,64 @@ class Worker(WorkerBase):
 
 			balances = await self._get_balances()
 
-			if self.summary.wallet.initial_value == DECIMAL_ZERO:
-				self.summary.token.base.initial_price = await self._get_market_price()
-				self.summary.token.base.previous_price = self.summary.token.base.initial_price
-				self.summary.token.base.current_price = self.summary.token.base.initial_price
+			if self.state.wallet.initial_value == DECIMAL_ZERO:
+				self.state.token.base.initial_price = await self._get_market_price()
+				self.state.token.base.previous_price = self.state.token.base.initial_price
+				self.state.token.base.current_price = self.state.token.base.initial_price
 
-				self.summary.wallet.initial_value = balances.total.total
-				self.summary.wallet.previous_value = self.summary.wallet.initial_value
-				self.summary.wallet.current_value = self.summary.wallet.initial_value
+				self.state.wallet.initial_value = balances.total.total
+				self.state.wallet.previous_value = self.state.wallet.initial_value
+				self.state.wallet.current_value = self.state.wallet.initial_value
 			else:
 				max_wallet_loss_from_initial_value = round(self._configuration.strategy.kill_switch.max_wallet_loss_from_initial_value, 9)
 				max_wallet_loss_from_previous_value = round(self._configuration.strategy.kill_switch.max_wallet_loss_from_previous_value, 9)
 				max_wallet_loss_compared_to_token_variation = round(self._configuration.strategy.kill_switch.max_wallet_loss_compared_to_token_variation, 9)
 				max_token_loss_from_initial = round(self._configuration.strategy.kill_switch.max_token_loss_from_initial, 9)
 
-				self.summary.token.base.previous_price = self.summary.token.base.current_price
-				self.summary.token.base.current_price = await self._get_market_price()
+				self.state.token.base.previous_price = self.state.token.base.current_price
+				self.state.token.base.current_price = await self._get_market_price()
 
-				self.summary.wallet.previous_value = self.summary.wallet.current_value
-				self.summary.wallet.current_value = balances.total.total
+				self.state.wallet.previous_value = self.state.wallet.current_value
+				self.state.wallet.current_value = balances.total.total
 
 				wallet_previous_initial_pnl = Decimal(round(
-					100 * ((self.summary.wallet.previous_value / self.summary.wallet.initial_value) - 1),
+					100 * ((self.state.wallet.previous_value / self.state.wallet.initial_value) - 1),
 					DEFAULT_PRECISION
 				))
 				wallet_current_initial_pnl_in_usd = Decimal(round(
-					self.summary.wallet.current_value - self.summary.wallet.initial_value,
+					self.state.wallet.current_value - self.state.wallet.initial_value,
 					DEFAULT_PRECISION
 				))
 				wallet_current_initial_pnl = Decimal(round(
-					100 * ((self.summary.wallet.current_value / self.summary.wallet.initial_value) - 1),
+					100 * ((self.state.wallet.current_value / self.state.wallet.initial_value) - 1),
 					DEFAULT_PRECISION
 				))
 				wallet_current_previous_pnl = Decimal(round(
-					100 * ((self.summary.wallet.current_value / self.summary.wallet.previous_value) - 1),
+					100 * ((self.state.wallet.current_value / self.state.wallet.previous_value) - 1),
 					DEFAULT_PRECISION
 				))
 				token_base_previous_initial_pnl = Decimal(round(
-					100 * ((self.summary.token.base.previous_price / self.summary.token.base.initial_price) - 1),
+					100 * ((self.state.token.base.previous_price / self.state.token.base.initial_price) - 1),
 					DEFAULT_PRECISION
 				))
 				token_base_current_initial_pnl = Decimal(round(
-					100 * ((self.summary.token.base.current_price / self.summary.token.base.initial_price) - 1),
+					100 * ((self.state.token.base.current_price / self.state.token.base.initial_price) - 1),
 					DEFAULT_PRECISION
 				))
 				token_base_current_previous_pnl = Decimal(round(
-					100 * ((self.summary.token.base.current_price / self.summary.token.base.previous_price) - 1),
+					100 * ((self.state.token.base.current_price / self.state.token.base.previous_price) - 1),
 					DEFAULT_PRECISION
 				))
 
-				self.summary.wallet.previous_initial_pnl = wallet_previous_initial_pnl
-				self.summary.wallet.current_initial_pnl = wallet_current_initial_pnl
-				self.summary.wallet.current_previous_pnl = wallet_current_previous_pnl
+				self.state.wallet.previous_initial_pnl = wallet_previous_initial_pnl
+				self.state.wallet.current_initial_pnl = wallet_current_initial_pnl
+				self.state.wallet.current_previous_pnl = wallet_current_previous_pnl
 
-				self.summary.wallet.current_initial_pnl_in_usd = wallet_current_initial_pnl_in_usd
+				self.state.wallet.current_initial_pnl_in_usd = wallet_current_initial_pnl_in_usd
 
-				self.summary.token.base.previous_initial_pnl = token_base_previous_initial_pnl
-				self.summary.token.base.current_initial_pnl = token_base_current_initial_pnl
-				self.summary.token.base.current_previous_pnl = token_base_current_previous_pnl
+				self.state.token.base.previous_initial_pnl = token_base_previous_initial_pnl
+				self.state.token.base.current_initial_pnl = token_base_current_initial_pnl
+				self.state.token.base.current_previous_pnl = token_base_current_previous_pnl
 
 				users = ', '.join(self._configuration.strategy.kill_switch.notify.telegram.users)
 
@@ -1280,8 +1225,8 @@ class Worker(WorkerBase):
 		canceled_orders_summary = ""
 		filled_orders_summary = ""
 
-		if self.summary.orders.new:
-			orders: List[DotMap[str, Any]] = list(self.summary.orders.new.values())
+		if self.state.orders.new:
+			orders: List[DotMap[str, Any]] = list(self.state.orders.new.values())
 			orders.sort(key=lambda item: item.id)
 
 			groups: array[array[str]] = [[], [], [], [], [], [], [], []]
@@ -1297,8 +1242,8 @@ class Worker(WorkerBase):
 
 			new_orders_summary = format_lines(groups)
 
-		if self.summary.orders.untracked:
-			orders: List[DotMap[str, Any]] = list(self.summary.orders.untracked.values())
+		if self.state.orders.untracked:
+			orders: List[DotMap[str, Any]] = list(self.state.orders.untracked.values())
 			orders.sort(key=lambda item: item.id)
 
 			groups: array[array[str]] = [[], [], [], [], [], [], [], []]
@@ -1314,8 +1259,8 @@ class Worker(WorkerBase):
 
 			untracked_orders_summary = format_lines(groups)
 
-		if self.summary.orders.canceled:
-			orders: List[DotMap[str, Any]] = list(self.summary.orders.canceled.values())
+		if self.state.orders.canceled:
+			orders: List[DotMap[str, Any]] = list(self.state.orders.canceled.values())
 			# orders.sort(key=lambda item: item.price)
 
 			groups: array[array[str]] = [[]]
@@ -1326,8 +1271,8 @@ class Worker(WorkerBase):
 
 			canceled_orders_summary = format_lines(groups)
 
-		if self.summary.orders.filled:
-			orders: List[DotMap[str, Any]] = list(self.summary.orders.filled.values())
+		if self.state.orders.filled:
+			orders: List[DotMap[str, Any]] = list(self.state.orders.filled.values())
 			orders.sort(key=lambda item: item.id)
 
 			groups: array[array[str]] = [[], [], [], [], [], [], [], []]
@@ -1351,65 +1296,65 @@ class Worker(WorkerBase):
 				 Market: <b>{self._market.name}</b>
 				 Wallet: ...{str(self._wallet_address)[-4:]}
 				 
-				{format_line("<b>PnL (%)</b>: ", format_percentage(self.summary.wallet.current_initial_pnl, 3), alignment_column + 6)}
-				{format_line("<b>PnL (USD)</b>: ", format_currency(self.summary.wallet.current_initial_pnl_in_usd, 4), alignment_column + 7)}
+				{format_line("<b>PnL (%)</b>: ", format_percentage(self.state.wallet.current_initial_pnl, 3), alignment_column + 6)}
+				{format_line("<b>PnL (USD)</b>: ", format_currency(self.state.wallet.current_initial_pnl_in_usd, 4), alignment_column + 7)}
 				
 				<b>Balances (in USD)</b>:
 				<b> Total</b>:
-				{format_line(f"  Free:", format_currency(self.summary.balances.total.free, 4))}
-				{format_line(f"  Orders:", format_currency(self.summary.balances.total.lockedInOrders, 4))}
-				{format_line(f"  Unsettled:", format_currency(self.summary.balances.total.unsettled, 4))}
-				{format_line(f"  Total:", format_currency(self.summary.balances.total.total, 4))}
+				{format_line(f"  Free:", format_currency(self.state.balances.total.free, 4))}
+				{format_line(f"  Orders:", format_currency(self.state.balances.total.lockedInOrders, 4))}
+				{format_line(f"  Unsettled:", format_currency(self.state.balances.total.unsettled, 4))}
+				{format_line(f"  Total:", format_currency(self.state.balances.total.total, 4))}
 				<b> Tokens</b>:
 				<b>  {self._base_token.symbol}</b>:
-				{format_line(f"   Price:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.quotation, 4))}
-				{format_line(f"   Free:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.free, 4))}
-				{format_line(f"   Sell Orders:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.lockedInOrders, 4))}
-				{format_line(f"   Unsettled:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.unsettled, 4))}
-				{format_line(f"   Total:", format_currency(self.summary.balances.tokens[self._base_token.id].inUSD.total, 4))}
+				{format_line(f"   Price:", format_currency(self.state.balances.tokens[self._base_token.id].inUSD.quotation, 4))}
+				{format_line(f"   Free:", format_currency(self.state.balances.tokens[self._base_token.id].inUSD.free, 4))}
+				{format_line(f"   Sell Orders:", format_currency(self.state.balances.tokens[self._base_token.id].inUSD.lockedInOrders, 4))}
+				{format_line(f"   Unsettled:", format_currency(self.state.balances.tokens[self._base_token.id].inUSD.unsettled, 4))}
+				{format_line(f"   Total:", format_currency(self.state.balances.tokens[self._base_token.id].inUSD.total, 4))}
 				<b>  {self._quote_token.symbol}</b>:
-				{format_line(f"   Price:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.quotation, 4))}
-				{format_line(f"   Free:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.free, 4))}
-				{format_line(f"   Buy Orders:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.lockedInOrders, 4))}
-				{format_line(f"   Unsettled:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.unsettled, 4))}
-				{format_line(f"   Total:", format_currency(self.summary.balances.tokens[self._quote_token.id].inUSD.total, 4))}
+				{format_line(f"   Price:", format_currency(self.state.balances.tokens[self._quote_token.id].inUSD.quotation, 4))}
+				{format_line(f"   Free:", format_currency(self.state.balances.tokens[self._quote_token.id].inUSD.free, 4))}
+				{format_line(f"   Buy Orders:", format_currency(self.state.balances.tokens[self._quote_token.id].inUSD.lockedInOrders, 4))}
+				{format_line(f"   Unsettled:", format_currency(self.state.balances.tokens[self._quote_token.id].inUSD.unsettled, 4))}
+				{format_line(f"   Total:", format_currency(self.state.balances.tokens[self._quote_token.id].inUSD.total, 4))}
 				<b>Wallet (in USD)</b>:
-				{format_line(" Wo:", format_currency(self.summary.wallet.initial_value, 4))}
-				{format_line(" Wp:", format_currency(self.summary.wallet.previous_value, 4))}
-				{format_line(" Wc:", format_currency(self.summary.wallet.current_value, 4))}
-				{format_line(" Wc/Wo:", (format_percentage(self.summary.wallet.current_initial_pnl, 3)), alignment_column - 1)}
-				{format_line(" Wc/Wp:", format_percentage(self.summary.wallet.current_previous_pnl, 3), alignment_column - 1)}
+				{format_line(" Wo:", format_currency(self.state.wallet.initial_value, 4))}
+				{format_line(" Wp:", format_currency(self.state.wallet.previous_value, 4))}
+				{format_line(" Wc:", format_currency(self.state.wallet.current_value, 4))}
+				{format_line(" Wc/Wo:", (format_percentage(self.state.wallet.current_initial_pnl, 3)), alignment_column - 1)}
+				{format_line(" Wc/Wp:", format_percentage(self.state.wallet.current_previous_pnl, 3), alignment_column - 1)}
 				<b>{self._base_token.symbol} (in {self._quote_token.symbol})</b>:
-				{format_line(" Bo:", format_currency(self.summary.token.base.initial_price, 4))}
-				{format_line(" Bp:", format_currency(self.summary.token.base.previous_price, 4))}
-				{format_line(" Bc:", format_currency(self.summary.token.base.current_price, 4))}
-				{format_line(" Bc/Bo:", format_percentage(self.summary.token.base.current_initial_pnl, 3), alignment_column - 1)}
-				{format_line(" Bc/Bp:", format_percentage(self.summary.token.base.current_previous_pnl, 3), alignment_column - 1)}
+				{format_line(" Bo:", format_currency(self.state.token.base.initial_price, 4))}
+				{format_line(" Bp:", format_currency(self.state.token.base.previous_price, 4))}
+				{format_line(" Bc:", format_currency(self.state.token.base.current_price, 4))}
+				{format_line(" Bc/Bo:", format_percentage(self.state.token.base.current_initial_pnl, 3), alignment_column - 1)}
+				{format_line(" Bc/Bp:", format_percentage(self.state.token.base.current_previous_pnl, 3), alignment_column - 1)}
 				<b>Price</b>:
-				{format_line(f" Used:", format_currency(self.summary.price.used_price, 4))}
-				{format_line(" Ticker:", format_currency(self.summary.price.ticker_price, 4))}
+				{format_line(f" Used:", format_currency(self.state.price.used_price, 4))}
+				{format_line(" Ticker:", format_currency(self.state.price.ticker_price, 4))}
 				<b>Orders</b>:
 				<b> Quantity</b>:
-				{format_line("  New:", str(len(self.summary.orders.new)), alignment_column - 5)}
-				{format_line("  Canceled:", str(len(self.summary.orders.canceled)), alignment_column - 5)}
+				{format_line("  New:", str(len(self.state.orders.new)), alignment_column - 5)}
+				{format_line("  Canceled:", str(len(self.state.orders.canceled)), alignment_column - 5)}
 				<b> Fees</b>:
-				{format_line("  Native Token:", self.summary.gas_payed.token.symbol)}
-				<b>   {self.summary.gas_payed.token.symbol}</b>:
-				{format_line("   Create:", format_currency(self.summary.gas_payed.token_amounts.creation, 5))}
-				{format_line("   Cancel:", format_currency(self.summary.gas_payed.token_amounts.cancellation, 5))}
+				{format_line("  Native Token:", self.state.gas_payed.token.symbol)}
+				<b>   {self.state.gas_payed.token.symbol}</b>:
+				{format_line("   Create:", format_currency(self.state.gas_payed.token_amounts.creation, 5))}
+				{format_line("   Cancel:", format_currency(self.state.gas_payed.token_amounts.cancellation, 5))}
 				<code>   Withdraw:</code>
-				{format_line("     Native:", format_currency(self.summary.gas_payed.token_amounts.withdrawing.native, 5))}
-				{format_line("     Base:", format_currency(self.summary.gas_payed.token_amounts.withdrawing.base, 5))}
-				{format_line("     Quote:", format_currency(self.summary.gas_payed.token_amounts.withdrawing.quote, 5))}
-				{format_line("   Total:", format_currency(self.summary.gas_payed.token_amounts.total, 5))}
+				{format_line("     Native:", format_currency(self.state.gas_payed.token_amounts.withdrawing.native, 5))}
+				{format_line("     Base:", format_currency(self.state.gas_payed.token_amounts.withdrawing.base, 5))}
+				{format_line("     Quote:", format_currency(self.state.gas_payed.token_amounts.withdrawing.quote, 5))}
+				{format_line("   Total:", format_currency(self.state.gas_payed.token_amounts.total, 5))}
 				<b>   USD (~)</b>:
-				{format_line("   Create:", format_currency(self.summary.gas_payed.usd_amounts.creation, 5))}
-				{format_line("   Cancel:", format_currency(self.summary.gas_payed.usd_amounts.cancellation, 5))}
+				{format_line("   Create:", format_currency(self.state.gas_payed.usd_amounts.creation, 5))}
+				{format_line("   Cancel:", format_currency(self.state.gas_payed.usd_amounts.cancellation, 5))}
 				<code>   Withdraw:</code>
-				{format_line("     Base:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.base, 5))}
-				{format_line("     Quote:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.quote, 5))}
-				{format_line("     Total:", format_currency(self.summary.gas_payed.usd_amounts.withdrawing.total, 5))}
-				{format_line("   Total:", format_currency(self.summary.gas_payed.usd_amounts.total, 5))}\
+				{format_line("     Base:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.base, 5))}
+				{format_line("     Quote:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.quote, 5))}
+				{format_line("     Total:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.total, 5))}
+				{format_line("   Total:", format_currency(self.state.gas_payed.usd_amounts.total, 5))}\
 				
 			"""
 		)
@@ -1460,31 +1405,31 @@ class Worker(WorkerBase):
 						sample_orders_for_each_transaction[order_id] = order
 
 				for order in sample_orders_for_each_transaction.values():
-					self.summary.gas_payed.token_amounts[transaction_type] += Decimal(order.fee)
-					self.summary.gas_payed.token_amounts.total += Decimal(order.fee)
+					self.state.gas_payed.token_amounts[transaction_type] += Decimal(order.fee)
+					self.state.gas_payed.token_amounts.total += Decimal(order.fee)
 					values = [
-						Decimal(self._balances.tokens[self.summary.gas_payed.token.id].free),
-						Decimal(self._balances.tokens[self.summary.gas_payed.token.id].inUSD.free)
+						Decimal(self._balances.tokens[self.state.gas_payed.token.id].free),
+						Decimal(self._balances.tokens[self.state.gas_payed.token.id].inUSD.free)
 					]
 					max_value = max(*values)
 					min_value = min(*values)
-					quotation = self._balances.tokens[self.summary.gas_payed.token.id].inUSD.quotation
+					quotation = self._balances.tokens[self.state.gas_payed.token.id].inUSD.quotation
 
 					factor = quotation if quotation else min_value / max_value
 
-					self.summary.gas_payed.usd_amounts[transaction_type] += Decimal(order.fee) * factor
-					self.summary.gas_payed.usd_amounts.total += Decimal(order.fee) * factor
+					self.state.gas_payed.usd_amounts[transaction_type] += Decimal(order.fee) * factor
+					self.state.gas_payed.usd_amounts.total += Decimal(order.fee) * factor
 			else:
 				if self._base_token.id != KUJIRA_NATIVE_TOKEN.id and self._quote_token.id != KUJIRA_NATIVE_TOKEN.id:
-					self.summary.gas_payed.token_amounts[transaction_type].native += Decimal(response.tokens[KUJIRA_NATIVE_TOKEN.id].fees.token)
+					self.state.gas_payed.token_amounts[transaction_type].native += Decimal(response.tokens[KUJIRA_NATIVE_TOKEN.id].fees.token)
 				if self._base_token.id in response.tokens:
-					self.summary.gas_payed.token_amounts[transaction_type].base += Decimal(response.tokens[self._base_token.id].fees.token)
-					self.summary.gas_payed.usd_amounts[transaction_type].base += Decimal(response.tokens[self._base_token.id].fees.USD)
+					self.state.gas_payed.token_amounts[transaction_type].base += Decimal(response.tokens[self._base_token.id].fees.token)
+					self.state.gas_payed.usd_amounts[transaction_type].base += Decimal(response.tokens[self._base_token.id].fees.USD)
 				if self._quote_token.id in response.tokens:
-					self.summary.gas_payed.token_amounts[transaction_type].quote += Decimal(response.tokens[self._quote_token.id].fees.token)
-					self.summary.gas_payed.usd_amounts[transaction_type].quote += Decimal(response.tokens[self._quote_token.id].fees.USD)
-				self.summary.gas_payed.usd_amounts[transaction_type].total += Decimal(response.total.fees)
-				self.summary.gas_payed.usd_amounts.total += Decimal(response.total.fees)
+					self.state.gas_payed.token_amounts[transaction_type].quote += Decimal(response.tokens[self._quote_token.id].fees.token)
+					self.state.gas_payed.usd_amounts[transaction_type].quote += Decimal(response.tokens[self._quote_token.id].fees.USD)
+				self.state.gas_payed.usd_amounts[transaction_type].total += Decimal(response.total.fees)
+				self.state.gas_payed.usd_amounts.total += Decimal(response.total.fees)
 		except Exception as exception:
 			self.log(DEBUG, f"""An error occurred during tax sum calculation...""")
 			raise exception
@@ -1514,3 +1459,103 @@ class Worker(WorkerBase):
 				currently_untracked_orders[order_id] = order
 
 		return currently_untracked_orders
+
+	def _get_new_state(self) -> DotMap[str, Any]:
+		return DotMap({
+				"configurations": {
+					"order_type": None,
+					"price_strategy": None,
+					"middle_price_strategy": None,
+					"use_adjusted_price": None
+				},
+				"balances": DotMap({}, _dynamic=False),
+				"orders": {
+					"new": DotMap({}, _dynamic=False),
+					"open": DotMap({}, _dynamic=False),
+					"canceled": DotMap({}, _dynamic=False),
+					"filled": DotMap({}, _dynamic=False),
+				},
+				"gas_payed": {
+					"token": KUJIRA_NATIVE_TOKEN,
+					"token_amounts": {
+						"creation": DECIMAL_ZERO,
+						"cancellation": DECIMAL_ZERO,
+						"withdrawing": {
+							"native": DECIMAL_ZERO,
+							"base": DECIMAL_ZERO,
+							"quote": DECIMAL_ZERO
+						},
+						"total": DECIMAL_ZERO
+					},
+					"usd_amounts": {
+						"creation": DECIMAL_ZERO,
+						"cancellation": DECIMAL_ZERO,
+						"withdrawing": {
+							"base": DECIMAL_ZERO,
+							"quote": DECIMAL_ZERO,
+							"total": DECIMAL_ZERO
+						},
+						"total": DECIMAL_ZERO,
+					}
+				},
+				"wallet": {
+					"initial_value": DECIMAL_ZERO,
+					"previous_value": DECIMAL_ZERO,
+					"current_value": DECIMAL_ZERO,
+					"previous_initial_pnl": DECIMAL_ZERO,
+					"current_initial_pnl": DECIMAL_ZERO,
+					"current_previous_pnl": DECIMAL_ZERO,
+					"current_initial_pnl_in_usd": DECIMAL_ZERO,
+				},
+				"token": {
+					"base": {
+						"initial_price": DECIMAL_ZERO,
+						"previous_price": DECIMAL_ZERO,
+						"current_price": DECIMAL_ZERO,
+						"previous_initial_pnl": DECIMAL_ZERO,
+						"current_initial_pnl": DECIMAL_ZERO,
+						"current_previous_pnl": DECIMAL_ZERO,
+					},
+				},
+				"price": {
+					"used_price": DECIMAL_ZERO,
+					"ticker_price": DECIMAL_ZERO,
+					"last_filled_order_price": DECIMAL_ZERO,
+				}
+			}, _dynamic=False)
+
+	def _recreate_state(self):
+		self.state = self._get_new_state()
+		self._save_state()
+
+	def _save_state(self):
+		def handle_serialization(target):
+			if isinstance(target, Decimal):
+				return str(target)
+			raise TypeError("Non serializable type: {}".format(type(target)))
+
+		filepath = self._database_path
+		with open(filepath, "w+") as file:
+			json.dump(self.state.toDict(), file, indent=2, default=handle_serialization)
+
+	def _load_state(self):
+		if self._configuration.state.recreate_on_start:
+			self._recreate_state()
+		else:
+			filepath = self._database_path
+			with open(filepath, "a+") as file:
+				file.seek(0)
+				content = file.read()
+				if not content or content == "":
+					self._recreate_state()
+				else:
+					def handle_deserialization(target):
+						for key, value in target.items():
+							if isinstance(value, str):
+								try:
+									target[key] = Decimal(value)
+								except DecimalException:
+									pass
+						return target
+
+					self.state = DotMap(json.loads(content, object_hook=handle_deserialization), _dynamic=False)
