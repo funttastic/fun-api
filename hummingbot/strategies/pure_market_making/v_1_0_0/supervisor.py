@@ -351,7 +351,7 @@ class Supervisor(StrategyBase):
 
 		workers_initialized = True
 		for worker in self._workers.values():
-			if not worker._initialized:
+			if not worker.state.wallet.current_value:
 				workers_initialized = False
 
 		if not workers_initialized:
