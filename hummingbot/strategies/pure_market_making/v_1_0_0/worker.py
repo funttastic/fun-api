@@ -57,7 +57,6 @@ class Worker(WorkerBase):
 			self._base_token_name = None
 			self._tickers: DotMap[str, Any]
 			self._balances: DotMap[str, Any] = DotMap({}, _dynamic=False)
-			self.public_balances = None
 			self._all_tracked_orders_ids: [str] = []
 			self._currently_tracked_orders_ids: [str] = []
 			self._open_orders: DotMap[str, Any]
@@ -694,7 +693,6 @@ class Worker(WorkerBase):
 					response = await Gateway.kujira_get_balances(request)
 
 					self._balances = DotMap(copy.deepcopy(response), _dynamic=False)
-					self.public_balances = self._balances
 
 					self._balances.total.free = Decimal(self._balances.total.free)
 					self._balances.total.lockedInOrders = Decimal(self._balances.total.lockedInOrders)
@@ -1209,8 +1207,23 @@ class Worker(WorkerBase):
 		status = DotMap({})
 
 		status.initialized = self._initialized
+
+		if self._can_run:
+			status.status = "running"
+		else:
+			status.status = "stopping"
+
+		stopped = True
 		for (task_name, task) in self._tasks.items():
-			status.tasks[task_name] = "running" if task is not None else "stopped"
+			if task is not None:
+				status.tasks[task_name] = "running"
+				stopped = False
+			else:
+				status.tasks[task_name] = "stopped"
+
+		if stopped:
+			status.status = "stopped"
+
 		status._dynamic = False
 
 		return status
@@ -1294,9 +1307,10 @@ class Worker(WorkerBase):
 				 Network: {self._configuration.network}
 				 Market: <b>{self._market.name}</b>
 				 Wallet: ...{str(self._wallet_address)[-4:]}
-				 
-				{format_line("<b>PnL (%)</b>: ", format_percentage(self.state.wallet.current_initial_pnl, 3), alignment_column + 6)}
-				{format_line("<b>PnL (USD)</b>: ", format_currency(self.state.wallet.current_initial_pnl_in_usd, 4), alignment_column + 7)}
+
+				<b>PnL</b>:
+				{format_line(" <b>Percentage</b>: ", format_percentage(self.state.wallet.current_initial_pnl, 3), alignment_column + 6)}
+				{format_line(" <b>USD</b>: ", format_currency(self.state.wallet.current_initial_pnl_in_usd, 4), alignment_column + 7)}
 				
 				<b>Balances (in USD)</b>:
 				<b> Total</b>:
