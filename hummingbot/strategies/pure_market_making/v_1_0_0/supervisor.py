@@ -349,6 +349,14 @@ class Supervisor(StrategyBase):
 	def _get_summary(self) -> str:
 		summary = ""
 
+		workers_initialized = True
+		for worker in self._workers.values():
+			if not worker._initialized:
+				workers_initialized = False
+
+		if not workers_initialized:
+			return
+
 		active_workers = []
 		stopped_workers = []
 		allowed_workers = []
