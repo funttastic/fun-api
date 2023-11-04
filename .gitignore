@@ -4,9 +4,9 @@ resources/configuration/production.yml
 resources/certificates/
 resources/requests/http/http-client.private.env.json
 resources/strategies/*
+resources/databases/*
 resources/logs/
 resources/temporary/
-resources/databases/
 
 *.iml
 __pycache__/

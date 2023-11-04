@@ -1,9 +1,11 @@
 import asyncio
 import copy
+import json
 import os
 import textwrap
 import traceback
 from _decimal import Decimal
+from decimal import DecimalException
 from logging import DEBUG, INFO
 from typing import Any
 
@@ -19,7 +21,7 @@ from hummingbot.gateway import Gateway
 from hummingbot.strategies.pure_market_making.v_1_0_0.worker import Worker
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.worker_base import WorkerBase
-from hummingbot.constants import DECIMAL_ZERO, alignment_column
+from hummingbot.constants import DECIMAL_ZERO, alignment_column, DEFAULT_PRECISION
 from hummingbot.utils import format_currency, format_line, format_percentage
 
 
@@ -43,6 +45,8 @@ class Supervisor(StrategyBase):
 
 			super().__init__()
 
+			self._configuration: DotMap[str, Any]
+			self._database_path: str
 			self._reload_configuration()
 			self._database_manipulator = DataBaseManipulator()
 
@@ -117,6 +121,8 @@ class Supervisor(StrategyBase):
 
 		self._configuration = DotMap(configuration, _dynamic=False)
 
+		self._database_path = os.path.join(root_path, "resources", "databases", self.ID, self.VERSION, "supervisor.json")
+
 		self._tick_interval = self._configuration.strategy.tick_interval
 		self._run_only_once = self._configuration.strategy.run_only_once
 
@@ -147,6 +153,8 @@ class Supervisor(StrategyBase):
 			self.telegram_log(INFO, "initializing...")
 
 			self._initialized = False
+
+			self._load_state()
 
 			self.clock.start()
 			self._refresh_timestamp = self.clock.now()
@@ -272,9 +280,14 @@ class Supervisor(StrategyBase):
 				try:
 					self.log(INFO, "loop - start")
 
+					self._is_busy = True
+
 					self._reload_configuration()
 
-					self._is_busy = True
+					summary = self._get_summary()
+					self._save_state()
+					self.log(INFO, summary)
+					self.telegram_log(INFO, summary)
 
 					waiting_time = self._calculate_waiting_time(self._tick_interval)
 
@@ -288,10 +301,6 @@ class Supervisor(StrategyBase):
 						await self.stop()
 
 						return
-
-					summary = self._get_summary()
-					self.log(INFO, summary)
-					self.telegram_log(INFO, summary)
 
 					self._first_time = False
 
@@ -372,78 +381,93 @@ class Supervisor(StrategyBase):
 	def _get_summary(self) -> str:
 		summary = ""
 
+		workers_initialized = True
+		for worker in self._workers.values():
+			if not worker.state.wallet.current_value:
+				workers_initialized = False
+
+		if not workers_initialized:
+			return
+
 		active_workers = []
 		stopped_workers = []
-		allowed_workers = {'all_ids': []}
-		workers = self._configuration.workers
+		allowed_workers = []
 
-		for worker_id in workers:
-			worker = workers[worker_id]
-			allowed_workers[worker.id] = {
-				"id": worker.id,
-				"wallet": worker.wallet,
-				"market": worker.market,
-				"balances": self._workers[worker.id].public_balances
-			}
-			allowed_workers['all_ids'].append(worker.id)
-
-			if self._tasks.workers.get(worker_id) and "message" not in self.worker_status(worker_id):
+		for (worker_id, worker) in self._workers.items():
+			allowed_workers.append(worker._client_id)
+			if self._tasks.workers.get(worker_id) and worker.get_status().status == "running":
 				active_workers.append(worker_id)
-				allowed_workers[worker.id]['status'] = "running"
 			else:
 				stopped_workers.append(worker.id)
-				allowed_workers[worker.id]['status'] = "stopped"
 
-		free_balances_usd = DECIMAL_ZERO
-		locked_in_orders_balances_usd = DECIMAL_ZERO
-		unsettled_balances_usd = DECIMAL_ZERO
-		total_balances_usd = DECIMAL_ZERO
+		self.state.wallets.initial_value = DECIMAL_ZERO
+		self.state.wallets.previous_value = DECIMAL_ZERO
+		self.state.wallets.current_value = DECIMAL_ZERO
+		self.state.wallets.previous_initial_pnl = DECIMAL_ZERO
+		self.state.wallets.current_initial_pnl = DECIMAL_ZERO
+		self.state.wallets.current_previous_pnl = DECIMAL_ZERO
+		self.state.wallets.current_initial_pnl_in_usd = DECIMAL_ZERO
+
+		self.state.balances.total.free = DECIMAL_ZERO
+		self.state.balances.total.lockedInOrders = DECIMAL_ZERO
+		self.state.balances.total.unsettled = DECIMAL_ZERO
+		self.state.balances.total.total = DECIMAL_ZERO
 
 		for worker_id in active_workers:
-			free_balances_usd += allowed_workers[worker_id]['balances'].total.free
-			locked_in_orders_balances_usd += allowed_workers[worker_id]['balances'].total.lockedInOrders
-			unsettled_balances_usd += allowed_workers[worker_id]['balances'].total.unsettled
-			total_balances_usd += allowed_workers[worker_id]['balances'].total.total
+			worker = self._workers[worker_id]
 
-		if self._first_time:
-			self.summary.workers_wallets.initial_value = total_balances_usd
-			self.summary.workers_wallets.previous_value = total_balances_usd
-			self.summary.workers_wallets.current_value = total_balances_usd
-		else:
-			self.summary.workers_wallets.previous_value = self.summary.workers_wallets.current_value
-			self.summary.workers_wallets.current_value = total_balances_usd
+			self.state.wallets.initial_value += worker.state.wallet.initial_value
+			self.state.wallets.previous_value += worker.state.wallet.previous_value
+			self.state.wallets.current_value += worker.state.wallet.current_value
 
-			self.summary.workers_wallets.previous_pnl = self.summary.workers_wallets.current_pnl
-			self.summary.workers_wallets.current_pnl = 0 - (
-					self.summary.workers_wallets.initial_value - self.summary.workers_wallets.current_value
-			)
-			if self.summary.workers_wallets.current_pnl != DECIMAL_ZERO or 0:
-				if self.summary.workers_wallets.current_value != DECIMAL_ZERO or 0:
-					self.summary.workers_wallets.current_pnl_percentage = 100 * (1 - (
-							self.summary.workers_wallets.initial_value / self.summary.workers_wallets.current_value
-					))
+			self.state.balances.total.free += worker.state.balances.total.free
+			self.state.balances.total.lockedInOrders += worker.state.balances.total.lockedInOrders
+			self.state.balances.total.unsettled += worker.state.balances.total.unsettled
+			self.state.balances.total.total += worker.state.balances.total.total
+
+		self.state.wallets.previous_initial_pnl = Decimal(round(
+			100 * ((self.state.wallets.previous_value / self.state.wallets.initial_value) - 1),
+			DEFAULT_PRECISION
+		))
+		self.state.wallets.current_initial_pnl = Decimal(round(
+			100 * ((self.state.wallets.current_value / self.state.wallets.initial_value) - 1),
+			DEFAULT_PRECISION
+		))
+		self.state.wallets.current_previous_pnl = Decimal(round(
+			100 * ((self.state.wallets.current_value / self.state.wallets.previous_value) - 1),
+			DEFAULT_PRECISION
+		))
+		self.state.wallets.current_initial_pnl_in_usd = Decimal(round(
+			self.state.wallets.current_value - self.state.wallets.initial_value,
+			DEFAULT_PRECISION
+		))
 
 		summary += textwrap.dedent(
 			f"""\n\n\
 				<b>Supervisor</b>
 				 Id: {self._client_id}
-				 
-				<b>Supervised Workers</b>
-				 Allowed Workers:	{allowed_workers['all_ids']}
-				 Active Workers:	{active_workers}
-				 Stopped Workers:	{stopped_workers}
-				 
-				<b>General PnL</b>:
-				{format_line("<b> Percentage</b>: ", format_percentage(self.summary.workers_wallets.current_pnl_percentage, 3), alignment_column + 6)}
-				{format_line("<b> USD</b>: ", format_currency(self.summary.workers_wallets.current_pnl, 4), alignment_column + 7)}
+
+				<b>Workers</b>
+				 Allowed: {allowed_workers}
+				 Active:	{active_workers}
+				 Stopped:	{stopped_workers}
+
+				<b>PnL</b>:
+				{format_line(" <b>Percentage</b>: ", format_percentage(self.state.wallets.current_initial_pnl, 3), alignment_column + 6)}
+				{format_line(" <b>USD</b>: ", format_currency(self.state.wallets.current_initial_pnl_in_usd, 4), alignment_column + 7)}
 				
-				<b>Active Workers Balances (in USD)</b>:
-				{format_line(f" Free:", format_currency(free_balances_usd, 4))}
-				{format_line(f" Orders:", format_currency(locked_in_orders_balances_usd, 4))}
-				{format_line(f" Unsettled:", format_currency(unsettled_balances_usd, 4))}
-				{format_line(f" Total:", format_currency(total_balances_usd, 4))}
+				<b>Wallets (in USD)</b>:
+				{format_line(" Wo:", format_currency(self.state.wallets.initial_value, 4))}
+				{format_line(" Wp:", format_currency(self.state.wallets.previous_value, 4))}
+				{format_line(" Wc:", format_currency(self.state.wallets.current_value, 4))}
+				{format_line(" Wc/Wo:", (format_percentage(self.state.wallets.current_initial_pnl, 3)), alignment_column - 1)}
+				{format_line(" Wc/Wp:", format_percentage(self.state.wallets.current_previous_pnl, 3), alignment_column - 1)}
 				
-				{format_line(f"	Total (Initial):", format_currency(self.summary.workers_wallets.initial_value, 4))}\
+				<b>Balances (in USD)</b>:
+				{format_line(f" Free:", format_currency(self.state.balances.total.free, 4))}
+				{format_line(f" Orders:", format_currency(self.state.balances.total.lockedInOrders, 4))}
+				{format_line(f" Unsettled:", format_currency(self.state.balances.total.unsettled, 4))}
+				{format_line(f" Total:", format_currency(self.state.balances.total.total, 4))}
 			"""
 		)
 
@@ -457,3 +481,73 @@ class Supervisor(StrategyBase):
 			)
 
 		return summary
+
+	def _get_new_state(self) -> DotMap[str, Any]:
+		return DotMap({
+				"configurations": {
+					"tick_interval": None,
+					"run_only_once": None
+				},
+				"active_workers": [],
+				"balances": DotMap({
+					"total": {
+						"free": DECIMAL_ZERO,
+						"lockedInOrders": DECIMAL_ZERO,
+						"unsettled": DECIMAL_ZERO,
+						"total": DECIMAL_ZERO,
+					}
+				}, _dynamic=False),
+				"wallets": {
+					"initial_value": DECIMAL_ZERO,
+					"previous_value": DECIMAL_ZERO,
+					"current_value": DECIMAL_ZERO,
+					"previous_initial_pnl": DECIMAL_ZERO,
+					"current_initial_pnl": DECIMAL_ZERO,
+					"current_previous_pnl": DECIMAL_ZERO,
+					"current_initial_pnl_in_usd": DECIMAL_ZERO,
+				},
+			}, _dynamic=False)
+
+	def _recreate_state(self):
+		self.state = self._get_new_state()
+		self._save_state()
+
+	def _save_state(self):
+		def handle_serialization(target):
+			if isinstance(target, Decimal):
+				return str(target)
+			raise TypeError("Non serializable type: {}".format(type(target)))
+
+		filepath = self._database_path
+		dirpath = os.path.dirname(filepath)
+		if not os.path.exists(dirpath):
+			os.makedirs(dirpath, exist_ok=True)
+
+		with open(filepath, "w+") as file:
+			json.dump(self.state.toDict(), file, indent=2, default=handle_serialization)
+
+	def _load_state(self):
+		if self._configuration.state.recreate_on_start:
+			self._recreate_state()
+		else:
+			filepath = self._database_path
+			dirpath = os.path.dirname(filepath)
+			if not os.path.exists(dirpath):
+				os.makedirs(dirpath, exist_ok=True)
+
+			with open(filepath, "a+") as file:
+				file.seek(0)
+				content = file.read()
+				if not content or content == "":
+					self._recreate_state()
+				else:
+					def handle_deserialization(target):
+						for key, value in target.items():
+							if isinstance(value, str):
+								try:
+									target[key] = Decimal(value)
+								except DecimalException:
+									pass
+						return target
+
+					self.state = DotMap(json.loads(content, object_hook=handle_deserialization), _dynamic=False)
