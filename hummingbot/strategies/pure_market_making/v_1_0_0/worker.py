@@ -5,7 +5,7 @@ import os
 import textwrap
 import traceback
 from array import array
-from decimal import Decimal, DecimalException
+from decimal import Decimal, getcontext, DecimalException
 from logging import DEBUG, INFO, WARNING, CRITICAL
 from typing import Any, List, Optional
 
@@ -21,7 +21,7 @@ from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
 from hummingbot.types import OrderStatus, OrderType, OrderSide, PriceStrategy, MiddlePriceStrategy, Order
 from hummingbot.utils import calculate_middle_price, format_currency, format_lines, format_line, format_percentage, \
-	parse_order_book
+	parse_order_book, truncate_decimal
 
 
 @log_class_exceptions
@@ -356,6 +356,14 @@ class Worker(WorkerBase):
 
 			minimum_price_increment = Decimal(self._market.minimumPriceIncrement)
 			minimum_order_size = Decimal(self._market.minimumOrderSize)
+			market_price_precision = self._market.precision
+			be_the_first = self._configuration.strategy.be_the_first
+
+			best_bid = Decimal(next(iter(bids), {"price": FLOAT_ZERO}).price)
+			best_ask = Decimal(next(iter(asks), {"price": FLOAT_INFINITY}).price)
+
+			best_bid_decimal_places_length = len(str(best_bid).split('.')[-1]) if '.' in str(best_bid) else 0
+			best_ask_decimal_places_length = len(str(best_ask).split('.')[-1]) if '.' in str(best_ask) else 0
 
 			client_id = 1
 			proposal = []
@@ -363,15 +371,32 @@ class Worker(WorkerBase):
 			bid_orders = []
 			for index, layer in enumerate(self._configuration.strategy.layers, start=1):
 				quotation = (await self._get_balances()).tokens[self._quote_token.id].inUSD.quotation
-				best_ask = Decimal(next(iter(asks), {"price": FLOAT_INFINITY}).price)
 				bid_quantity = int(layer.bid.quantity)
-				bid_spread_percentage = Decimal(layer.bid.spread_percentage)
-				bid_market_price = ((100 - bid_spread_percentage) / 100) * min(self._used_price, best_ask)
-				bid_budget = Decimal(layer.bid.budget)
-				bid_size = bid_budget / quotation / bid_quantity if bid_quantity > 0 else 0
 
 				if not (bid_quantity > 0):
 					continue
+
+				bid_budget = Decimal(layer.bid.budget)
+				bid_size = bid_budget / quotation / bid_quantity if bid_quantity > 0 else 0
+
+				if be_the_first.active:
+					maximum_decimal_places = max(best_bid_decimal_places_length, market_price_precision)
+					increment = Decimal(be_the_first.price.increment / 10 ** maximum_decimal_places)
+
+					truncated_increment = truncate_decimal(
+						target=increment,
+						decimal_places=maximum_decimal_places,
+						precision=market_price_precision
+					)
+
+					getcontext().prec = market_price_precision + 1
+
+					incremented_price = best_bid + truncated_increment
+
+					bid_market_price = incremented_price if incremented_price < (self._used_price if self._price_strategy == PriceStrategy.MIDDLE else best_bid + best_ask / 2) else best_bid
+				else:
+					bid_spread_percentage = Decimal(layer.bid.spread_percentage)
+					bid_market_price = ((100 - bid_spread_percentage) / 100) * min(self._used_price, best_ask)
 
 				if bid_market_price < minimum_price_increment:
 					self.log(WARNING, f"""Skipping orders placement from layer {index}, bid price too low:\n\n{'{:^30}'.format(round(bid_market_price, 6))}""")
@@ -395,15 +420,32 @@ class Worker(WorkerBase):
 			ask_orders = []
 			for index, layer in enumerate(self._configuration.strategy.layers, start=1):
 				quotation = (await self._get_balances()).tokens[self._base_token.id].inUSD.quotation
-				best_bid = Decimal(next(iter(bids), {"price": FLOAT_ZERO}).price)
 				ask_quantity = int(layer.ask.quantity)
-				ask_spread_percentage = Decimal(layer.ask.spread_percentage)
-				ask_market_price = ((100 + ask_spread_percentage) / 100) * max(self._used_price, best_bid)
-				ask_budget = Decimal(layer.ask.budget)
-				ask_size = ask_budget / quotation / ask_quantity if ask_quantity > 0 else 0
 
 				if not (ask_quantity > 0):
 					continue
+
+				ask_budget = Decimal(layer.ask.budget)
+				ask_size = ask_budget / quotation / ask_quantity if ask_quantity > 0 else 0
+
+				if be_the_first.active:
+					maximum_decimal_places = max(best_ask_decimal_places_length, market_price_precision)
+					decrement = Decimal(be_the_first.price.decrement / 10 ** maximum_decimal_places)
+
+					truncated_decrement = truncate_decimal(
+						target=decrement,
+						decimal_places=maximum_decimal_places,
+						precision=market_price_precision
+					)
+
+					getcontext().prec = market_price_precision + 1
+
+					decremented_price = best_ask - truncated_decrement
+
+					ask_market_price = decremented_price if decremented_price > (self._used_price if self._price_strategy == PriceStrategy.MIDDLE else best_ask + best_bid / 2) else best_ask
+				else:
+					ask_spread_percentage = Decimal(layer.ask.spread_percentage)
+					ask_market_price = ((100 + ask_spread_percentage) / 100) * max(self._used_price, best_bid)
 
 				if ask_market_price < minimum_price_increment:
 					self.log(WARNING, f"""Skipping orders placement from layer {index}, ask price too low:\n\n{'{:^30}'.format(round(ask_market_price, 9))}""", True)

@@ -39,6 +39,11 @@ strategy:
   sleep_time_after_withdraw: 30
   sleep_time_after_orders_creation: 1
   sleep_time_after_orders_cancellation: 5
+  be_the_first:
+    active: false
+    price:
+      increment: 1 # this value will be added to the best bid price, considering the minimum price increment decimal places
+      decrement: 1 # e.g., if best bid is 0.98 and minimum increment/decrement has 3 decimal places, then the result is 0.981
   minimize_fees_cost:
     active: true
     spread:

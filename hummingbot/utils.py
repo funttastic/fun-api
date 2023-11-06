@@ -2,7 +2,7 @@ import hashlib
 import math
 import random
 import time
-from _decimal import Decimal
+from _decimal import Decimal, getcontext
 from array import array
 from datetime import datetime
 from typing import Any, List, Union
@@ -310,3 +310,8 @@ def redefine_precision(number: Decimal, decimal_place: int) -> str:
 		return ("{:0,." + str(precision) + "f}").format(number).replace(",", "")
 	else:
 		return "{:.1e}".format(number)
+
+def truncate_decimal(target: Decimal, decimal_places: int, precision: int):
+	getcontext().prec = precision
+	factor = Decimal(10 ** decimal_places)
+	return (target * factor).to_integral_value() / factor
