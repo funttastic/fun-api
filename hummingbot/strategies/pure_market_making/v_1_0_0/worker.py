@@ -236,8 +236,8 @@ class Worker(WorkerBase):
 					await asyncio.sleep(self._configuration.strategy.sleep_time_after_withdraw)
 
 					await self._get_filled_orders(use_cache=False)
-					proposed_orders: List[Order] = await self._create_proposal()
 					current_open_orders = await self._get_open_orders(use_cache=False)
+					proposed_orders: List[Order] = await self._create_proposal()
 					refined_proposal = await self._refine_proposal(current_open_orders, proposed_orders)
 
 					await self._cancel_untracked_orders(refined_proposal.solution.orders.cancel, current_open_orders)
@@ -368,6 +368,15 @@ class Worker(WorkerBase):
 			client_id = 1
 			proposal = []
 
+			open_bid_orders_prices = []
+			open_ask_orders_prices = []
+			if len(self._open_orders):
+				for order in self._open_orders:
+					if order.side == OrderSide.BUY:
+						open_bid_orders_prices.append(order.price)
+					else:
+						open_ask_orders_prices.append(order.price)
+
 			bid_orders = []
 			for index, layer in enumerate(self._configuration.strategy.layers, start=1):
 				quotation = (await self._get_balances()).tokens[self._quote_token.id].inUSD.quotation
@@ -393,7 +402,7 @@ class Worker(WorkerBase):
 
 					incremented_price = best_bid + truncated_increment
 
-					bid_market_price = incremented_price if incremented_price < (self._used_price if self._price_strategy == PriceStrategy.MIDDLE else best_bid + best_ask / 2) else best_bid
+					bid_market_price = incremented_price if incremented_price < (self._used_price if self._price_strategy == PriceStrategy.MIDDLE else best_bid + best_ask / 2) and incremented_price not in open_ask_orders_prices else best_bid
 				else:
 					bid_spread_percentage = Decimal(layer.bid.spread_percentage)
 					bid_market_price = ((100 - bid_spread_percentage) / 100) * min(self._used_price, best_ask)
@@ -442,7 +451,7 @@ class Worker(WorkerBase):
 
 					decremented_price = best_ask - truncated_decrement
 
-					ask_market_price = decremented_price if decremented_price > (self._used_price if self._price_strategy == PriceStrategy.MIDDLE else best_ask + best_bid / 2) else best_ask
+					ask_market_price = decremented_price if decremented_price > (self._used_price if self._price_strategy == PriceStrategy.MIDDLE else best_ask + best_bid / 2) and incremented_price not in open_bid_orders_prices else best_ask
 				else:
 					ask_spread_percentage = Decimal(layer.ask.spread_percentage)
 					ask_market_price = ((100 + ask_spread_percentage) / 100) * max(self._used_price, best_bid)
