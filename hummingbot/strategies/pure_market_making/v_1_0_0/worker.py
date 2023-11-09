@@ -512,8 +512,9 @@ class Worker(WorkerBase):
 	async def _minimize_fees_cost(self, problem: DotMap[str, Any]) -> DotMap[str, Any]:
 		try:
 			self.log(INFO, "start")
+
 			def calculate_tolerance(value, absolute_tolerance, percentage_tolerance):
-				return max(absolute_tolerance, value * (percentage_tolerance / 100))
+				return min(absolute_tolerance, value * (percentage_tolerance / 100))
 
 			[current_orders_buy, current_orders_sell] = problem.orders.current
 			[proposed_orders_buy, proposed_orders_sell] = problem.orders.proposed
