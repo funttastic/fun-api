@@ -296,7 +296,7 @@ class Worker(WorkerBase):
 
 								return
 						if self._configuration.strategy.minimize_fees_cost.tolerance.withdraw.percentage:
-							percentage = Decimal(self._configuration.strategy.minimize_fees_cost.tolerance.withdraw.absolute)
+							percentage = Decimal(self._configuration.strategy.minimize_fees_cost.tolerance.withdraw.percentage)
 							difference = percentage * self._balances.total.total / 100
 
 							if self._balances.total.unsettled >= difference:
