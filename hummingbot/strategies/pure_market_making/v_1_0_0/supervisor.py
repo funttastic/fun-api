@@ -366,7 +366,7 @@ class Supervisor(StrategyBase):
 			if self._tasks.workers.get(worker_id) and worker.get_status().status == "running":
 				active_workers.append(worker_id)
 			else:
-				stopped_workers.append(worker.id)
+				stopped_workers.append(worker_id)
 
 		self.state.wallets.initial_value = DECIMAL_ZERO
 		self.state.wallets.previous_value = DECIMAL_ZERO
