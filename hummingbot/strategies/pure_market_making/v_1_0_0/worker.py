@@ -1375,7 +1375,7 @@ class Worker(WorkerBase):
 				 <b>{self.state.gas_payed.token.symbol}</b>:
 				{format_line("  Create:", format_currency(self.state.gas_payed.token_amounts.creation, 5))}
 				{format_line("  Cancel:", format_currency(self.state.gas_payed.token_amounts.cancellation, 5))}
-				  <code>Withdraw:</code>
+				<code>  Withdraw:</code>
 				{format_line("   Native:", format_currency(self.state.gas_payed.token_amounts.withdrawing.native, 5))}
 				{format_line("   Base:", format_currency(self.state.gas_payed.token_amounts.withdrawing.base, 5))}
 				{format_line("   Quote:", format_currency(self.state.gas_payed.token_amounts.withdrawing.quote, 5))}
@@ -1383,12 +1383,11 @@ class Worker(WorkerBase):
 				 <b>USD (~)</b>:
 				{format_line("  Create:", format_currency(self.state.gas_payed.usd_amounts.creation, 5))}
 				{format_line("  Cancel:", format_currency(self.state.gas_payed.usd_amounts.cancellation, 5))}
-				  <code>Withdraw:</code>
+				<code>  Withdraw:</code>
 				{format_line("   Base:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.base, 5))}
 				{format_line("   Quote:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.quote, 5))}
-				{format_line("  Total:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.total, 5))}
+				{format_line("   Total:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.total, 5))}
 				{format_line("  Total:", format_currency(self.state.gas_payed.usd_amounts.total, 5))}\
-				
 			"""
 		)
 
@@ -1404,8 +1403,7 @@ class Worker(WorkerBase):
 		if filled_orders_summary:
 			summary += f"""\n<b> Filled:</b>\n{filled_orders_summary}"""
 
-		summary +=\
-		textwrap.dedent(
+		summary += textwrap.dedent(
 			f"""\n\n\
 				<b>Settings</b>:
 				 TickInterval: {self._configuration.strategy.tick_interval}

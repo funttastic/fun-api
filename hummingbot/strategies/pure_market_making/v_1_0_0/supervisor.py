@@ -388,9 +388,9 @@ class Supervisor(StrategyBase):
 
 			workers_summary += textwrap.dedent(
 				f"""\n\
-			      {worker_id}:
-				{format_line("   %: ", format_percentage(worker.state.wallet.current_initial_pnl, 3), alignment_column + 0)}
-				{format_line("   $: ", format_currency(worker.state.wallet.current_initial_pnl_in_usd, 4), alignment_column + 1)}\
+							{worker_id}:
+					{format_line("  %: ", format_percentage(worker.state.wallet.current_initial_pnl, 3), alignment_column + 0)}
+					{format_line("  $: ", format_currency(worker.state.wallet.current_initial_pnl_in_usd, 4), alignment_column + 1)}\
 				"""
 			)
 
@@ -419,38 +419,44 @@ class Supervisor(StrategyBase):
 			DEFAULT_PRECISION
 		))
 
-		summary = textwrap.dedent(
+		summary += textwrap.dedent(
 			f"""\n\n\
-			<b>Supervisor</b>
-			 Id: {self._client_id}
+				<b>Supervisor</b>
+				 Id: {self._client_id}
+				
+				<b>Workers</b>
+				 Allowed: {allowed_workers}
+				 Active:	{active_workers}
+				 Stopped:	{stopped_workers}
+				
+				<b>PnL (in USD)</b>:
+				 <b>GLOBAL</b>:
+				{format_line("  <b>%</b>: ", format_percentage(self.state.wallets.current_initial_pnl, 3), alignment_column + 6)}
+				{format_line("  <b>$</b>: ", format_currency(self.state.wallets.current_initial_pnl_in_usd, 4), alignment_column + 7)}\
+			"""
+		)
 
-			<b>Workers</b>
-			 Allowed: {allowed_workers}
-			 Active:	{active_workers}
-			 Stopped:	{stopped_workers}
+		if workers_summary:
+			summary += f"""\n Workers:{workers_summary}"""
 
-			<b>PnL (in USD)</b>:
-			 GLOBAL:
-			{format_line("  <b>%</b>: ", format_percentage(self.state.wallets.current_initial_pnl, 3), alignment_column + 6)}
-			{format_line("  <b>$</b>: ", format_currency(self.state.wallets.current_initial_pnl_in_usd, 4), alignment_column + 7)}
-			 Workers:{workers_summary}
-			
-			<b>Wallets (in USD)</b>:
-			{format_line(" Wo:", format_currency(self.state.wallets.initial_value, 4))}
-			{format_line(" Wp:", format_currency(self.state.wallets.previous_value, 4))}
-			{format_line(" Wc:", format_currency(self.state.wallets.current_value, 4))}
-			{format_line(" Wc/Wo:", (format_percentage(self.state.wallets.current_initial_pnl, 3)), alignment_column - 1)}
-			{format_line(" Wc/Wp:", format_percentage(self.state.wallets.current_previous_pnl, 3), alignment_column - 1)}
-			
-			<b>Balances (in USD)</b>:
-			{format_line(f" Free:", format_currency(self.state.balances.total.free, 4))}
-			{format_line(f" Orders:", format_currency(self.state.balances.total.lockedInOrders, 4))}
-			{format_line(f" Unsettled:", format_currency(self.state.balances.total.unsettled, 4))}
-			{format_line(f" Total:", format_currency(self.state.balances.total.total, 4))}
-			
-			<b>Settings</b>:
-			 Tick Interval: {self._tick_interval}
-			 Run Only Once: {self._run_only_once}
+		summary += textwrap.dedent(
+			f"""\n\n\
+				<b>Wallets (in USD)</b>:
+				{format_line(" Wo:", format_currency(self.state.wallets.initial_value, 4))}
+				{format_line(" Wp:", format_currency(self.state.wallets.previous_value, 4))}
+				{format_line(" Wc:", format_currency(self.state.wallets.current_value, 4))}
+				{format_line(" Wc/Wo:", (format_percentage(self.state.wallets.current_initial_pnl, 3)), alignment_column - 1)}
+				{format_line(" Wc/Wp:", format_percentage(self.state.wallets.current_previous_pnl, 3), alignment_column - 1)}
+				
+				<b>Balances (in USD)</b>:
+				{format_line(f" Free:", format_currency(self.state.balances.total.free, 4))}
+				{format_line(f" Orders:", format_currency(self.state.balances.total.lockedInOrders, 4))}
+				{format_line(f" Unsettled:", format_currency(self.state.balances.total.unsettled, 4))}
+				{format_line(f" Total:", format_currency(self.state.balances.total.total, 4))}
+				
+				<b>Settings</b>:
+				 Tick Interval: {self._tick_interval}
+				 Run Only Once: {self._run_only_once}\
 			"""
 		)
 
