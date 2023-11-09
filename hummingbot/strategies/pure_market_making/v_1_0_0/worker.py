@@ -357,24 +357,31 @@ class Worker(WorkerBase):
 			minimum_price_increment = Decimal(self._market.minimumPriceIncrement)
 			minimum_order_size = Decimal(self._market.minimumOrderSize)
 
+			best_bid_price = Decimal(next(iter(bids), {"price": FLOAT_ZERO}).price)
+			best_ask_price = Decimal(next(iter(asks), {"price": FLOAT_INFINITY}).price)
+
 			client_id = 1
 			proposal = []
 
 			bid_orders = []
 			for index, layer in enumerate(self._configuration.strategy.layers, start=1):
+				if self._configuration.strategy.be_the_first:
+					base_price = min(best_bid_price + minimum_price_increment, best_ask_price - minimum_price_increment)
+				else:
+					base_price = min(self._used_price, best_ask_price)
+
 				quotation = (await self._get_balances()).tokens[self._quote_token.id].inUSD.quotation
-				best_ask = Decimal(next(iter(asks), {"price": FLOAT_INFINITY}).price)
 				bid_quantity = int(layer.bid.quantity)
 				bid_spread_percentage = Decimal(layer.bid.spread_percentage)
-				bid_market_price = ((100 - bid_spread_percentage) / 100) * min(self._used_price, best_ask)
+				bid_price = ((100 - bid_spread_percentage) / 100) * base_price
 				bid_budget = Decimal(layer.bid.budget)
 				bid_size = bid_budget / quotation / bid_quantity if bid_quantity > 0 else 0
 
 				if not (bid_quantity > 0):
 					continue
 
-				if bid_market_price < minimum_price_increment:
-					self.log(WARNING, f"""Skipping orders placement from layer {index}, bid price too low:\n\n{'{:^30}'.format(round(bid_market_price, 6))}""")
+				if bid_price < minimum_price_increment:
+					self.log(WARNING, f"""Skipping orders placement from layer {index}, bid price too low:\n\n{'{:^30}'.format(round(bid_price, 6))}""")
 				elif bid_size < minimum_order_size:
 					self.log(WARNING, f"""Skipping orders placement from layer {index}, bid size too low:\n\n{'{:^30}'.format(round(bid_size, 9))}""")
 				else:
@@ -386,7 +393,7 @@ class Worker(WorkerBase):
 						bid_order.type = self._order_type
 						bid_order.side = OrderSide.BUY
 						bid_order.amount = bid_size
-						bid_order.price = bid_market_price
+						bid_order.price = bid_price
 
 						bid_orders.append(bid_order)
 
@@ -394,19 +401,23 @@ class Worker(WorkerBase):
 
 			ask_orders = []
 			for index, layer in enumerate(self._configuration.strategy.layers, start=1):
+				if self._configuration.strategy.be_the_first:
+					base_price = max(best_ask_price - minimum_price_increment, best_bid_price + minimum_price_increment)
+				else:
+					base_price = max(self._used_price, best_bid_price)
+
 				quotation = (await self._get_balances()).tokens[self._base_token.id].inUSD.quotation
-				best_bid = Decimal(next(iter(bids), {"price": FLOAT_ZERO}).price)
 				ask_quantity = int(layer.ask.quantity)
 				ask_spread_percentage = Decimal(layer.ask.spread_percentage)
-				ask_market_price = ((100 + ask_spread_percentage) / 100) * max(self._used_price, best_bid)
+				ask_price = ((100 + ask_spread_percentage) / 100) * base_price
 				ask_budget = Decimal(layer.ask.budget)
 				ask_size = ask_budget / quotation / ask_quantity if ask_quantity > 0 else 0
 
 				if not (ask_quantity > 0):
 					continue
 
-				if ask_market_price < minimum_price_increment:
-					self.log(WARNING, f"""Skipping orders placement from layer {index}, ask price too low:\n\n{'{:^30}'.format(round(ask_market_price, 9))}""", True)
+				if ask_price < minimum_price_increment:
+					self.log(WARNING, f"""Skipping orders placement from layer {index}, ask price too low:\n\n{'{:^30}'.format(round(ask_price, 9))}""", True)
 				elif ask_size < minimum_order_size:
 					self.log(WARNING, f"""Skipping orders placement from layer {index}, ask size too low:\n\n{'{:^30}'.format(round(ask_size, 9))}""", True)
 				else:
@@ -418,7 +429,7 @@ class Worker(WorkerBase):
 						ask_order.type = self._order_type
 						ask_order.side = OrderSide.SELL
 						ask_order.amount = ask_size
-						ask_order.price = ask_market_price
+						ask_order.price = ask_price
 
 						ask_orders.append(ask_order)
 

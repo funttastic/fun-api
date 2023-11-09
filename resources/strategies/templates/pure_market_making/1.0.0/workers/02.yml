@@ -52,6 +52,7 @@ strategy:
       withdraw:
         absolute: 100
         percentage: 10 # from wallet current value
+  be_the_first: false
   run_only_once: false
   kill_switch:
     max_wallet_loss_from_initial_value: 5
