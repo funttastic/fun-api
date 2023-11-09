@@ -261,10 +261,7 @@ class Supervisor(StrategyBase):
 
 					self._reload_configuration()
 
-					summary = self._get_summary()
-					self._save_state()
-					self.log(INFO, summary)
-					self.telegram_log(INFO, summary)
+					self._print_summary_and_save_state()
 
 					waiting_time = self._calculate_waiting_time(self._tick_interval)
 
@@ -381,6 +378,7 @@ class Supervisor(StrategyBase):
 		self.state.balances.total.unsettled = DECIMAL_ZERO
 		self.state.balances.total.total = DECIMAL_ZERO
 
+		workers_summary = ""
 		for worker_id in active_workers:
 			worker = self._workers[worker_id]
 
@@ -388,10 +386,21 @@ class Supervisor(StrategyBase):
 			self.state.wallets.previous_value += worker.state.wallet.previous_value
 			self.state.wallets.current_value += worker.state.wallet.current_value
 
+			workers_summary += textwrap.dedent(
+				f"""\n\
+			      {worker_id}:
+				{format_line("   %: ", format_percentage(worker.state.wallet.current_initial_pnl, 3), alignment_column + 0)}
+				{format_line("   $: ", format_currency(worker.state.wallet.current_initial_pnl_in_usd, 4), alignment_column + 1)}\
+				"""
+			)
+
 			self.state.balances.total.free += worker.state.balances.total.free
 			self.state.balances.total.lockedInOrders += worker.state.balances.total.lockedInOrders
 			self.state.balances.total.unsettled += worker.state.balances.total.unsettled
 			self.state.balances.total.total += worker.state.balances.total.total
+
+		if self.state.wallets.initial_value <= 0:
+			return
 
 		self.state.wallets.previous_initial_pnl = Decimal(round(
 			100 * ((self.state.wallets.previous_value / self.state.wallets.initial_value) - 1),
@@ -410,43 +419,40 @@ class Supervisor(StrategyBase):
 			DEFAULT_PRECISION
 		))
 
-		summary += textwrap.dedent(
+		summary = textwrap.dedent(
 			f"""\n\n\
-				<b>Supervisor</b>
-				 Id: {self._client_id}
+			<b>Supervisor</b>
+			 Id: {self._client_id}
 
-				<b>Workers</b>
-				 Allowed: {allowed_workers}
-				 Active:	{active_workers}
-				 Stopped:	{stopped_workers}
+			<b>Workers</b>
+			 Allowed: {allowed_workers}
+			 Active:	{active_workers}
+			 Stopped:	{stopped_workers}
 
-				<b>PnL</b>:
-				{format_line(" <b>Percentage</b>: ", format_percentage(self.state.wallets.current_initial_pnl, 3), alignment_column + 6)}
-				{format_line(" <b>USD</b>: ", format_currency(self.state.wallets.current_initial_pnl_in_usd, 4), alignment_column + 7)}
-				
-				<b>Wallets (in USD)</b>:
-				{format_line(" Wo:", format_currency(self.state.wallets.initial_value, 4))}
-				{format_line(" Wp:", format_currency(self.state.wallets.previous_value, 4))}
-				{format_line(" Wc:", format_currency(self.state.wallets.current_value, 4))}
-				{format_line(" Wc/Wo:", (format_percentage(self.state.wallets.current_initial_pnl, 3)), alignment_column - 1)}
-				{format_line(" Wc/Wp:", format_percentage(self.state.wallets.current_previous_pnl, 3), alignment_column - 1)}
-				
-				<b>Balances (in USD)</b>:
-				{format_line(f" Free:", format_currency(self.state.balances.total.free, 4))}
-				{format_line(f" Orders:", format_currency(self.state.balances.total.lockedInOrders, 4))}
-				{format_line(f" Unsettled:", format_currency(self.state.balances.total.unsettled, 4))}
-				{format_line(f" Total:", format_currency(self.state.balances.total.total, 4))}
+			<b>PnL (in USD)</b>:
+			 GLOBAL:
+			{format_line("  <b>%</b>: ", format_percentage(self.state.wallets.current_initial_pnl, 3), alignment_column + 6)}
+			{format_line("  <b>$</b>: ", format_currency(self.state.wallets.current_initial_pnl_in_usd, 4), alignment_column + 7)}
+			 Workers:{workers_summary}
+			
+			<b>Wallets (in USD)</b>:
+			{format_line(" Wo:", format_currency(self.state.wallets.initial_value, 4))}
+			{format_line(" Wp:", format_currency(self.state.wallets.previous_value, 4))}
+			{format_line(" Wc:", format_currency(self.state.wallets.current_value, 4))}
+			{format_line(" Wc/Wo:", (format_percentage(self.state.wallets.current_initial_pnl, 3)), alignment_column - 1)}
+			{format_line(" Wc/Wp:", format_percentage(self.state.wallets.current_previous_pnl, 3), alignment_column - 1)}
+			
+			<b>Balances (in USD)</b>:
+			{format_line(f" Free:", format_currency(self.state.balances.total.free, 4))}
+			{format_line(f" Orders:", format_currency(self.state.balances.total.lockedInOrders, 4))}
+			{format_line(f" Unsettled:", format_currency(self.state.balances.total.unsettled, 4))}
+			{format_line(f" Total:", format_currency(self.state.balances.total.total, 4))}
+			
+			<b>Settings</b>:
+			 Tick Interval: {self._tick_interval}
+			 Run Only Once: {self._run_only_once}
 			"""
 		)
-
-		summary += \
-			textwrap.dedent(
-				f"""\n\n\
-				<b>Settings</b>:
-				 Tick Interval: {self._tick_interval}
-				 Run Only Once: {self._run_only_once}\
-			"""
-			)
 
 		return summary
 
@@ -519,3 +525,14 @@ class Supervisor(StrategyBase):
 						return target
 
 					self.state = DotMap(json.loads(content, object_hook=handle_deserialization), _dynamic=False)
+
+	def _print_summary_and_save_state(self):
+		summary = self._get_summary()
+
+		if not summary or summary is None:
+			summary = "Summary not ready."
+		else:
+			self._save_state()
+
+		self.log(INFO, summary)
+		self.telegram_log(INFO, summary)

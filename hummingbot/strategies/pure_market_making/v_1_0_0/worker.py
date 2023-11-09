@@ -255,11 +255,7 @@ class Worker(WorkerBase):
 					await self._get_balances(use_cache=False)
 					self.state.balances = self._balances
 
-					self._save_state()
-
-					summary = self._get_summary()
-					self.log(INFO, summary)
-					self.telegram_log(INFO, summary)
+					self._print_summary_and_save_state()
 
 					self._first_time = False
 
@@ -1162,6 +1158,11 @@ class Worker(WorkerBase):
 					DEFAULT_PRECISION
 				))
 
+				wallet_current_initial_pnl_to_token_base_current_initial_pnl = Decimal(round(
+					100 * ((wallet_current_initial_pnl / token_base_current_initial_pnl) - 1),
+					DEFAULT_PRECISION
+				))
+
 				self.state.wallet.previous_initial_pnl = wallet_previous_initial_pnl
 				self.state.wallet.current_initial_pnl = wallet_current_initial_pnl
 				self.state.wallet.current_previous_pnl = wallet_current_previous_pnl
@@ -1175,27 +1176,41 @@ class Worker(WorkerBase):
 				users = ', '.join(self._configuration.strategy.kill_switch.notify.telegram.users)
 
 				if self._configuration.strategy.kill_switch.max_wallet_loss_from_initial_value:
-					if wallet_current_initial_pnl <= -max_wallet_loss_from_initial_value:
+					if (
+						wallet_current_initial_pnl < 0
+						and wallet_current_initial_pnl <= -max_wallet_loss_from_initial_value
+					):
 						self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_initial_pnl, 3)}, which is at least {max_wallet_loss_from_initial_value}% distant from the wallet initial value.\n/cc {users}""")
 						await self.stop()
 
 						return
 
 				if self._configuration.strategy.kill_switch.max_wallet_loss_from_previous_value:
-					if wallet_current_previous_pnl <= -max_wallet_loss_from_previous_value:
+					if (
+						wallet_current_previous_pnl < 0
+						and wallet_current_previous_pnl <= -max_wallet_loss_from_previous_value
+					):
 						self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_previous_pnl, 3)}, which is at least {max_wallet_loss_from_previous_value}% distant from the wallet previous value.\n/cc {users}""")
 						await self.stop()
 
 						return
 
 				if self._configuration.strategy.kill_switch.max_wallet_loss_compared_to_token_variation:
-					if (wallet_current_initial_pnl - token_base_current_initial_pnl) <= -max_wallet_loss_compared_to_token_variation:
+					if (
+						wallet_current_initial_pnl < 0
+						and token_base_current_initial_pnl < 0
+						and wallet_current_initial_pnl_to_token_base_current_initial_pnl < 0
+						and wallet_current_initial_pnl_to_token_base_current_initial_pnl <= -max_wallet_loss_compared_to_token_variation
+					):
 						self.log(CRITICAL, f"""\n\nThe bot has been stopped because the wallet lost {format_percentage(wallet_current_initial_pnl, 3)}, which is at least {max_wallet_loss_compared_to_token_variation}% distant from the token price variation ({token_base_current_initial_pnl}) from its initial price.\n/cc {users}""")
 						await self.stop()
 
 						return
 
-				if token_base_current_initial_pnl <= -max_token_loss_from_initial:
+				if (
+					token_base_current_initial_pnl < 0
+					and token_base_current_initial_pnl <= -max_token_loss_from_initial
+				):
 					self.log(CRITICAL, f"""\n\nThe bot has been stopped because the token lost {format_percentage(token_base_current_initial_pnl, 3)}, which is at least {max_token_loss_from_initial}% distant from the token initial price.\n/cc {users}""")
 					await self.stop()
 
@@ -1308,66 +1323,71 @@ class Worker(WorkerBase):
 				 Market: <b>{self._market.name}</b>
 				 Wallet: ...{str(self._wallet_address)[-4:]}
 
-				<b>PnL</b>:
-				{format_line(" <b>Percentage</b>: ", format_percentage(self.state.wallet.current_initial_pnl, 3), alignment_column + 6)}
-				{format_line(" <b>USD</b>: ", format_currency(self.state.wallet.current_initial_pnl_in_usd, 4), alignment_column + 7)}
+				<b>PnL (in USD)</b>:
+				{format_line(" <b>%</b>: ", format_percentage(self.state.wallet.current_initial_pnl, 3), alignment_column + 6)}
+				{format_line(" <b>$</b>: ", format_currency(self.state.wallet.current_initial_pnl_in_usd, 4), alignment_column + 7)}
 				
 				<b>Balances (in USD)</b>:
-				<b> Total</b>:
+				 <b>Total</b>:
 				{format_line(f"  Free:", format_currency(self.state.balances.total.free, 4))}
 				{format_line(f"  Orders:", format_currency(self.state.balances.total.lockedInOrders, 4))}
 				{format_line(f"  Unsettled:", format_currency(self.state.balances.total.unsettled, 4))}
 				{format_line(f"  Total:", format_currency(self.state.balances.total.total, 4))}
-				<b> Tokens</b>:
-				<b>  {self._base_token.symbol}</b>:
+				 <b>Tokens</b>:
+				  <b>{self._base_token.symbol}</b>:
 				{format_line(f"   Price:", format_currency(self.state.balances.tokens[self._base_token.id].inUSD.quotation, 4))}
 				{format_line(f"   Free:", format_currency(self.state.balances.tokens[self._base_token.id].inUSD.free, 4))}
 				{format_line(f"   Sell Orders:", format_currency(self.state.balances.tokens[self._base_token.id].inUSD.lockedInOrders, 4))}
 				{format_line(f"   Unsettled:", format_currency(self.state.balances.tokens[self._base_token.id].inUSD.unsettled, 4))}
 				{format_line(f"   Total:", format_currency(self.state.balances.tokens[self._base_token.id].inUSD.total, 4))}
-				<b>  {self._quote_token.symbol}</b>:
+				  <b>{self._quote_token.symbol}</b>:
 				{format_line(f"   Price:", format_currency(self.state.balances.tokens[self._quote_token.id].inUSD.quotation, 4))}
 				{format_line(f"   Free:", format_currency(self.state.balances.tokens[self._quote_token.id].inUSD.free, 4))}
 				{format_line(f"   Buy Orders:", format_currency(self.state.balances.tokens[self._quote_token.id].inUSD.lockedInOrders, 4))}
 				{format_line(f"   Unsettled:", format_currency(self.state.balances.tokens[self._quote_token.id].inUSD.unsettled, 4))}
 				{format_line(f"   Total:", format_currency(self.state.balances.tokens[self._quote_token.id].inUSD.total, 4))}
+				
 				<b>Wallet (in USD)</b>:
 				{format_line(" Wo:", format_currency(self.state.wallet.initial_value, 4))}
 				{format_line(" Wp:", format_currency(self.state.wallet.previous_value, 4))}
 				{format_line(" Wc:", format_currency(self.state.wallet.current_value, 4))}
 				{format_line(" Wc/Wo:", (format_percentage(self.state.wallet.current_initial_pnl, 3)), alignment_column - 1)}
 				{format_line(" Wc/Wp:", format_percentage(self.state.wallet.current_previous_pnl, 3), alignment_column - 1)}
+				
 				<b>{self._base_token.symbol} (in {self._quote_token.symbol})</b>:
 				{format_line(" Bo:", format_currency(self.state.token.base.initial_price, 4))}
 				{format_line(" Bp:", format_currency(self.state.token.base.previous_price, 4))}
 				{format_line(" Bc:", format_currency(self.state.token.base.current_price, 4))}
 				{format_line(" Bc/Bo:", format_percentage(self.state.token.base.current_initial_pnl, 3), alignment_column - 1)}
 				{format_line(" Bc/Bp:", format_percentage(self.state.token.base.current_previous_pnl, 3), alignment_column - 1)}
+				
 				<b>Price</b>:
-				{format_line(f" Used:", format_currency(self.state.price.used_price, 4))}
+				{format_line(" Used:", format_currency(self.state.price.used_price, 4))}
 				{format_line(" Ticker:", format_currency(self.state.price.ticker_price, 4))}
+				
 				<b>Orders</b>:
-				<b> Quantity</b>:
+				 <b>Quantity</b>:
 				{format_line("  New:", str(len(self.state.orders.new)), alignment_column - 5)}
 				{format_line("  Canceled:", str(len(self.state.orders.canceled)), alignment_column - 5)}
-				<b> Fees</b>:
-				{format_line("  Native Token:", self.state.gas_payed.token.symbol)}
-				<b>   {self.state.gas_payed.token.symbol}</b>:
-				{format_line("   Create:", format_currency(self.state.gas_payed.token_amounts.creation, 5))}
-				{format_line("   Cancel:", format_currency(self.state.gas_payed.token_amounts.cancellation, 5))}
-				<code>   Withdraw:</code>
-				{format_line("     Native:", format_currency(self.state.gas_payed.token_amounts.withdrawing.native, 5))}
-				{format_line("     Base:", format_currency(self.state.gas_payed.token_amounts.withdrawing.base, 5))}
-				{format_line("     Quote:", format_currency(self.state.gas_payed.token_amounts.withdrawing.quote, 5))}
-				{format_line("   Total:", format_currency(self.state.gas_payed.token_amounts.total, 5))}
-				<b>   USD (~)</b>:
-				{format_line("   Create:", format_currency(self.state.gas_payed.usd_amounts.creation, 5))}
-				{format_line("   Cancel:", format_currency(self.state.gas_payed.usd_amounts.cancellation, 5))}
-				<code>   Withdraw:</code>
-				{format_line("     Base:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.base, 5))}
-				{format_line("     Quote:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.quote, 5))}
-				{format_line("     Total:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.total, 5))}
-				{format_line("   Total:", format_currency(self.state.gas_payed.usd_amounts.total, 5))}\
+				
+				<b>Fees</b>:
+				{format_line(" Native Token:", self.state.gas_payed.token.symbol)}
+				 <b>{self.state.gas_payed.token.symbol}</b>:
+				{format_line("  Create:", format_currency(self.state.gas_payed.token_amounts.creation, 5))}
+				{format_line("  Cancel:", format_currency(self.state.gas_payed.token_amounts.cancellation, 5))}
+				  <code>Withdraw:</code>
+				{format_line("   Native:", format_currency(self.state.gas_payed.token_amounts.withdrawing.native, 5))}
+				{format_line("   Base:", format_currency(self.state.gas_payed.token_amounts.withdrawing.base, 5))}
+				{format_line("   Quote:", format_currency(self.state.gas_payed.token_amounts.withdrawing.quote, 5))}
+				{format_line("  Total:", format_currency(self.state.gas_payed.token_amounts.total, 5))}
+				 <b>USD (~)</b>:
+				{format_line("  Create:", format_currency(self.state.gas_payed.usd_amounts.creation, 5))}
+				{format_line("  Cancel:", format_currency(self.state.gas_payed.usd_amounts.cancellation, 5))}
+				  <code>Withdraw:</code>
+				{format_line("   Base:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.base, 5))}
+				{format_line("   Quote:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.quote, 5))}
+				{format_line("  Total:", format_currency(self.state.gas_payed.usd_amounts.withdrawing.total, 5))}
+				{format_line("  Total:", format_currency(self.state.gas_payed.usd_amounts.total, 5))}\
 				
 			"""
 		)
@@ -1580,3 +1600,14 @@ class Worker(WorkerBase):
 						return target
 
 					self.state = DotMap(json.loads(content, object_hook=handle_deserialization), _dynamic=False)
+
+	def _print_summary_and_save_state(self):
+		summary = self._get_summary()
+
+		if not summary or summary is None:
+			summary = "Summary not ready."
+		else:
+			self._save_state()
+
+		self.log(INFO, summary)
+		self.telegram_log(INFO, summary)
