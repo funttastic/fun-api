@@ -425,7 +425,7 @@ class Worker(WorkerBase):
 				if layer.ask.spread.absolute:
 					ask_price = min(base_price + Decimal(layer.ask.spread.absolute), DECIMAL_INFINITY)
 				elif layer.ask.spread.percentage:
-					ask_spread_percentage = Decimal(layer.ask.percentage)
+					ask_spread_percentage = Decimal(layer.ask.spread.percentage)
 					ask_price = ((100 + ask_spread_percentage) / 100) * base_price
 				else:
 					raise ValueError(f"Invalid spread in layer {index}.")
