@@ -375,7 +375,7 @@ class Worker(WorkerBase):
 
 				if layer.bid.spread.absolute:
 					bid_price = max(base_price - Decimal(layer.bid.spread.absolute), minimum_price_increment)
-				elif layer.spread.percentage:
+				elif layer.bid.spread.percentage:
 					bid_spread_percentage = Decimal(layer.bid.spread.percentage)
 					bid_price = ((100 - bid_spread_percentage) / 100) * base_price
 				else:
