@@ -15,7 +15,7 @@ from dotmap import DotMap
 from core.decorators import log_class_exceptions
 from core.properties import properties
 from core.utils import dump, deep_merge
-from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column
+from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column, DECIMAL_INFINITY
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.worker_base import WorkerBase
@@ -366,15 +366,28 @@ class Worker(WorkerBase):
 			bid_orders = []
 			for index, layer in enumerate(self._configuration.strategy.layers, start=1):
 				if self._configuration.strategy.be_the_first:
-					base_price = min(best_bid_price + minimum_price_increment, best_ask_price - minimum_price_increment)
+					base_price = min(best_bid_price, best_ask_price - minimum_price_increment)
 				else:
 					base_price = min(self._used_price, best_ask_price)
 
 				quotation = (await self._get_balances()).tokens[self._quote_token.id].inUSD.quotation
 				bid_quantity = int(layer.bid.quantity)
-				bid_spread_percentage = Decimal(layer.bid.spread_percentage)
-				bid_price = ((100 - bid_spread_percentage) / 100) * base_price
-				bid_budget = Decimal(layer.bid.budget)
+
+				if layer.bid.spread.absolute:
+					bid_price = max(base_price - Decimal(layer.bid.spread.absolute), minimum_price_increment)
+				elif layer.spread.percentage:
+					bid_spread_percentage = Decimal(layer.bid.spread.percentage)
+					bid_price = ((100 - bid_spread_percentage) / 100) * base_price
+				else:
+					raise ValueError(f"Invalid spread in layer {index}.")
+
+				if layer.bid.budget.absolute:
+					bid_budget = Decimal(layer.bid.budget.absolute)
+				elif layer.bid.budget.percentage:
+					bid_budget = (Decimal(layer.bid.budget.percentage) / 100) * self.state.wallet.current_value
+				else:
+					raise ValueError(f"Invalid budget in layer {index}.")
+
 				bid_size = bid_budget / quotation / bid_quantity if bid_quantity > 0 else 0
 
 				if not (bid_quantity > 0):
@@ -402,15 +415,28 @@ class Worker(WorkerBase):
 			ask_orders = []
 			for index, layer in enumerate(self._configuration.strategy.layers, start=1):
 				if self._configuration.strategy.be_the_first:
-					base_price = max(best_ask_price - minimum_price_increment, best_bid_price + minimum_price_increment)
+					base_price = max(best_ask_price, best_bid_price + minimum_price_increment)
 				else:
 					base_price = max(self._used_price, best_bid_price)
 
 				quotation = (await self._get_balances()).tokens[self._base_token.id].inUSD.quotation
 				ask_quantity = int(layer.ask.quantity)
-				ask_spread_percentage = Decimal(layer.ask.spread_percentage)
-				ask_price = ((100 + ask_spread_percentage) / 100) * base_price
-				ask_budget = Decimal(layer.ask.budget)
+
+				if layer.ask.spread.absolute:
+					ask_price = min(base_price + Decimal(layer.ask.spread.absolute), DECIMAL_INFINITY)
+				elif layer.ask.spread.percentage:
+					ask_spread_percentage = Decimal(layer.ask.percentage)
+					ask_price = ((100 + ask_spread_percentage) / 100) * base_price
+				else:
+					raise ValueError(f"Invalid spread in layer {index}.")
+
+				if layer.ask.budget.absolute:
+					ask_budget = Decimal(layer.ask.budget.absolute)
+				elif layer.ask.budget.percentage:
+					ask_budget = (Decimal(layer.ask.budget.percentage) / 100) * self.state.wallet.current_value
+				else:
+					raise ValueError(f"Invalid budget in layer {index}.")
+
 				ask_size = ask_budget / quotation / ask_quantity if ask_quantity > 0 else 0
 
 				if not (ask_quantity > 0):
