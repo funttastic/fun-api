@@ -1,5 +1,5 @@
-# how to use -> python ssl_cert.py --passphrase <the pass phrase> --cert-path <path to store the certificates>
-# example -> python ssl_cert.py --passphrase 123 --cert-path .
+# how to use -> python ssl_cert_gen.py --passphrase <the pass phrase> --cert-path <path to store the certificates>
+# example -> python ssl_cert_gen.py --passphrase 123 --cert-path .
 
 """
 Functions for generating keys and certificates
@@ -179,7 +179,7 @@ client_csr_filename = 'client_csr.pem'
 #     file_list = listdir(get_gateway_paths(client_config_map).local_certs_path.as_posix())
 #     return all(elem in file_list for elem in required_certs)
 
-@click.command
+@click.command()
 @click.option("--passphrase", prompt="1", help="The passphase in which your private key will be encripted")
 @click.option("--cert-path", prompt="2",help="The path in which your certificates will be placed")
 def create_self_sign_certs(passphrase: str, cert_path: str):
