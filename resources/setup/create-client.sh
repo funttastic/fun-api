@@ -1,5 +1,21 @@
 #!/bin/bash
 
+generate_password() {
+    local length=$1
+    local charset="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}|;:',.<>/?"
+    local password=""
+    local charset_length=${#charset}
+    local max_random=$((32768 - 32768 % charset_length))
+
+    for ((i = 0; i < length; i++)); do
+        while (( (random_index=RANDOM) >= max_random )); do :; done
+        random_index=$((random_index % charset_length))
+        password="${password}${charset:$random_index:1}"
+    done
+
+    echo "$password"
+}
+
 echo
 echo
 echo "===============  CREATE A NEW KUJIRA HB CLIENT INSTANCE ==============="
@@ -103,6 +119,8 @@ then
     FOLDER=$RESPONSE
   fi
 else
+  RANDOM_PASSPHRASE=$(generate_password 32)
+
 	if [ ! "$DEBUG" == "" ]
 	then
 		IMAGE_NAME="temp-kujira-hb-client"
@@ -244,12 +262,14 @@ create_instance () {
   BUILT=true
   if [ ! "$BUILD_CACHE" == "" ]
   then
-    BUILT=$(DOCKER_BUILDKIT=1 docker build $BUILD_CACHE -t $IMAGE_NAME -f ./docker/Dockerfile .)
+    BUILT=$(DOCKER_BUILDKIT=1 docker build --build-arg RANDOM_PASSPHRASE=$RANDOM_PASSPHRASE $BUILD_CACHE -t $IMAGE_NAME -f ./docker/Dockerfile .)
   fi
 
   # $BUILT && docker volume create resources
 
   # 5) Launch a new gateway instance of kujira-hb-client
+  # USER=$(whoami)
+  # GROUP=$(id -gn)
   $BUILT \
   && docker run \
     -it \
@@ -260,11 +280,10 @@ create_instance () {
     -v $RESOURCES_FOLDER:/root/app/resources \
     --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
     -e RESOURCES_FOLDER="/root/app/resources" \
-    -e GATEWAY_PASSPHRASE="$GATEWAY_PASSPHRASE" \
+    -e GATEWAY_PASSPHRASE=$GATEWAY_PASSPHRASE \
     $ENTRYPOINT \
     $IMAGE_NAME:$TAG
 }
-
 
 if [ ! "$DOCKER_INSTALLED" == 0 ]
   then
