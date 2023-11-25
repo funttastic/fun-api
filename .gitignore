@@ -7,6 +7,7 @@ resources/strategies/*
 resources/databases/*
 resources/logs/
 resources/temporary/
+resources/setup/shared/
 
 *.iml
 __pycache__/
