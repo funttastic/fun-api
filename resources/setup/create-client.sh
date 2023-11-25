@@ -18,6 +18,8 @@ fi
 
 CUSTOMIZE=$1
 
+DOCKER_INSTALLED=0
+
 # Customize the Client image to be used?
 if [ "$CUSTOMIZE" == "--customize" ]
 then
@@ -72,6 +74,18 @@ then
   else
     INSTANCE_NAME=$RESPONSE
   fi
+
+  # Prompt the user for the password to encrypt the certificates
+  while true; do
+      read -s -p "   Enter a password to encrypt the certificates with at least 4 characters >>> " GATEWAY_PASSPHRASE
+      if [ -z "$GATEWAY_PASSPHRASE" ] || [ ${#GATEWAY_PASSPHRASE} -lt 4 ]; then
+          echo
+          echo "   Weak password, please try again."
+      else
+          echo
+          break
+      fi
+  done
 
   # Location to save files?
   RESPONSE="$FOLDER"
@@ -154,6 +168,7 @@ create_instance () {
   check_docker_installed() {
       if [ -x "$(command -v docker)" ]; then
           echo "Docker is already installed. Skipping installation."
+          DOCKER_INSTALLED=1
           return 1
       else
           return 0
@@ -220,7 +235,6 @@ create_instance () {
   echo "Operating System: $OS"
   echo "Architecture: $ARCHITECTURE"
 
-  # Creating the docker group and adding the user to the group
   sudo groupadd docker
   sudo usermod -aG docker $USER
   sudo chmod 666 /var/run/docker.sock
@@ -246,11 +260,17 @@ create_instance () {
     -v $RESOURCES_FOLDER:/root/app/resources \
     --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
     -e RESOURCES_FOLDER="/root/app/resources" \
+    -e GATEWAY_PASSPHRASE="$GATEWAY_PASSPHRASE" \
     $ENTRYPOINT \
     $IMAGE_NAME:$TAG
 }
 
+
+if [ ! "$DOCKER_INSTALLED" == 0 ]
+  then
+  echo "Resources volume was created"
   $BUILT && docker volume create resources
+fi
 
 if [ "$CUSTOMIZE" == "--customize" ]
 then

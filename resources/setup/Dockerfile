@@ -37,6 +37,7 @@ RUN set -ex \
 WORKDIR /root/app
 
 RUN set -ex \
+  && mkdir -p resources/certificates \
   && cd resources/configuration \
   && cp production.example.yml production.yml \ 
   && cd ../strategies \
@@ -53,4 +54,7 @@ RUN set -ex \
 EXPOSE $PORT
 
 # CMD python app.py
-CMD cp -R resources_temp/* resources && rm -rf resources_temp && /bin/bash
+CMD cp -R resources_temp/* resources \
+&& rm -rf resources_temp \
+&& python resources/scripts/generate_ssl_certificates.py --passphrase $GATEWAY_PASSPHRASE --cert-path resources/certificates \
+&& python app.py
