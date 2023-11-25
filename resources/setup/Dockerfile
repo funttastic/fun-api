@@ -10,15 +10,13 @@ ARG TZ="Etc/GMT"
 
 ARG CLONE_BRANCH="development"
 
-# ARG GATEWAY_PASSPHRASE
-ENV GATEWAY_PASSPHRASE=""
+ARG DEFINED_PASSPHRASE
 
 ARG RANDOM_PASSPHRASE
-# ENV RANDOM_PASSPHRASE=""
 
 ENV PORT="${PORT:-5000}"
 
-RUN groupadd docker
+# RUN groupadd user
 
 RUN set -ex \
   && apt-get update \
@@ -43,6 +41,10 @@ RUN set -ex \
 
 WORKDIR /root/app
 
+RUN if [ -n "$RANDOM_PASSPHRASE" ]; then echo "A new random passphrase has been saved in the file 'resources/random_passphrase.txt'. Keep it in a safe place."; echo "$RANDOM_PASSPHRASE" > resources/random_passphrase.txt; fi
+
+ENV SELECTED_PASSPHRASE=${RANDOM_PASSPHRASE:-$DEFINED_PASSPHRASE}
+
 RUN set -ex \
   && mkdir -p resources/certificates \
   && cd resources/configuration \
@@ -53,9 +55,6 @@ RUN set -ex \
 
 WORKDIR /root/app
 
-# RUN if [ -z "$RANDOM_PASSPHRASE" ]; then echo "No random passphrase provided." > resources/random_passphrase.txt; else echo "A new random passphrase has been saved in the file 'resources/random_passphrase.txt'. Keep it in a safe place."; echo "$RANDOM_PASSPHRASE" > resources/random_passphrase.txt; GATEWAY_PASSPHRASE="$RANDOM_PASSPHRASE"; fi
-RUN if [ ! -z "$RANDOM_PASSPHRASE" ]; then echo "A new random passphrase has been saved in the file 'resources/random_passphrase.txt'. Keep it in a safe place."; echo "$RANDOM_PASSPHRASE" > resources/random_passphrase.txt; GATEWAY_PASSPHRASE="$RANDOM_PASSPHRASE"; fi
-
 RUN set -ex \
   && mv resources resources_temp \
   && set +ex
@@ -64,9 +63,13 @@ EXPOSE $PORT
 
 CMD cp -R resources_temp/* resources \
 && rm -rf resources_temp \
-&& chown -RH :docker resources \
-&& chown -RH :docker resources/certificates \
 && chmod -R ug+rwx resources \
-&& python resources/scripts/generate_ssl_certificates.py --passphrase $GATEWAY_PASSPHRASE --cert-path resources/certificates \
-&& /bin/bash
+&& python resources/scripts/generate_ssl_certificates.py --passphrase "$SELECTED_PASSPHRASE" --cert-path resources/certificates \
+&& sed -i "s/<password>/$SELECTED_PASSPHRASE/g" resources/configuration/production.yml \
+&& sed -i '/telegram:/,/enabled: true/ s/enabled: true/enabled: false/' resources/configuration/common.yml \
+&& sed -i '/logging:/,/use_telegram: true/ s/use_telegram: true/use_telegram: false/' resources/configuration/production.yml \
+&& python app.py
+# && /bin/bash
 
+# && chown -RH :docker resources \
+# && chown -RH :docker resources/certificates \

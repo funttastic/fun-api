@@ -2,7 +2,7 @@
 
 generate_password() {
     local length=$1
-    local charset="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}|;:',.<>/?"
+    local charset="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     local password=""
     local charset_length=${#charset}
     local max_random=$((32768 - 32768 % charset_length))
@@ -93,8 +93,8 @@ then
 
   # Prompt the user for the password to encrypt the certificates
   while true; do
-      read -s -p "   Enter a password to encrypt the certificates with at least 4 characters >>> " GATEWAY_PASSPHRASE
-      if [ -z "$GATEWAY_PASSPHRASE" ] || [ ${#GATEWAY_PASSPHRASE} -lt 4 ]; then
+      read -s -p "   Enter a password to encrypt the certificates with at least 4 characters >>> " DEFINED_PASSPHRASE
+      if [ -z "$DEFINED_PASSPHRASE" ] || [ ${#DEFINED_PASSPHRASE} -lt 4 ]; then
           echo
           echo "   Weak password, please try again."
       else
@@ -262,7 +262,7 @@ create_instance () {
   BUILT=true
   if [ ! "$BUILD_CACHE" == "" ]
   then
-    BUILT=$(DOCKER_BUILDKIT=1 docker build --build-arg RANDOM_PASSPHRASE=$RANDOM_PASSPHRASE $BUILD_CACHE -t $IMAGE_NAME -f ./docker/Dockerfile .)
+    BUILT=$(DOCKER_BUILDKIT=1 docker build --build-arg RANDOM_PASSPHRASE=$RANDOM_PASSPHRASE $BUILD_CACHE --build-arg DEFINED_PASSPHRASE=$DEFINED_PASSPHRASE -t $IMAGE_NAME -f ./docker/Dockerfile .)
   fi
 
   # $BUILT && docker volume create resources
@@ -280,7 +280,6 @@ create_instance () {
     -v $RESOURCES_FOLDER:/root/app/resources \
     --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
     -e RESOURCES_FOLDER="/root/app/resources" \
-    -e GATEWAY_PASSPHRASE=$GATEWAY_PASSPHRASE \
     $ENTRYPOINT \
     $IMAGE_NAME:$TAG
 }
