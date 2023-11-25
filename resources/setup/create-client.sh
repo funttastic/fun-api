@@ -36,6 +36,8 @@ CUSTOMIZE=$1
 
 DOCKER_INSTALLED=0
 
+USER=$(whoami) # Captures the host user running the script
+
 # Customize the Client image to be used?
 if [ "$CUSTOMIZE" == "--customize" ]
 then
@@ -147,7 +149,7 @@ echo
 echo "ℹ️  Confirm below if the instance and its folders are correct:"
 echo
 printf "%30s %5s\n" "Instance name:" "$INSTANCE_NAME"
-printf "%30s %5s\n" "Version:" "kujira-hb-client/kujira-hb-client:$TAG"
+printf "%30s %5s\n" "Version:" "$TAG"
 echo
 printf "%30s %5s\n" "Main folder:" "├── $FOLDER"
 printf "%30s %5s\n" "Resources files:" "├── $RESOURCES_FOLDER"
@@ -254,7 +256,7 @@ create_instance () {
   echo "Architecture: $ARCHITECTURE"
 
   sudo groupadd docker
-  sudo usermod -aG docker $USER
+  sudo usermod -aG docker "$USER"
   sudo chmod 666 /var/run/docker.sock
   sudo systemctl restart docker
 
@@ -262,13 +264,12 @@ create_instance () {
   BUILT=true
   if [ ! "$BUILD_CACHE" == "" ]
   then
-    BUILT=$(DOCKER_BUILDKIT=1 docker build --build-arg RANDOM_PASSPHRASE=$RANDOM_PASSPHRASE $BUILD_CACHE --build-arg DEFINED_PASSPHRASE=$DEFINED_PASSPHRASE -t $IMAGE_NAME -f ./docker/Dockerfile .)
+    BUILT=$(DOCKER_BUILDKIT=1 docker build --build-arg RANDOM_PASSPHRASE="$RANDOM_PASSPHRASE" $BUILD_CACHE --build-arg DEFINED_PASSPHRASE="$DEFINED_PASSPHRASE" -t $IMAGE_NAME -f ./docker/Dockerfile .)
   fi
 
   # $BUILT && docker volume create resources
 
   # 5) Launch a new gateway instance of kujira-hb-client
-  # USER=$(whoami)
   # GROUP=$(id -gn)
   $BUILT \
   && docker run \
@@ -277,7 +278,7 @@ create_instance () {
     --log-opt max-file=5 \
     --name $INSTANCE_NAME \
     --network host \
-    -v $RESOURCES_FOLDER:/root/app/resources \
+    -v "$RESOURCES_FOLDER":/root/app/resources \
     --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
     -e RESOURCES_FOLDER="/root/app/resources" \
     $ENTRYPOINT \
