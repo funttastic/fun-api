@@ -1,6 +1,11 @@
 #!/bin/bash
 
-generate_password() {
+DOCKER_INSTALLED=0
+CUSTOMIZE=$1
+USER=$(whoami) # Captures the host user running the script
+# GROUP=$(id -gn)
+
+generate_passphrase() {
     local length=$1
     local charset="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     local password=""
@@ -14,6 +19,23 @@ generate_password() {
     done
 
     echo "$password"
+}
+
+check_docker_installed() {
+  if [ -x "$(command -v docker)" ]; then
+    DOCKER_INSTALLED=1
+  else
+    DOCKER_INSTALLED=0
+  fi
+}
+
+prompt_proceed () {
+  RESPONSE=""
+  read -p "   Do you want to proceed? [Y/n] >>> " RESPONSE
+  if [[ "$RESPONSE" == "Y" || "$RESPONSE" == "y" || "$RESPONSE" == "" ]]
+  then
+    PROCEED="Y"
+  fi
 }
 
 echo
@@ -31,12 +53,6 @@ then
 	docker rmi temp-kujira-hb-client
 	docker commit kujira-hb-client temp-kujira-hb-client
 fi
-
-CUSTOMIZE=$1
-
-DOCKER_INSTALLED=0
-
-USER=$(whoami) # Captures the host user running the script
 
 # Customize the Client image to be used?
 if [ "$CUSTOMIZE" == "--customize" ]
@@ -66,7 +82,7 @@ then
     TAG=$RESPONSE
   fi
 
-  # Create a new Client image?
+  # Create a new image?
   RESPONSE="$BUILD_CACHE"
   if [ "$RESPONSE" == "" ]
   then
@@ -80,7 +96,7 @@ then
     BUILD_CACHE=""
   fi
 
-  # Create a new Client instance?
+  # Create a new container?
   RESPONSE="$INSTANCE_NAME"
   if [ "$RESPONSE" == "" ]
   then
@@ -121,7 +137,7 @@ then
     FOLDER=$RESPONSE
   fi
 else
-  RANDOM_PASSPHRASE=$(generate_password 32)
+  RANDOM_PASSPHRASE=$(generate_passphrase 32)
 
 	if [ ! "$DEBUG" == "" ]
 	then
@@ -143,7 +159,6 @@ else
 fi
 
 RESOURCES_FOLDER="$FOLDER/kujira/client/resources"
-# CERTS_FOLDER="$FOLDER/common/certificates"
 
 echo
 echo "ℹ️  Confirm below if the instance and its folders are correct:"
@@ -153,124 +168,105 @@ printf "%30s %5s\n" "Version:" "$TAG"
 echo
 printf "%30s %5s\n" "Main folder:" "├── $FOLDER"
 printf "%30s %5s\n" "Resources files:" "├── $RESOURCES_FOLDER"
-# printf "%30s %5s\n" "Certificates files:" "├── $CERTS_FOLDER"
 echo
 
-prompt_proceed () {
-  RESPONSE=""
-  read -p "   Do you want to proceed? [Y/n] >>> " RESPONSE
-  if [[ "$RESPONSE" == "Y" || "$RESPONSE" == "y" || "$RESPONSE" == "" ]]
-  then
-    PROCEED="Y"
+install_docker () {
+  if [ "$DOCKER_INSTALLED" == 1 ]; then
+    create_instance
+  else
+    echo "   Docker is not installed."
+    echo "   Installing Docker will require superuser permissions."
+    read -p "   Do you want to continue? [y/N] >>> " RESPONSE
+    echo
+
+    if [[ "$RESPONSE" == "Y" || "$RESPONSE" == "y" ]]
+    then
+        sudo echo
+        echo "Docker installation started."
+        echo
+
+        case $(uname | tr '[:upper:]' '[:lower:]') in
+            linux*)
+                OS="Linux"
+
+                # Installation for Debian-based distributions (like Ubuntu)
+                if [ -f /etc/debian_version ]; then
+                    # Update and install prerequisites
+                    sudo apt-get update
+                    sudo apt-get install -y ca-certificates curl gnupg
+                    sudo install -m 0755 -d /etc/apt/keyrings
+
+                    # Add Docker's official GPG key
+                    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+                    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+                    # Set up the stable repository
+                    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME")" stable | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+                    # Install Docker Engine
+                    sudo apt-get update
+                    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+                elif [ -f /etc/redhat-release ]; then
+                    # Installation for Red Hat-based distributions (like CentOS)
+                    sudo yum install -y yum-utils
+                    sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+                    sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+                else
+                    echo "   Unsupported Linux distribution"
+                    exit 1
+                fi
+
+                sudo groupadd docker
+                sudo usermod -aG docker "$USER"
+                sudo chmod 666 /var/run/docker.sock
+                sudo systemctl restart docker
+                ;;
+            darwin*)
+                # Installation of Docker for macOS
+                OS="MacOSX"
+
+                curl -L "https://download.docker.com/mac/stable/Docker.dmg" -o /tmp/Docker.dmg
+                hdiutil attach /tmp/Docker.dmg
+                cp -R /Volumes/Docker/Docker.app /Applications
+                hdiutil detach /Volumes/Docker
+                ;;
+            msys*|cygwin*|mingw*)
+                # Installation of Docker for Windows (assuming in an environment like Git Bash)
+                OS="Windows"
+
+                echo "   To install Docker on Windows, please download and install manually from: https://hub.docker.com/editions/community/docker-ce-desktop-windows/"
+                ;;
+            *)
+                echo "   Unrecognized operating system"
+                exit 1
+                ;;
+        esac
+
+        echo "Operating System: $OS"
+        echo "Architecture: $(uname -m)"
+
+        echo
+        echo "Docker installation is finished."
+        echo
+
+        create_instance
+    else
+      echo
+      echo "   Script execution aborted."
+      echo
+    fi
   fi
 }
 
-# Execute docker commands
-create_instance () {
-  echo
-  echo "Creating kujira-hb-client instance..."
-  echo
-  # 1) Create main folder for your new instance
-  mkdir -p $FOLDER
-  # 2) Create subfolders for kujira-hb-client files
-  mkdir -p $RESOURCES_FOLDER
-  # mkdir -p $CERTS_FOLDER
-
-  # 3) Set required permissions to save kujira-hb-client password the first time
-  # chmod a+rw $CONF_FOLDER
-
-  # 4) Install Docker if necessary
-
-  # Detecting the architecture
-  ARCHITECTURE="$(uname -m)"
-
-  # Function to check if Docker is installed
-  check_docker_installed() {
-      if [ -x "$(command -v docker)" ]; then
-          echo "Docker is already installed. Skipping installation."
-          DOCKER_INSTALLED=1
-          return 1
-      else
-          return 0
-      fi
-  }
-
-  # Detecting the operating system and setting up Docker installation
-  case $(uname | tr '[:upper:]' '[:lower:]') in
-      linux*)
-          OS="Linux"
-          # Check if Docker is installed
-          if check_docker_installed; then
-              # Installation for Debian-based distributions (like Ubuntu)
-              if [ -f /etc/debian_version ]; then
-                  # Update and install prerequisites
-                  sudo apt-get update
-                  sudo apt-get install -y ca-certificates curl gnupg
-                  sudo install -m 0755 -d /etc/apt/keyrings
-
-                  # Add Docker's official GPG key
-                  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-                  sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-                  # Set up the stable repository
-                  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME")" stable | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-                  # Install Docker Engine
-                  sudo apt-get update
-                  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-              elif [ -f /etc/redhat-release ]; then
-                  # Installation for Red Hat-based distributions (like CentOS)
-                  sudo yum install -y yum-utils
-                  sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-                  sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-              else
-                  echo "Unsupported Linux distribution"
-                  exit 1
-              fi
-          fi
-          ;;
-      darwin*)
-          # Installation of Docker for macOS
-          OS="MacOSX"
-          if check_docker_installed; then
-              curl -L "https://download.docker.com/mac/stable/Docker.dmg" -o /tmp/Docker.dmg
-              hdiutil attach /tmp/Docker.dmg
-              cp -R /Volumes/Docker/Docker.app /Applications
-              hdiutil detach /Volumes/Docker
-          fi
-          ;;
-      msys*|cygwin*|mingw*)
-          # Installation of Docker for Windows (assuming in an environment like Git Bash)
-          OS="Windows"
-          if check_docker_installed; then
-              echo "To install Docker on Windows, please download and install manually from: https://hub.docker.com/editions/community/docker-ce-desktop-windows/"
-          fi
-          ;;
-      *)
-          echo "Unrecognized operating system"
-          exit 1
-          ;;
-  esac
-
-  echo "Operating System: $OS"
-  echo "Architecture: $ARCHITECTURE"
-
-  sudo groupadd docker
-  sudo usermod -aG docker "$USER"
-  sudo chmod 666 /var/run/docker.sock
-  sudo systemctl restart docker
-
-  # 5) Create a new image for kujira-hb-client
+docker_execute_routine () {
+  # Create a new image
   BUILT=true
   if [ ! "$BUILD_CACHE" == "" ]
   then
     BUILT=$(DOCKER_BUILDKIT=1 docker build --build-arg RANDOM_PASSPHRASE="$RANDOM_PASSPHRASE" $BUILD_CACHE --build-arg DEFINED_PASSPHRASE="$DEFINED_PASSPHRASE" -t $IMAGE_NAME -f ./docker/Dockerfile .)
   fi
 
-  # $BUILT && docker volume create resources
-
-  # 5) Launch a new gateway instance of kujira-hb-client
-  # GROUP=$(id -gn)
+  # Create a new container from image
   $BUILT \
   && docker run \
     -it \
@@ -283,24 +279,33 @@ create_instance () {
     -e RESOURCES_FOLDER="/root/app/resources" \
     $ENTRYPOINT \
     $IMAGE_NAME:$TAG
+
+  $BUILT && docker volume create resources
+  echo "Resources volume was created"
 }
 
-if [ ! "$DOCKER_INSTALLED" == 0 ]
-  then
-  echo "Resources volume was created"
-  $BUILT && docker volume create resources
-fi
+create_instance () {
+  echo
+  echo "Creating kujira-hb-client instance..."
+  echo
+  mkdir -p "$FOLDER"
+  mkdir -p "$RESOURCES_FOLDER"
+
+  check_docker_installed
+  docker_execute_routine
+}
 
 if [ "$CUSTOMIZE" == "--customize" ]
 then
   prompt_proceed
   if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" ]]
   then
-   create_instance
+    echo
+    install_docker
   else
-   echo "   Aborted"
-   echo
+    echo "   Aborted"
+    echo
   fi
 else
-  create_instance
+  install_docker
 fi
