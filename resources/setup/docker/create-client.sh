@@ -1,6 +1,5 @@
 #!/bin/bash
 
-DOCKER_INSTALLED=0
 CUSTOMIZE=$1
 USER=$(whoami) # Captures the host user running the script
 # GROUP=$(id -gn)
@@ -19,14 +18,6 @@ generate_passphrase() {
     done
 
     echo "$password"
-}
-
-check_docker_installed() {
-  if [ -x "$(command -v docker)" ]; then
-    DOCKER_INSTALLED=1
-  else
-    DOCKER_INSTALLED=0
-  fi
 }
 
 prompt_proceed () {
@@ -147,7 +138,6 @@ else
 		INSTANCE_NAME="temp-kujira-hb-client"
 		FOLDER_SUFFIX="shared"
 		FOLDER=$PWD/$FOLDER_SUFFIX
-		ENTRYPOINT="--entrypoint=/bin/bash"
 	else
 		IMAGE_NAME="kujira-hb-client"
 		TAG="latest"
@@ -171,7 +161,7 @@ printf "%30s %5s\n" "Resources files:" "├── $RESOURCES_FOLDER"
 echo
 
 install_docker () {
-  if [ "$DOCKER_INSTALLED" == 1 ]; then
+  if [ "$(command -v docker)" ]; then
     create_instance
   else
     echo "   Docker is not installed."
@@ -277,7 +267,6 @@ docker_execute_routine () {
     -v "$RESOURCES_FOLDER":/root/app/resources \
     --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
     -e RESOURCES_FOLDER="/root/app/resources" \
-    $ENTRYPOINT \
     $IMAGE_NAME:$TAG
 
   $BUILT && docker volume create resources
@@ -291,7 +280,6 @@ create_instance () {
   mkdir -p "$FOLDER"
   mkdir -p "$RESOURCES_FOLDER"
 
-  check_docker_installed
   docker_execute_routine
 }
 
