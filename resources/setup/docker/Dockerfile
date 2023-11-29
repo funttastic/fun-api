@@ -16,7 +16,7 @@ ARG RANDOM_PASSPHRASE
 
 ENV PORT="${PORT:-5000}"
 
-# RUN groupadd user
+ENV HOST_USER_GROUP=""
 
 RUN set -ex \
   && apt-get update \
@@ -61,4 +61,4 @@ RUN set -ex \
 
 EXPOSE $PORT
 
-ENTRYPOINT /root/app/entrypoint_init_script.sh
+ENTRYPOINT /root/app/entrypoint_init_script.sh $HOST_USER_GROUP
