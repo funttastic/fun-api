@@ -2,7 +2,7 @@
 
 CUSTOMIZE=$1
 USER=$(whoami) # Captures the host user running the script
-# GROUP=$(id -gn)
+GROUP=$(id -gn)
 
 generate_passphrase() {
     local length=$1
@@ -206,7 +206,7 @@ install_docker () {
                     exit 1
                 fi
 
-                sudo groupadd docker
+                sudo groupadd -f docker
                 sudo usermod -aG docker "$USER"
                 sudo chmod 666 /var/run/docker.sock
                 sudo systemctl restart docker
@@ -267,6 +267,7 @@ docker_execute_routine () {
     -v "$RESOURCES_FOLDER":/root/app/resources \
     --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
     -e RESOURCES_FOLDER="/root/app/resources" \
+    -e HOST_USER_GROUP="$GROUP" \
     $IMAGE_NAME:$TAG
 
   $BUILT && docker volume create resources
