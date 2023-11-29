@@ -3,6 +3,8 @@
 if [ -f "resources_temp/setup/docker/Dockerfile" ]; then
   cp -R resources_temp/* resources
   rm -rf resources_temp
+  groupadd "$HOST_USER_GROUP"
+  chown -RH :"$HOST_USER_GROUP" resources
   chmod -R ug+rwx resources
   python resources/scripts/generate_ssl_certificates.py --passphrase "$SELECTED_PASSPHRASE" --cert-path resources/certificates
   sed -i "s/<password>/$SELECTED_PASSPHRASE/g" resources/configuration/production.yml
