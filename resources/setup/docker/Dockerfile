@@ -1,5 +1,4 @@
 # Usage:
-#   docker build --build-arg RANDOM_PASSPHRASE=<your_random_passphrase> -t <image_name> .
 #   docker run -dt --name=<container_name> -p <exposed_port>:5000 -v /path/to/shared/folder:/media/shared <image_name>
 #   curl -d '{}' -H "Content-Type: application/json" -X POST http://localhost:<exposed_port>/
 
@@ -41,7 +40,7 @@ RUN set -ex \
 
 WORKDIR /root/app
 
-RUN if [ -n "$RANDOM_PASSPHRASE" ]; then echo "A new random passphrase has been saved in the file 'resources/random_passphrase.txt'. Keep it in a safe place."; echo "$RANDOM_PASSPHRASE" > resources/random_passphrase.txt; fi
+RUN if [ -n "$RANDOM_PASSPHRASE" ]; then echo "$RANDOM_PASSPHRASE" > resources/random_passphrase.txt; fi
 
 ENV SELECTED_PASSPHRASE=${RANDOM_PASSPHRASE:-$DEFINED_PASSPHRASE}
 
@@ -61,4 +60,4 @@ RUN set -ex \
 
 EXPOSE $PORT
 
-ENTRYPOINT /root/app/entrypoint_init_script.sh $HOST_USER_GROUP
+CMD '/bin/bash'

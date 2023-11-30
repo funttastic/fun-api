@@ -1,23 +1,24 @@
 #!/bin/bash
 
 CUSTOMIZE=$1
-USER=$(whoami) # Captures the host user running the script
+USER=$(whoami)
 GROUP=$(id -gn)
+TAG="latest"
 
 generate_passphrase() {
     local length=$1
     local charset="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    local password=""
+    local passphrase=""
     local charset_length=${#charset}
     local max_random=$((32768 - 32768 % charset_length))
 
     for ((i = 0; i < length; i++)); do
         while (( (random_index=RANDOM) >= max_random )); do :; done
         random_index=$((random_index % charset_length))
-        password="${password}${charset:$random_index:1}"
+        passphrase="${passphrase}${charset:$random_index:1}"
     done
 
-    echo "$password"
+    echo "$passphrase"
 }
 
 prompt_proceed () {
@@ -29,48 +30,18 @@ prompt_proceed () {
   fi
 }
 
-echo
-echo
-echo "===============  CREATE A NEW KUJIRA HB CLIENT INSTANCE ==============="
-echo
-echo
-echo "ℹ️  Press [ENTER] for default values:"
-echo
-
-if [ ! "$DEBUG" == "" ]
-then
-	docker stop temp-kujira-hb-client
-	docker rm temp-kujira-hb-client
-	docker rmi temp-kujira-hb-client
-	docker commit kujira-hb-client temp-kujira-hb-client
-fi
-
-# Customize the Client image to be used?
-if [ "$CUSTOMIZE" == "--customize" ]
-then
+install_kujira_hb_client () {
+  # Customize the Client image to be used?
   RESPONSE="$IMAGE_NAME"
   if [ "$RESPONSE" == "" ]
   then
-    read -p "   Enter Kujira HB Client image you want to use (default = \"kujira-hb-client\") >>> " RESPONSE
+    read -p "   Enter a Kujira HB Client image name you want to use (default = \"kujira-hb-client\") >>> " RESPONSE
   fi
   if [ "$RESPONSE" == "" ]
   then
     IMAGE_NAME="kujira-hb-client"
   else
     IMAGE_NAME="$RESPONSE"
-  fi
-
-  # Specify a Kujira HB Client version?
-  RESPONSE="$TAG"
-  if [ "$RESPONSE" == "" ]
-  then
-    read -p "   Enter Kujira HB Client version you want to use [latest/development] (default = \"latest\") >>> " TAG
-  fi
-  if [ "$RESPONSE" == "" ]
-  then
-    TAG="latest"
-  else
-    TAG=$RESPONSE
   fi
 
   # Create a new image?
@@ -100,12 +71,12 @@ then
     INSTANCE_NAME=$RESPONSE
   fi
 
-  # Prompt the user for the password to encrypt the certificates
+  # Prompt the user for the passphrase to encrypt the certificates
   while true; do
-      read -s -p "   Enter a password to encrypt the certificates with at least 4 characters >>> " DEFINED_PASSPHRASE
+      read -s -p "   Enter a passphrase to encrypt the certificates with at least 4 characters >>> " DEFINED_PASSPHRASE
       if [ -z "$DEFINED_PASSPHRASE" ] || [ ${#DEFINED_PASSPHRASE} -lt 4 ]; then
           echo
-          echo "   Weak password, please try again."
+          echo "   Weak passphrase, please try again."
       else
           echo
           break
@@ -127,38 +98,107 @@ then
   else
     FOLDER=$RESPONSE
   fi
-else
-  RANDOM_PASSPHRASE=$(generate_passphrase 32)
+}
 
-	if [ ! "$DEBUG" == "" ]
-	then
-		IMAGE_NAME="temp-kujira-hb-client"
-		TAG="latest"
-		BUILD_CACHE="--no-cache"
-		INSTANCE_NAME="temp-kujira-hb-client"
-		FOLDER_SUFFIX="shared"
-		FOLDER=$PWD/$FOLDER_SUFFIX
-	else
-		IMAGE_NAME="kujira-hb-client"
-		TAG="latest"
-		BUILD_CACHE="--no-cache"
-		INSTANCE_NAME="kujira-hb-client"
-		FOLDER_SUFFIX="shared"
-		FOLDER=$PWD/$FOLDER_SUFFIX
-	fi
+echo
+echo "   ===============  WELCOME TO KUJIRA HB CLIENT SETUP ==============="
+echo
+
+RESPONSE=""
+read -p "   Do you want to automate the entire process,
+   including setting a random passphrase? [Y/n] >>> " RESPONSE
+if [[ "$RESPONSE" == "Y" || "$RESPONSE" == "y" || "$RESPONSE" == "" ]]
+then
+  echo
+else
+  CUSTOMIZE="--customize"
+fi
+
+if [ "$CUSTOMIZE" == "--customize" ]
+then
+  echo
+  echo "ℹ️  Press [ENTER] for default values:"
+  echo
+
+  echo "   CHOOSE A OPTION BELOW TO INSTALL"
+  echo
+  echo "   [1] KUJIRA HB CLIENT"
+  echo "   [3] HUMMINGBOT CLIENT FORK"
+  echo "   [2] HUMMINGBOT GATEWAY FORK"
+  echo "   [4] KUJIRA HB CLIENT and HB GATEWAY FORK [DEFAULT]"
+  echo "   [5] ALL"
+  echo
+  echo "   For more information about the difference between HB Official and HB Forks, please visit:"
+  echo
+  echo "         https://wwww.site.com/docs"
+  echo
+
+  read -p "   Enter your choice (1-5): " choice
+
+  if [[ -z $choice || ! $choice =~ ^[1-5]$ ]]; then
+      choice=4
+  fi
+
+  case $choice in
+      1)
+          echo
+          echo
+          echo "   ===============  KUJIRA HB CLIENT INSTALLATION PROCESS ==============="
+          echo
+          install_kujira_hb_client
+          ;;
+      2)
+          echo
+          echo
+          echo "   NOT IMPLEMENTED"
+          ;;
+      3)
+          echo
+          echo
+          echo "   NOT IMPLEMENTED"
+          ;;
+      4)
+          echo
+          echo
+          echo "   NOT IMPLEMENTED"
+          ;;
+      5)
+          echo
+          echo
+          echo "   NOT IMPLEMENTED"
+          ;;
+  esac
+else
+  # Default settings to install Kujira HB Client and HB Gateway Fork
+
+  # Kujira HB Client Settings
+  IMAGE_NAME="kujira-hb-client"
+  INSTANCE_NAME="kujira-hb-client"
+
+  # HB Gateway Fork Settings
+
+  # Settings for both
+  TAG="latest"
+  BUILD_CACHE="--no-cache"
+  FOLDER_SUFFIX="shared"
+  FOLDER=$PWD/$FOLDER_SUFFIX
+
+	RANDOM_PASSPHRASE=$(generate_passphrase 32)
 fi
 
 RESOURCES_FOLDER="$FOLDER/kujira/client/resources"
 
-echo
-echo "ℹ️  Confirm below if the instance and its folders are correct:"
-echo
-printf "%30s %5s\n" "Instance name:" "$INSTANCE_NAME"
-printf "%30s %5s\n" "Version:" "$TAG"
-echo
-printf "%30s %5s\n" "Main folder:" "├── $FOLDER"
-printf "%30s %5s\n" "Resources files:" "├── $RESOURCES_FOLDER"
-echo
+if [ "$CUSTOMIZE" == "--customize" ]; then
+  echo
+  echo "ℹ️  Confirm below if the instance and its folders are correct:"
+  echo
+  printf "%30s %5s\n" "Instance name:" "$INSTANCE_NAME"
+  printf "%30s %5s\n" "Version:" "$TAG"
+  echo
+  printf "%30s %5s\n" "Main folder:" "├── $FOLDER"
+  printf "%30s %5s\n" "Resources files:" "├── $RESOURCES_FOLDER"
+  echo
+fi
 
 install_docker () {
   if [ "$(command -v docker)" ]; then
@@ -248,15 +288,18 @@ install_docker () {
   fi
 }
 
-docker_execute_routine () {
-  # Create a new image
-  BUILT=true
+docker_create_image_kujira_hb_client () {
   if [ ! "$BUILD_CACHE" == "" ]
   then
-    BUILT=$(DOCKER_BUILDKIT=1 docker build --build-arg RANDOM_PASSPHRASE="$RANDOM_PASSPHRASE" $BUILD_CACHE --build-arg DEFINED_PASSPHRASE="$DEFINED_PASSPHRASE" -t $IMAGE_NAME -f ./docker/Dockerfile .)
+    BUILT=$(DOCKER_BUILDKIT=1 docker build \
+    --build-arg RANDOM_PASSPHRASE="$RANDOM_PASSPHRASE" \
+    $BUILD_CACHE \
+    --build-arg DEFINED_PASSPHRASE="$DEFINED_PASSPHRASE" \
+    -t $IMAGE_NAME -f ./docker/Dockerfile .)
   fi
+}
 
-  # Create a new container from image
+docker_create_container_kujira_hb_client () {
   $BUILT \
   && docker run \
     -it \
@@ -269,19 +312,44 @@ docker_execute_routine () {
     -e RESOURCES_FOLDER="/root/app/resources" \
     -e HOST_USER_GROUP="$GROUP" \
     $IMAGE_NAME:$TAG
+}
 
-  $BUILT && docker volume create resources
-  echo "Resources volume was created"
+default_installation () {
+  if [ -n "$RANDOM_PASSPHRASE" ]; then  \
+  echo "   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"; \
+  echo "   |                                                        |"; \
+  echo "   |   A new random passphrase has been saved in the file   |"; \
+  echo "   |                                                        |"; \
+  echo "   |      resources/random_passphrase.txt                   |"; \
+  echo "   |                                                        |"; \
+  echo "   |   Copy it to a safe location and delete the file.      |"; \
+  echo "   |                                                        |"; \
+  echo "   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"; \
+  echo; \
+  fi
+
+  BUILT=true
+
+  $BUILT && docker volume create resources > /dev/null
+
+  # Create a new separated image for Kujira HB Client
+  docker_create_image_kujira_hb_client
+
+  # Create a new separated container from image
+  docker_create_container_kujira_hb_client
 }
 
 create_instance () {
   echo
-  echo "Creating kujira-hb-client instance..."
+  echo "   Automatically installing:"
+  echo
+  echo "     > Kujira HB Client"
+  echo "     > Hummingbot Gateway Fork"
   echo
   mkdir -p "$FOLDER"
   mkdir -p "$RESOURCES_FOLDER"
 
-  docker_execute_routine
+  default_installation
 }
 
 if [ "$CUSTOMIZE" == "--customize" ]
