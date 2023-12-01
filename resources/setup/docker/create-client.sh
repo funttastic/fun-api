@@ -35,6 +35,7 @@ install_kujira_hb_client () {
   RESPONSE="$IMAGE_NAME"
   if [ "$RESPONSE" == "" ]
   then
+    echo
     read -p "   Enter a Kujira HB Client image name you want to use (default = \"kujira-hb-client\") >>> " RESPONSE
   fi
   if [ "$RESPONSE" == "" ]
@@ -48,11 +49,13 @@ install_kujira_hb_client () {
   RESPONSE="$BUILD_CACHE"
   if [ "$RESPONSE" == "" ]
   then
+    echo
     read -p "   Do you want to use an existing Kujira HB Client image (\"y/N\") >>> " RESPONSE
   fi
   if [[ "$RESPONSE" == "N" || "$RESPONSE" == "n" || "$RESPONSE" == "" ]]
   then
-    echo "   A new image will be created..."
+    echo
+    echo "      A new image will be created..."
     BUILD_CACHE="--no-cache"
   else
     BUILD_CACHE=""
@@ -62,6 +65,7 @@ install_kujira_hb_client () {
   RESPONSE="$INSTANCE_NAME"
   if [ "$RESPONSE" == "" ]
   then
+    echo
     read -p "   Enter a name for your new Kujira HB Client instance (default = \"kujira-hb-client\") >>> " RESPONSE
   fi
   if [ "$RESPONSE" == "" ]
@@ -73,10 +77,12 @@ install_kujira_hb_client () {
 
   # Prompt the user for the passphrase to encrypt the certificates
   while true; do
+      echo
       read -s -p "   Enter a passphrase to encrypt the certificates with at least 4 characters >>> " DEFINED_PASSPHRASE
       if [ -z "$DEFINED_PASSPHRASE" ] || [ ${#DEFINED_PASSPHRASE} -lt 4 ]; then
           echo
-          echo "   Weak passphrase, please try again."
+          echo
+          echo "      Weak passphrase, please try again."
       else
           echo
           break
@@ -88,6 +94,7 @@ install_kujira_hb_client () {
   if [ "$RESPONSE" == "" ]
   then
     FOLDER_SUFFIX="shared"
+    echo
     read -p "   Enter a folder name where your Kujira HB Client files will be saved (default = \"$FOLDER_SUFFIX\") >>> " RESPONSE
   fi
   if [ "$RESPONSE" == "" ]
@@ -135,9 +142,22 @@ then
 
   read -p "   Enter your choice (1-5): " choice
 
-  if [[ -z $choice || ! $choice =~ ^[1-5]$ ]]; then
-      choice=4
-  fi
+#  if [[ -z $choice || ! $choice =~ ^[1-5]$ ]]; then
+#      choice=4
+#  fi
+
+  while true; do
+    case $choice in
+        1|2|3|4|5)
+            break
+            ;;
+        *)
+            echo "   Invalid Input. Enter a number between 1 and 5."
+            ;;
+    esac
+
+    read -p "   Enter your choice (1-5): " choice
+  done
 
   case $choice in
       1)
@@ -148,24 +168,32 @@ then
           install_kujira_hb_client
           ;;
       2)
+          NOT_IMPLEMENTED=true
           echo
           echo
-          echo "   NOT IMPLEMENTED"
+          echo "      NOT IMPLEMENTED"
+          echo
           ;;
       3)
+          NOT_IMPLEMENTED=true
           echo
           echo
-          echo "   NOT IMPLEMENTED"
+          echo "      NOT IMPLEMENTED"
+          echo
           ;;
       4)
+          NOT_IMPLEMENTED=true
           echo
           echo
-          echo "   NOT IMPLEMENTED"
+          echo "      NOT IMPLEMENTED"
+          echo
           ;;
       5)
+          NOT_IMPLEMENTED=true
           echo
           echo
-          echo "   NOT IMPLEMENTED"
+          echo "      NOT IMPLEMENTED"
+          echo
           ;;
   esac
 else
@@ -188,17 +216,69 @@ fi
 
 RESOURCES_FOLDER="$FOLDER/kujira/client/resources"
 
-if [ "$CUSTOMIZE" == "--customize" ]; then
-  echo
-  echo "ℹ️  Confirm below if the instance and its folders are correct:"
-  echo
-  printf "%30s %5s\n" "Instance name:" "$INSTANCE_NAME"
-  printf "%30s %5s\n" "Version:" "$TAG"
-  echo
-  printf "%30s %5s\n" "Main folder:" "├── $FOLDER"
-  printf "%30s %5s\n" "Resources files:" "├── $RESOURCES_FOLDER"
-  echo
+if [ -n "$RANDOM_PASSPHRASE" ]; then  \
+echo "   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"; \
+echo "   |                                                        |"; \
+echo "   |   A new random passphrase has been saved in the file   |"; \
+echo "   |                                                        |"; \
+echo "   |      resources/random_passphrase.txt                   |"; \
+echo "   |                                                        |"; \
+echo "   |   Copy it to a safe location and delete the file.      |"; \
+echo "   |                                                        |"; \
+echo "   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"; \
+echo; \
 fi
+
+docker_create_image_kujira_hb_client () {
+  if [ ! "$BUILD_CACHE" == "" ]
+  then
+    BUILT=$(DOCKER_BUILDKIT=1 docker build \
+    --build-arg RANDOM_PASSPHRASE="$RANDOM_PASSPHRASE" \
+    $BUILD_CACHE \
+    --build-arg DEFINED_PASSPHRASE="$DEFINED_PASSPHRASE" \
+    -t $IMAGE_NAME -f ./docker/Dockerfile .)
+  fi
+}
+
+docker_create_container_kujira_hb_client () {
+  $BUILT \
+  && docker run \
+    -it \
+    --log-opt max-size=10m \
+    --log-opt max-file=5 \
+    --name $INSTANCE_NAME \
+    --network host \
+    -v "$RESOURCES_FOLDER":/root/app/resources \
+    --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
+    -e RESOURCES_FOLDER="/root/app/resources" \
+    -e HOST_USER_GROUP="$GROUP" \
+    $IMAGE_NAME:$TAG
+}
+
+default_installation () {
+  BUILT=true
+
+  $BUILT && docker volume create resources > /dev/null
+
+  # Create a new separated image for Kujira HB Client
+  docker_create_image_kujira_hb_client
+
+  # Create a new separated container from image
+  docker_create_container_kujira_hb_client
+}
+
+create_instance () {
+  echo
+  echo "   Automatically installing:"
+  echo
+  echo "     > Kujira HB Client"
+  echo "     > Hummingbot Gateway Fork"
+  echo
+  mkdir -p "$FOLDER"
+  mkdir -p "$RESOURCES_FOLDER"
+
+  default_installation
+}
 
 install_docker () {
   if [ "$(command -v docker)" ]; then
@@ -288,81 +368,30 @@ install_docker () {
   fi
 }
 
-docker_create_image_kujira_hb_client () {
-  if [ ! "$BUILD_CACHE" == "" ]
-  then
-    BUILT=$(DOCKER_BUILDKIT=1 docker build \
-    --build-arg RANDOM_PASSPHRASE="$RANDOM_PASSPHRASE" \
-    $BUILD_CACHE \
-    --build-arg DEFINED_PASSPHRASE="$DEFINED_PASSPHRASE" \
-    -t $IMAGE_NAME -f ./docker/Dockerfile .)
-  fi
-}
-
-docker_create_container_kujira_hb_client () {
-  $BUILT \
-  && docker run \
-    -it \
-    --log-opt max-size=10m \
-    --log-opt max-file=5 \
-    --name $INSTANCE_NAME \
-    --network host \
-    -v "$RESOURCES_FOLDER":/root/app/resources \
-    --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
-    -e RESOURCES_FOLDER="/root/app/resources" \
-    -e HOST_USER_GROUP="$GROUP" \
-    $IMAGE_NAME:$TAG
-}
-
-default_installation () {
-  if [ -n "$RANDOM_PASSPHRASE" ]; then  \
-  echo "   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"; \
-  echo "   |                                                        |"; \
-  echo "   |   A new random passphrase has been saved in the file   |"; \
-  echo "   |                                                        |"; \
-  echo "   |      resources/random_passphrase.txt                   |"; \
-  echo "   |                                                        |"; \
-  echo "   |   Copy it to a safe location and delete the file.      |"; \
-  echo "   |                                                        |"; \
-  echo "   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"; \
-  echo; \
-  fi
-
-  BUILT=true
-
-  $BUILT && docker volume create resources > /dev/null
-
-  # Create a new separated image for Kujira HB Client
-  docker_create_image_kujira_hb_client
-
-  # Create a new separated container from image
-  docker_create_container_kujira_hb_client
-}
-
-create_instance () {
-  echo
-  echo "   Automatically installing:"
-  echo
-  echo "     > Kujira HB Client"
-  echo "     > Hummingbot Gateway Fork"
-  echo
-  mkdir -p "$FOLDER"
-  mkdir -p "$RESOURCES_FOLDER"
-
-  default_installation
-}
-
-if [ "$CUSTOMIZE" == "--customize" ]
+if [[ "$CUSTOMIZE" == "--customize" && "$NOT_IMPLEMENTED" == 0 ]]
 then
+  echo
+  echo "ℹ️  Confirm below if the instance and its folders are correct:"
+  echo
+  printf "%19s %5s\n" "Instance name:" "$INSTANCE_NAME"
+  printf "%19s %5s\n" "Version:" "$TAG"
+  printf "%19s %5s\n" "Main folder:" "├── $FOLDER"
+  printf "%19s %5s\n" "Resources folder:" "├── $RESOURCES_FOLDER"
+  echo
+
   prompt_proceed
+
   if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" ]]
   then
     echo
     install_docker
   else
-    echo "   Aborted"
+    echo
+    echo "   Installation aborted!"
     echo
   fi
 else
-  install_docker
+  if [ ! "$NOT_IMPLEMENTED" ]; then
+    install_docker
+  fi
 fi
