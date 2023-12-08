@@ -4,7 +4,7 @@ server:
   port: 5000
 logging:
   level: 30 # 30 -> WARNING
-  use_telegram: true
+  use_telegram: false
 telegram:
   enabled: false
   listen_commands: false

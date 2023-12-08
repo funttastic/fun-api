@@ -37,40 +37,6 @@ processes: DotMap[str, StrategyBase] = DotMap({
 })
 
 
-@app.get("/")
-@app.post("/")
-@app.put("/")
-@app.delete("/")
-@app.patch("/")
-@app.head("/")
-@app.options("/")
-@app.get("/{subpath:path}")
-@app.post("/{subpath:path}")
-@app.post("/{subpath:path}")
-@app.put("/{subpath:path}")
-@app.delete("/{subpath:path}")
-@app.patch("/{subpath:path}")
-@app.head("/{subpath:path}")
-@app.options("/{subpath:path}")
-async def root(request: Request, subpath=''):
-	parameters = dict(request.query_params)
-	try:
-		body = await request.json()
-	except:
-		body = {}
-	# headers = dict(request.headers)
-
-	method = HttpMethod[request.method.upper()]
-
-	return JSONResponse((await router(
-		method=method,
-		url=subpath,
-		parameters=parameters,
-		body=body,
-		certificates=None
-	)).toDict())
-
-
 @app.post("/strategy/start")
 async def strategy_start(request: Request) -> Dict[str, Any]:
 	try:
@@ -128,6 +94,39 @@ async def strategy_worker_status(request: Request) -> Dict[str, Any]:
 		body = {}
 
 	return await controller.strategy_worker_status(body)
+
+@app.get("/")
+@app.post("/")
+@app.put("/")
+@app.delete("/")
+@app.patch("/")
+@app.head("/")
+@app.options("/")
+@app.get("/{subpath:path}")
+@app.post("/{subpath:path}")
+@app.post("/{subpath:path}")
+@app.put("/{subpath:path}")
+@app.delete("/{subpath:path}")
+@app.patch("/{subpath:path}")
+@app.head("/{subpath:path}")
+@app.options("/{subpath:path}")
+async def root(request: Request, subpath=''):
+	parameters = dict(request.query_params)
+	try:
+		body = await request.json()
+	except:
+		body = {}
+	# headers = dict(request.headers)
+
+	method = HttpMethod[request.method.upper()]
+
+	return JSONResponse((await router(
+		method=method,
+		url=subpath,
+		parameters=parameters,
+		body=body,
+		certificates=None
+	)).toDict())
 
 
 async def start_api():
