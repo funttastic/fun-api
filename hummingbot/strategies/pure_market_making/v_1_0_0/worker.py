@@ -1167,39 +1167,44 @@ class Worker(WorkerBase):
 				self.state.wallet.previous_value = self.state.wallet.current_value
 				self.state.wallet.current_value = balances.total.total
 
-				wallet_previous_initial_pnl = Decimal(round(
-					100 * ((self.state.wallet.previous_value / self.state.wallet.initial_value) - 1),
-					DEFAULT_PRECISION
-				))
-				wallet_current_initial_pnl_in_usd = Decimal(round(
-					self.state.wallet.current_value - self.state.wallet.initial_value,
-					DEFAULT_PRECISION
-				))
-				wallet_current_initial_pnl = Decimal(round(
-					100 * ((self.state.wallet.current_value / self.state.wallet.initial_value) - 1),
-					DEFAULT_PRECISION
-				))
-				wallet_current_previous_pnl = Decimal(round(
-					100 * ((self.state.wallet.current_value / self.state.wallet.previous_value) - 1),
-					DEFAULT_PRECISION
-				))
-				token_base_previous_initial_pnl = Decimal(round(
-					100 * ((self.state.token.base.previous_price / self.state.token.base.initial_price) - 1),
-					DEFAULT_PRECISION
-				))
-				token_base_current_initial_pnl = Decimal(round(
-					100 * ((self.state.token.base.current_price / self.state.token.base.initial_price) - 1),
-					DEFAULT_PRECISION
-				))
-				token_base_current_previous_pnl = Decimal(round(
-					100 * ((self.state.token.base.current_price / self.state.token.base.previous_price) - 1),
-					DEFAULT_PRECISION
-				))
+				try:
+					wallet_previous_initial_pnl = Decimal(round(
+						100 * ((self.state.wallet.previous_value / self.state.wallet.initial_value) - 1),
+						DEFAULT_PRECISION
+					))
+					wallet_current_initial_pnl_in_usd = Decimal(round(
+						self.state.wallet.current_value - self.state.wallet.initial_value,
+						DEFAULT_PRECISION
+					))
+					wallet_current_initial_pnl = Decimal(round(
+						100 * ((self.state.wallet.current_value / self.state.wallet.initial_value) - 1),
+						DEFAULT_PRECISION
+					))
+					wallet_current_previous_pnl = Decimal(round(
+						100 * ((self.state.wallet.current_value / self.state.wallet.previous_value) - 1),
+						DEFAULT_PRECISION
+					))
+					token_base_previous_initial_pnl = Decimal(round(
+						100 * ((self.state.token.base.previous_price / self.state.token.base.initial_price) - 1),
+						DEFAULT_PRECISION
+					))
+					token_base_current_initial_pnl = Decimal(round(
+						100 * ((self.state.token.base.current_price / self.state.token.base.initial_price) - 1),
+						DEFAULT_PRECISION
+					))
+					token_base_current_previous_pnl = Decimal(round(
+						100 * ((self.state.token.base.current_price / self.state.token.base.previous_price) - 1),
+						DEFAULT_PRECISION
+					))
 
-				wallet_current_initial_pnl_to_token_base_current_initial_pnl = Decimal(round(
-					100 * ((wallet_current_initial_pnl / token_base_current_initial_pnl) - 1),
-					DEFAULT_PRECISION
-				))
+					wallet_current_initial_pnl_to_token_base_current_initial_pnl = Decimal(round(
+						100 * ((wallet_current_initial_pnl / token_base_current_initial_pnl) - 1),
+						DEFAULT_PRECISION
+					))
+				except Exception as exception:
+					self.ignore_exception(exception)
+
+					return
 
 				self.state.wallet.previous_initial_pnl = wallet_previous_initial_pnl
 				self.state.wallet.current_initial_pnl = wallet_current_initial_pnl
