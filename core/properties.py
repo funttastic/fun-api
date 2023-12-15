@@ -1,11 +1,13 @@
 import os
 
 import yaml
+import base64
 from singleton.singleton import ThreadSafeSingleton
 
 from core.constants import constants
 from core.utils import deep_merge
 from core.extensions import DotMap
+from functools import reduce
 
 
 @ThreadSafeSingleton
@@ -95,7 +97,21 @@ class Properties(object):
 		return default
 
 	def set(self, key, value):
-		self.properties[key] = value
+		file_path = f"{self.properties.root_path}/{self.properties.configuration.relative_folder}/{self.properties.server.environment}.yml"
+
+		with open(file_path, 'r') as f:
+			file_object = DotMap(yaml.safe_load(f))
+
+		value_to_base64 = base64.b64encode(value).decode('utf-8')
+
+		splitted_keys = key.split(".")
+
+		propertie = reduce(lambda d, k: d[k], splitted_keys[:-1], file_object)
+
+		propertie[splitted_keys[-1]] = value_to_base64
+
+		with open(file_path, 'w') as f:
+			yaml.dump(file_object.toDict(), f, Dumper=yaml.SafeDumper, sort_keys=False)
 
 
 properties = Properties.instance()

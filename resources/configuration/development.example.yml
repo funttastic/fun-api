@@ -21,6 +21,7 @@ hummingbot:
     port: 15888
     certificates:
       server_private_key_password: '<password>'
+      server_private_key_password_hash: '<password_hash>'
       path:
         base:
           relative: 'resources/certificates'
