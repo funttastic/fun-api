@@ -135,7 +135,7 @@ async def root(request: Request, subpath=''):
 	)).toDict())
 
 
-async def start_api(password):
+async def start_api(argv):
 	signal.signal(signal.SIGTERM, shutdown)
 	signal.signal(signal.SIGINT, shutdown)
 
@@ -144,7 +144,6 @@ async def start_api(password):
 	host = os.environ.get("HOST", properties.get('server.host'))
 	port = int(os.environ.get("PORT", properties.get('server.port')))
 	environment = properties.get_or_default('server.environment', constants.environments.production)
-	server_private_key_password = os.environ.get("PASSWORD", properties.get("hummingbot.gateway.certificates.server_private_key_password"))
 
 	os.environ['ENV'] = environment
 
@@ -153,11 +152,13 @@ async def start_api(password):
 		os.path.join(properties.get("root_path"), properties.get("hummingbot.gateway.certificates.path.base.relative")),
 	)
 
+	password = argv[1] if len(argv) > 1 else ""
+
 	if authenticate(password):
 		print("")
 
 		certificates = DotMap({
-			"server_private_key_password": server_private_key_password,
+			"server_private_key_password": os.environ.get("PASSWORD", password),
 			"server_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.server_certificate")}"""),
 			"server_private_key": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.server_private_key")}"""),
 			"certificate_authority_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.certificate_authority_certificate")}""")
@@ -213,7 +214,7 @@ def get_password():
 
 
 def authenticate(password):
-	server_private_key_password_hash = os.environ.get("PASSWORD_HASH", properties.get("hummingbot.gateway.certificates.server_private_key_password_hash"))
+	server_private_key_password_hash = properties.get("hummingbot.gateway.certificates.server_private_key_password_hash")
 
 	if server_private_key_password_hash == '<password_hash>' or len(
 			server_private_key_password_hash
@@ -264,12 +265,10 @@ def authenticate(password):
 
 
 async def main(argv):
-	password = argv[1] if len(argv) > 1 else ""
-
 	loop = asyncio.get_event_loop()
 
 	tasks.telegram = loop.create_task(telegram.start_command_listener())
-	tasks.api = loop.create_task(start_api(password))
+	tasks.api = loop.create_task(start_api(argv))
 
 	await asyncio.gather(*[tasks.telegram, tasks.api])
 
