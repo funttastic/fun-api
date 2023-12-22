@@ -158,7 +158,7 @@ async def start_api(argv):
 		print("")
 
 		certificates = DotMap({
-			"server_private_key_password": os.environ.get("PASSWORD", password),
+			"server_private_key_password": password,
 			"server_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.server_certificate")}"""),
 			"server_private_key": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.server_private_key")}"""),
 			"certificate_authority_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.certificate_authority_certificate")}""")
