@@ -2,6 +2,8 @@ import asyncio
 import atexit
 import os
 import base64
+import sys
+import re
 import logging
 from getpass import getpass
 import signal
@@ -133,7 +135,7 @@ async def root(request: Request, subpath=''):
 	)).toDict())
 
 
-async def start_api():
+async def start_api(password):
 	signal.signal(signal.SIGTERM, shutdown)
 	signal.signal(signal.SIGINT, shutdown)
 
@@ -151,7 +153,7 @@ async def start_api():
 		os.path.join(properties.get("root_path"), properties.get("hummingbot.gateway.certificates.path.base.relative")),
 	)
 
-	if authenticate():
+	if authenticate(password):
 		print("")
 
 		certificates = DotMap({
@@ -210,17 +212,23 @@ def get_password():
 					print("\n   [!] The passwords provided are different. Please try again.")
 
 
-def authenticate():
+def authenticate(password):
 	server_private_key_password_hash = os.environ.get("PASSWORD_HASH", properties.get("hummingbot.gateway.certificates.server_private_key_password_hash"))
 
-	if server_private_key_password_hash == '<password_hash>':
+	if server_private_key_password_hash == '<password_hash>' or len(
+			server_private_key_password_hash
+	) == 0 or server_private_key_password_hash is None or re.fullmatch(r"^\s*$", server_private_key_password_hash):
+
 		os.system('cls' if os.name == 'nt' else 'clear')
 
 		print("\n   ===============     AUTHENTICATION - FUNTTASTIC HUMMINGBOT CLIENT     ===============\n")
 
 		print("   This is the first time you will start the server. Please define a passphrase.\n")
 
-		new_passphrase = get_password()
+		if len(password) > 0:
+			new_passphrase = password
+		else:
+			new_passphrase = get_password()
 
 		hashed_passphrase = generate_passphrase_hash(new_passphrase)
 
@@ -234,7 +242,11 @@ def authenticate():
 				os.system('cls' if os.name == 'nt' else 'clear')
 				print("\n   ===============     AUTHENTICATION - FUNTTASTIC HUMMINGBOT CLIENT     ===============\n")
 
-			provided_passphrase = getpass(f"   Enter your password to access [Attempt {i+1}/3]: ")
+			if len(password) > 0:
+				provided_passphrase = password
+			else:
+				provided_passphrase = getpass(f"   Enter your password to access [Attempt {i+1}/3]: ")
+
 			passphrase_to_binary = base64.b64decode(server_private_key_password_hash)
 			correct = verify_passphrase(passphrase_to_binary, provided_passphrase)
 
@@ -251,11 +263,13 @@ def authenticate():
 				return False
 
 
-async def main():
+async def main(argv):
+	password = argv[1] if len(argv) > 1 else ""
+
 	loop = asyncio.get_event_loop()
 
 	tasks.telegram = loop.create_task(telegram.start_command_listener())
-	tasks.api = loop.create_task(start_api())
+	tasks.api = loop.create_task(start_api(password))
 
 	await asyncio.gather(*[tasks.telegram, tasks.api])
 
@@ -279,6 +293,6 @@ def shutdown_helper():
 if __name__ == '__main__':
 	try:
 		loop = asyncio.get_event_loop()
-		loop.run_until_complete(main())
+		loop.run_until_complete(main(sys.argv))
 	finally:
 		shutdown_helper()
