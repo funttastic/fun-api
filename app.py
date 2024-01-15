@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import asyncio
 import atexit
 import logging
@@ -22,7 +24,7 @@ from hummingbot.router import router
 from hummingbot.strategies.strategy_base import StrategyBase
 
 nest_asyncio.apply()
-root_path = os.path.dirname(__file__)
+root_path = Path(os.path.dirname(__file__)).absolute().as_posix()
 debug = properties.get_or_default('server.debug', True)
 app = FastAPI(debug=debug, root_path=root_path)
 properties.load(app)
