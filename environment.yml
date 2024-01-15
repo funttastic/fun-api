@@ -1,4 +1,4 @@
-name: fun-hb-client
+name: funttastic
 channels:
   - conda-forge
   - defaults
