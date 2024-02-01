@@ -4,10 +4,8 @@
 """
 Functions for generating keys and certificates
 """
-from datetime import datetime, timedelta
-from os import listdir
+from datetime import datetime, timedelta, timezone
 from os.path import join
-from typing import TYPE_CHECKING
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -23,6 +21,7 @@ CERT_SUBJECT = [
 # Set alternative DNS
 SAN_DNS = [x509.DNSName('localhost')]
 VALIDITY_DURATION = 365
+
 
 def generate_private_key(password, filepath):
     """
@@ -65,7 +64,7 @@ def generate_public_key(private_key, filepath):
     cert_issuer = subject
 
     # Set certification validity duration
-    current_datetime = datetime.utcnow()
+    current_datetime = datetime.now(timezone.utc)
     expiration_datetime = current_datetime + timedelta(days=VALIDITY_DURATION)
 
     # Create certification
@@ -125,7 +124,7 @@ def sign_csr(csr, ca_public_key, ca_private_key, filepath):
     Sign CSR with CA public & private keys & generate a verified public key
     """
 
-    current_datetime = datetime.utcnow()
+    current_datetime = datetime.now(timezone.utc)
     expiration_datetime = current_datetime + timedelta(days=VALIDITY_DURATION)
 
     try:
@@ -155,7 +154,7 @@ def sign_csr(csr, ca_public_key, ca_private_key, filepath):
 
         return filepath
     except Exception as e:
-        raise Exception(e.output)
+        raise e
 
 
 ca_key_filename = 'ca_key.pem'
@@ -181,7 +180,7 @@ client_csr_filename = 'client_csr.pem'
 
 @click.command()
 @click.option("--passphrase", prompt="1", help="The passphase in which your private key will be encripted")
-@click.option("--cert-path", prompt="2",help="The path in which your certificates will be placed")
+@click.option("--cert-path", prompt="2", help="The path in which your certificates will be placed")
 def create_self_sign_certs(passphrase: str, cert_path: str):
     """
     Create self-sign CA Cert
@@ -234,6 +233,7 @@ def create_self_sign_certs(passphrase: str, cert_path: str):
     sign_csr(server_csr, ca_cert, ca_key, filepath_list['server_cert'])
     # Sign Client Cert with CSR
     sign_csr(client_csr, ca_cert, ca_key, filepath_list['client_cert'])
+
 
 if __name__ == '__main__':
     create_self_sign_certs()
