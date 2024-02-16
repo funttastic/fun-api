@@ -72,7 +72,7 @@ class Logger(object):
 
 		if self.use_telegram and level >= self.level and level >= self.telegram_level:
 			if level >= logging.ERROR and not "/cc " in message:
-				message += f"\n/cc {telegram.users_to_notify}"
+				message += f"\n/cc {telegram.admins}"
 
 			message = escape_html(message)
 

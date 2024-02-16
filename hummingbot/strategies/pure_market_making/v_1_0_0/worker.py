@@ -1216,7 +1216,7 @@ class Worker(WorkerBase):
 				self.state.token.base.current_initial_pnl = token_base_current_initial_pnl
 				self.state.token.base.current_previous_pnl = token_base_current_previous_pnl
 
-				users = ', '.join(self._configuration.strategy.kill_switch.notify.telegram.users)
+				users = ', '.join(self._configuration.strategy.kill_switch.admin.telegram.users)
 
 				if self._configuration.strategy.kill_switch.max_wallet_loss_from_initial_value:
 					if (

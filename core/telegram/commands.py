@@ -3,6 +3,7 @@ from typing import Any
 
 from dotmap import DotMap
 
+from core.properties import properties
 # noinspection PyUnresolvedReferences
 from telegram import Update
 from telegram.ext import ContextTypes, MessageHandler, filters, CommandHandler
@@ -13,6 +14,12 @@ from core.utils import dump
 
 
 def validate(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> bool:
+	authorized_users = properties.get_or_default('telegram.admin.users', [])
+
+	user_name = str(update.effective_user.name)
+	if len(authorized_users) > 0 and user_name not in authorized_users:
+		return False
+
 	chat_id = str(update.message.chat_id)
 	if chat_id != telegram.chat_id:
 		return False

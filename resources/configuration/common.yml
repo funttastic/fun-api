@@ -12,7 +12,7 @@ telegram:
   enabled: true
   listen_commands: true
   level: 30 # 30 -> WARNING
-  notify:
+  admin:
     users: []
 clock:
   delay: 1
