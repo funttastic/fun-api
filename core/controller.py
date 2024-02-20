@@ -4,7 +4,9 @@ import asyncio
 from dotmap import DotMap
 
 from core.constants import constants
+from core.properties import properties
 from core.system import execute
+from core.types import SystemStatus
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
 from typing import Any, Dict
@@ -34,31 +36,61 @@ def sanitize_options(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	return output
 
 
+async def continuously_solve_status():
+	while True:
+		current = properties.set("status", DotMap({}))
+		system = DotMap(json.loads(await execute(constants.system.commands.status)))
+		final = DotMap({})
+
+		properties.set("status", final)
+
+		await asyncio.sleep(constants.status.delay)
+
+
 async def status(_options: DotMap[str, Any]) -> Dict[str, Any]:
 	try:
-		return DotMap(json.loads(await execute(constants.system.commands.status)))
+		# return DotMap(json.loads(await execute(constants.system.commands.status)))
+		return properties.get_or_default("status", DotMap({}))
 	except Exception as exception:
 		raise exception
 
 
 async def start(options: DotMap[str, Any]):
 	try:
-		await execute(constants.system.commands.start[options.id])
+		if properties.get_or_default(f"status.{options.id}", SystemStatus.UNKNOWN) == SystemStatus.STOPPED:
+			properties.set(f"status.{options.id}", SystemStatus.STARTING)
 
-		return {
-			"message": f"Starting {options.id}..."
-		}
+			await execute(constants.system.commands.start[options.id])
+
+			properties.set(f"status.{options.id}", SystemStatus.IDLE)
+
+			return {
+				"message": f"{options.id} has started."
+			}
+		else:
+			return {
+				"message": f"{options.id} is already running."
+			}
 	except Exception as exception:
 		raise exception
 
 
 async def stop(options: DotMap[str, Any]):
 	try:
-		await execute(constants.system.commands.stop[options.id])
+		if properties.get_or_default(f"status.{options.id}", SystemStatus.UNKNOWN) in [SystemStatus.STARTING, SystemStatus.IDLE, SystemStatus.RUNNING]:
+			properties.set(f"status.{options.id}", SystemStatus.STOPPING)
 
-		return {
-			"message": f"Stopping {options.id}..."
-		}
+			await execute(constants.system.commands.stop[options.id])
+
+			properties.set(f"status.{options.id}", SystemStatus.STOPPED)
+
+			return {
+				"message": f"{options.id} has stopped."
+			}
+		else:
+			return {
+				"message": f"{options.id} is not running."
+			}
 	except Exception as exception:
 		raise exception
 

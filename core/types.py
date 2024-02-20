@@ -9,3 +9,12 @@ class HttpMethod(Enum):
 	PATCH = 'patch'
 	HEAD = 'head'
 	OPTIONS = 'options'
+
+
+class SystemStatus(Enum):
+	STOPPED = 'stopped'
+	STARTING = 'starting'
+	IDLE = 'idle'
+	RUNNING = 'running'
+	STOPPING = 'stopping'
+	UNKNOWN = 'unknown'

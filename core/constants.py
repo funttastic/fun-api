@@ -30,5 +30,8 @@ constants = DotMap({
 				'hb_gateway': 'stop_hb_gateway',
 			}
 		}
+	},
+	'status': {
+		'delay': 500  # in ms
 	}
 })
