@@ -38,7 +38,7 @@ def sanitize_options(options: DotMap[str, Any]) -> DotMap[str, Any]:
 
 async def continuously_solve_status():
 	while True:
-		current = properties.set("status", DotMap({}))
+		current = properties.get_or_default("status", constants.status.default)
 		system = DotMap(json.loads(await execute(constants.system.commands.status)))
 		final = DotMap({})
 
@@ -49,8 +49,7 @@ async def continuously_solve_status():
 
 async def status(_options: DotMap[str, Any]) -> Dict[str, Any]:
 	try:
-		# return DotMap(json.loads(await execute(constants.system.commands.status)))
-		return properties.get_or_default("status", DotMap({}))
+		return properties.get_or_default("status", constants.status.default)
 	except Exception as exception:
 		raise exception
 
