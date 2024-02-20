@@ -1,5 +1,10 @@
+import json
+
 import asyncio
 from dotmap import DotMap
+
+from core.constants import constants
+from core.system import execute
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
 from typing import Any, Dict
@@ -29,6 +34,55 @@ def sanitize_options(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	return output
 
 
+async def status(_options: DotMap[str, Any]) -> Dict[str, Any]:
+	try:
+		return DotMap(json.loads(await execute(constants.system.commands.status)))
+	except Exception as exception:
+		raise exception
+
+
+async def start(options: DotMap[str, Any]):
+	try:
+		await execute(constants.system.commands.start[options.id])
+
+		return {
+			"message": f"Starting {options.id}..."
+		}
+	except Exception as exception:
+		raise exception
+
+
+async def stop(options: DotMap[str, Any]):
+	try:
+		await execute(constants.system.commands.stop[options.id])
+
+		return {
+			"message": f"Stopping {options.id}..."
+		}
+	except Exception as exception:
+		raise exception
+
+
+async def strategy_status(options: DotMap[str, Any]) -> Dict[str, Any]:
+	options = sanitize_options(options)
+
+	try:
+		if processes.get(options.full_id):
+			return processes[options.full_id].get_status().toDict()
+		else:
+			return {
+				"message": "Process not running"
+			}
+	except Exception as exception:
+		if tasks.get(options.full_id):
+			tasks[options.full_id].start.cancel()
+			await tasks[options.full_id].start
+		processes[options.full_id] = None
+		tasks[options.full_id].start = None
+
+		raise exception
+
+
 async def strategy_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)
 
@@ -43,26 +97,6 @@ async def strategy_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 		else:
 			return {
 				"message": "Already running"
-			}
-	except Exception as exception:
-		if tasks.get(options.full_id):
-			tasks[options.full_id].start.cancel()
-			await tasks[options.full_id].start
-		processes[options.full_id] = None
-		tasks[options.full_id].start = None
-
-		raise exception
-
-
-async def strategy_status(options: DotMap[str, Any]) -> Dict[str, Any]:
-	options = sanitize_options(options)
-
-	try:
-		if processes.get(options.full_id):
-			return processes[options.full_id].get_status().toDict()
-		else:
-			return {
-				"message": "Process not running"
 			}
 	except Exception as exception:
 		if tasks.get(options.full_id):

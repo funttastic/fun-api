@@ -16,4 +16,19 @@ constants = DotMap({
 		'staging': 'staging',
 		'production': 'production'
 	},
+	'system': {
+		'commands': {
+			'status': 'status',
+			'start': {
+				'fun_client': 'start_fun_client',
+				'hb_client': 'start_hb_client',
+				'hb_gateway': 'start_hb_gateway',
+			},
+			'stop': {
+				'fun_client': 'stop_fun_client',
+				'hb_client': 'stop_hb_client',
+				'hb_gateway': 'stop_hb_gateway',
+			}
+		}
+	}
 })

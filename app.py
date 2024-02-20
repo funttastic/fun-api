@@ -39,6 +39,46 @@ processes: DotMap[str, StrategyBase] = DotMap({
 })
 
 
+@app.get("/status")
+async def status(request: Request) -> Dict[str, Any]:
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
+
+	return await controller.status(body)
+
+
+@app.post("/start")
+async def start(request: Request) -> Dict[str, Any]:
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
+
+	return await controller.start(body)
+
+
+@app.post("/stop")
+async def stop(request: Request) -> Dict[str, Any]:
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
+
+	return await controller.stop(body)
+
+
+@app.get("/strategy/status")
+async def strategy_status(request: Request) -> Dict[str, Any]:
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
+
+	return await controller.strategy_status(body)
+
+
 @app.post("/strategy/start")
 async def strategy_start(request: Request) -> Dict[str, Any]:
 	try:
@@ -49,16 +89,6 @@ async def strategy_start(request: Request) -> Dict[str, Any]:
 	return await controller.strategy_start(body)
 
 
-@app.post("/strategy/status")
-async def strategy_status(request: Request) -> Dict[str, Any]:
-	try:
-		body = await request.json()
-	except JSONDecodeError:
-		body = {}
-
-	return await controller.strategy_status(body)
-
-
 @app.post("/strategy/stop")
 async def strategy_stop(request: Request) -> Dict[str, Any]:
 	try:
@@ -67,6 +97,16 @@ async def strategy_stop(request: Request) -> Dict[str, Any]:
 		body = {}
 
 	return await controller.strategy_stop(body)
+
+
+@app.get("/strategy/worker/status")
+async def strategy_worker_status(request: Request) -> Dict[str, Any]:
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
+
+	return await controller.strategy_worker_status(body)
 
 
 @app.post("/strategy/worker/start")
@@ -87,15 +127,6 @@ async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
 		body = {}
 
 	return await controller.strategy_worker_stop(body)
-
-@app.post("/strategy/worker/status")
-async def strategy_worker_status(request: Request) -> Dict[str, Any]:
-	try:
-		body = await request.json()
-	except JSONDecodeError:
-		body = {}
-
-	return await controller.strategy_worker_status(body)
 
 @app.get("/")
 @app.post("/")
