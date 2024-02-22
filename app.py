@@ -153,13 +153,18 @@ async def root(request: Request, subpath=''):
 
 	method = HttpMethod[request.method.upper()]
 
-	return JSONResponse((await router(
+	response = await router(
 		method=method,
 		url=subpath,
 		parameters=parameters,
 		body=body,
 		certificates=None
-	)).toDict())
+	)
+
+	try:
+		return JSONResponse(response.toDict())
+	except:
+		return response
 
 
 async def start_api():

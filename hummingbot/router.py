@@ -65,9 +65,12 @@ async def router(
 
 	response = getattr(requests, method.value)(**request)
 
-	result = DotMap(response.json(), _dynamic=False)
+	try:
+		result = DotMap(response.json(), _dynamic=False)
+	except:
+		result = response.text
 
-	if "httpErrorCode" in result:
+	if result and "httpErrorCode" in result:
 		raise RuntimeError(
 f"""\
 Message: {result.message}
