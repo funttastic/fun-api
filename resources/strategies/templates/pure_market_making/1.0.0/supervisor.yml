@@ -6,5 +6,5 @@ workers: [
 #   "03"
 ]
 strategy:
-  tick_interval: 59
+#  tick_interval: 59
   run_only_once: false

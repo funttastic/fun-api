@@ -2,3 +2,5 @@ state:
   recreate_on_start: false
 logger:
   level: INFO
+strategy:
+  tick_interval: 59

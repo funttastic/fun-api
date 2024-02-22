@@ -4,6 +4,7 @@ connector: kujira
 logger:
   level: INFO
 strategy:
+#  tick_interval: 59
   order_type: LIMIT
   price_strategy: MIDDLE
   middle_price_strategy: SAP
