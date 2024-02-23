@@ -1,3 +1,5 @@
+import logging
+
 import json
 
 import asyncio
@@ -49,6 +51,8 @@ async def continuously_solve_services_status():
 
 			properties.set("services.status.current", final)
 
+			logger.log(logging.CRITICAL, "statuses", { "current": current, "sytem": system, "final": final})
+
 			await asyncio.sleep(constants.services.status.delay)
 		except Exception as exception:
 			logger.ignore_exception(exception)
@@ -60,7 +64,6 @@ async def continuously_solve_services_status():
 async def service_status(_options: DotMap[str, Any]) -> Dict[str, Any]:
 	try:
 		if not tasks[constants.services.status.task]:
-			# await continuously_solve_services_status()
 			tasks[constants.services.status.task].start = asyncio.create_task(continuously_solve_services_status())
 		
 		return properties.get_or_default("services.status.current", constants.services.status.default)

@@ -221,13 +221,15 @@ async def main():
 
 
 def after_startup():
+	pass
+
 	# url = f"""{properties.get("server.base_url")}/service/status"""
 	# payload = {
 	# }
 	#
 	# return print(requests.post(url, json=payload))
 
-	asyncio.get_event_loop().run_until_complete(controller.service_status(DotMap({})))
+	# asyncio.get_event_loop().run_until_complete(controller.service_status(DotMap({})))
 
 
 async def startup():
