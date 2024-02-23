@@ -33,21 +33,25 @@ constants = DotMap({
 			}
 		}
 	},
-	"status": {
-		"delay": 500,  # in ms
-		"default": {
-			"fun-client": {
-				"status": SystemStatus.UNKNOWN,
-				"message": f"{str(SystemStatus.UNKNOWN).capitalize()}."
-			},
-			"hb-client": {
-				"status": SystemStatus.UNKNOWN,
-				"message": f"{str(SystemStatus.UNKNOWN).capitalize()}."
-			},
-			"hb-gateway": {
-				"status": SystemStatus.UNKNOWN,
-				"message": f"{str(SystemStatus.UNKNOWN).capitalize()}."
+	"services": {
+		"status": {
+			"task": "services.status",
+			"delay": 500,  # in ms
+			"current": None,
+			"default": {
+				"fun-client": {
+					"status": SystemStatus.UNKNOWN,
+					"message": f"{str(SystemStatus.UNKNOWN).capitalize()}."
+				},
+				"hb-client": {
+					"status": SystemStatus.UNKNOWN,
+					"message": f"{str(SystemStatus.UNKNOWN).capitalize()}."
+				},
+				"hb-gateway": {
+					"status": SystemStatus.UNKNOWN,
+					"message": f"{str(SystemStatus.UNKNOWN).capitalize()}."
+				}
 			}
 		}
 	}
-})
+}, _dynamic=False)

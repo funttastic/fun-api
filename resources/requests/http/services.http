@@ -1,0 +1,38 @@
+GET https://localhost:5000/service/status
+
+###
+
+GET https://localhost:5000/service/status
+Content-Type: application/json
+
+{
+  "id": "fun-client"
+}
+
+###
+
+POST https://localhost:5000/service/start
+
+###
+
+POST https://localhost:5000/service/start
+Content-Type: application/json
+
+{
+  "id": "fun-client"
+}
+
+###
+
+POST https://localhost:5000/service/stop
+
+###
+
+POST https://localhost:5000/service/stop
+Content-Type: application/json
+
+{
+  "id": "fun-client"
+}
+
+###

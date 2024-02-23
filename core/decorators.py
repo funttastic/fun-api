@@ -1,8 +1,11 @@
+from logging import DEBUG
+
 import asyncio
 import inspect
 import logging
 import traceback
 from functools import wraps
+from typing import Any
 
 
 def automatic_retry_with_timeout(retries=1, delay=0, timeout=None):
@@ -84,3 +87,89 @@ def log_class_exceptions(cls):
 		setattr(cls, name, log_function_exception(method))
 
 	return cls
+
+
+def log(level: int, message: str = "", object: Any = None):
+	from core.logger import logger
+	logger.log(level=level, message=message, object=object, frame=inspect.currentframe().f_back.f_back)
+
+
+def sync_logged_method(method):
+
+	@wraps(method)
+	def wrapper(*args, **kwargs):
+		log(DEBUG, f"""Starting {method.__name__}...""")
+		try:
+			result = method(*args, **kwargs)
+
+			log(
+				DEBUG,
+				f"""Successfully executed {method.__name__}.""",
+				# object={
+				# 	"args": args,
+				# 	"kwargs": kwargs,
+				# 	"result": result
+				# }
+			)
+
+			return result
+		except Exception as exception:
+			log(
+				DEBUG,
+				f"""Exception raised in {method.__name__}: {exception}.""",
+				# object={
+				# 	"args": args,
+				# 	"kwargs": kwargs,
+				# 	"exception": exception
+				# }
+			)
+
+			raise
+
+	return wrapper
+
+
+def async_logged_method(method):
+	@wraps(method)
+	async def wrapper(*args, **kwargs):
+		log(DEBUG, f"""Starting {method.__name__}...""")
+		try:
+			result = await method(*args, **kwargs)
+
+			log(
+				DEBUG,
+				f"""Successfully executed {method.__name__}.""",
+				# object={
+				# 	"args": args,
+				# 	"kwargs": kwargs,
+				# 	"result": result
+				# }
+			)
+
+			return result
+		except Exception as exception:
+			log(
+				DEBUG,
+				f"""Exception raised in {method.__name__}: {exception}.""",
+				# object={
+				# 	"args": args,
+				# 	"kwargs": kwargs,
+				# 	"exception": exception
+				# }
+			)
+
+			raise
+
+	return wrapper
+
+
+def logged_class(cls):
+	for attr, method in cls.__dict__.items():
+		if callable(method):
+			if asyncio.iscoroutinefunction(method):
+				setattr(cls, attr, async_logged_method(method))
+			else:
+				setattr(cls, attr, sync_logged_method(method))
+
+	return cls
+

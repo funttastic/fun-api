@@ -1,3 +1,6 @@
+import threading
+
+import requests
 from pathlib import Path
 
 import asyncio
@@ -16,12 +19,9 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
-from core import controller
 from core.constants import constants
 from core.properties import properties
 from core.types import HttpMethod
-from hummingbot.router import router
-from hummingbot.strategies.strategy_base import StrategyBase
 
 nest_asyncio.apply()
 root_path = Path(os.path.dirname(__file__)).absolute().as_posix()
@@ -31,6 +31,9 @@ properties.load(app)
 # Needs to come after properties loading
 from core.logger import logger
 from core.telegram.telegram import telegram
+from core import controller
+from hummingbot.router import router
+from hummingbot.strategies.strategy_base import StrategyBase
 
 tasks: DotMap[str, asyncio.Task] = DotMap({
 })
@@ -39,34 +42,34 @@ processes: DotMap[str, StrategyBase] = DotMap({
 })
 
 
-@app.get("/status")
+@app.get("/service/status")
 async def status(request: Request) -> Dict[str, Any]:
 	try:
 		body = await request.json()
 	except JSONDecodeError:
 		body = {}
 
-	return await controller.status(body)
+	return await controller.service_status(body)
 
 
-@app.post("/start")
+@app.post("/service/start")
 async def start(request: Request) -> Dict[str, Any]:
 	try:
 		body = await request.json()
 	except JSONDecodeError:
 		body = {}
 
-	return await controller.start(body)
+	return await controller.service_start(body)
 
 
-@app.post("/stop")
+@app.post("/service/stop")
 async def stop(request: Request) -> Dict[str, Any]:
 	try:
 		body = await request.json()
 	except JSONDecodeError:
 		body = {}
 
-	return await controller.stop(body)
+	return await controller.service_stop(body)
 
 
 @app.get("/strategy/status")
@@ -217,6 +220,20 @@ async def main():
 	await asyncio.gather(*[tasks.telegram, tasks.api])
 
 
+def after_startup():
+	# url = f"""{properties.get("server.base_url")}/service/status"""
+	# payload = {
+	# }
+	#
+	# return print(requests.post(url, json=payload))
+
+	asyncio.get_event_loop().run_until_complete(controller.service_status(DotMap({})))
+
+
+async def startup():
+	threading.Timer(1, after_startup).start()
+
+
 # noinspection PyUnusedLocal
 def shutdown(*args):
 	for task in tasks.values():
@@ -231,6 +248,10 @@ def shutdown(*args):
 def shutdown_helper():
 	shutdown()
 	asyncio.get_event_loop().close()
+
+
+app.add_event_handler("startup", startup)
+app.add_event_handler("shutdown", shutdown)
 
 
 if __name__ == '__main__':

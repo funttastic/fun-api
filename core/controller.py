@@ -4,9 +4,12 @@ import asyncio
 from dotmap import DotMap
 
 from core.constants import constants
+from core.decorators import async_logged_method
+from core.logger import logger
 from core.properties import properties
 from core.system import execute
 from core.types import SystemStatus
+from core.utils import deep_merge
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
 from typing import Any, Dict
@@ -36,59 +39,70 @@ def sanitize_options(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	return output
 
 
-async def continuously_solve_status():
+@async_logged_method
+async def continuously_solve_services_status():
 	while True:
-		current = properties.get_or_default("status", constants.status.default)
-		system = DotMap(json.loads(await execute(constants.system.commands.status)))
-		final = DotMap({})
+		try:
+			current = properties.get_or_default("services.status.current", constants.services.status.default)
+			system = DotMap(json.loads(await execute(constants.system.commands.status)), _dynamic=False)
+			final = deep_merge(current, system)
 
-		properties.set("status", final)
+			properties.set("services.status.current", final)
 
-		await asyncio.sleep(constants.status.delay)
+			await asyncio.sleep(constants.services.status.delay)
+		except Exception as exception:
+			logger.ignore_exception(exception)
+
+			pass
 
 
-async def status(_options: DotMap[str, Any]) -> Dict[str, Any]:
+@async_logged_method
+async def service_status(_options: DotMap[str, Any]) -> Dict[str, Any]:
 	try:
-		return properties.get_or_default("status", constants.status.default)
+		if not tasks[constants.services.status.task]:
+			# await continuously_solve_services_status()
+			tasks[constants.services.status.task].start = asyncio.create_task(continuously_solve_services_status())
+		
+		return properties.get_or_default("services.status.current", constants.services.status.default)
 	except Exception as exception:
 		raise exception
 
 
-async def start(options: DotMap[str, Any]):
+async def service_start(options: DotMap[str, Any]):
 	try:
-		if properties.get_or_default(f"status.{options.id}", SystemStatus.UNKNOWN) == SystemStatus.STOPPED:
-			properties.set(f"status.{options.id}", SystemStatus.STARTING)
+		if properties.get_or_default(f"services.status.current.{options.id}", SystemStatus.UNKNOWN) == SystemStatus.STOPPED:
+			properties.set(f"services.status.current.{options.id}", SystemStatus.STARTING)
 
-			await execute(constants.system.commands.start[options.id])
+			await execute(constants.system.commands.service_start[options.id])
 
-			properties.set(f"status.{options.id}", SystemStatus.IDLE)
+			properties.set(f"services.status.current.{options.id}", SystemStatus.IDLE)
 
 			return {
-				"message": f"{options.id} has started."
+				"message": f"""Service "{options.id}" has started."""
 			}
 		else:
 			return {
-				"message": f"{options.id} is already running."
+				"message": f"""Service "{options.id}" is already running."""
 			}
 	except Exception as exception:
 		raise exception
 
 
-async def stop(options: DotMap[str, Any]):
+async def service_stop(options: DotMap[str, Any]):
 	try:
-		if properties.get_or_default(f"status.{options.id}", SystemStatus.UNKNOWN) in [SystemStatus.STARTING, SystemStatus.IDLE, SystemStatus.RUNNING]:
-			properties.set(f"status.{options.id}", SystemStatus.STOPPING)
+		if properties.get_or_default(f"services.status.current.{options.id}", SystemStatus.UNKNOWN) in [SystemStatus.STARTING, SystemStatus.IDLE, SystemStatus.RUNNING]:
+			properties.set(f"services.status.current.{options.id}", SystemStatus.STOPPING)
 
 			await execute(constants.system.commands.stop[options.id])
 
-			properties.set(f"status.{options.id}", SystemStatus.STOPPED)
+			properties.set(f"services.status.current.{options.id}", SystemStatus.STOPPED)
 
 			return {
-				"message": f"{options.id} has stopped."
+				"message": f"""Service "{options.id}" has stopped."""
 			}
 		else:
 			return {
-				"message": f"{options.id} is not running."
+				"message": f"""Service "{options.id}" is not running."""
 			}
 	except Exception as exception:
 		raise exception

@@ -19,6 +19,7 @@ class Properties(object):
 		self.load_from_configuration_files()
 		self.load_from_database()
 		self.load_from_environment_variables()
+		self.define_extra_properties()
 
 	def load_from_app(self, app):
 		self.properties['app'] = app
@@ -95,7 +96,18 @@ class Properties(object):
 		return default
 
 	def set(self, key, value):
-		self.properties[key] = value
+		try:
+			self.properties._dynamic = True
+			self.properties.safe_deep_set(key, value)
+		finally:
+			self.properties._dynamic = False
+
+	def define_extra_properties(self):
+		self.set("resources_path", os.path.join(self.get("root_path"), "resources"))
+		self.set("resources_configuration_path", os.path.join(self.get("resources_path"), "configuration"))
+		self.set("resources_data_path", os.path.join(self.get("resources_path"), "data"))
+		self.set("resources_logs_path", os.path.join(self.get("resources_path"), "logs"))
+		self.set("resources_studies_path", os.path.join(self.get("resources_path"), "studies"))
 
 
 properties = Properties.instance()
