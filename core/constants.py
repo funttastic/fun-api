@@ -39,18 +39,11 @@ constants = DotMap({
 			"delay": 500,  # in ms
 			"current": None,
 			"default": {
-				"fun-client": {
-					"status": SystemStatus.UNKNOWN,
-					"message": f"{str(SystemStatus.UNKNOWN).capitalize()}."
-				},
-				"hb-client": {
-					"status": SystemStatus.UNKNOWN,
-					"message": f"{str(SystemStatus.UNKNOWN).capitalize()}."
-				},
-				"hb-gateway": {
-					"status": SystemStatus.UNKNOWN,
-					"message": f"{str(SystemStatus.UNKNOWN).capitalize()}."
-				}
+				"fun-frontend": SystemStatus.UNKNOWN,
+				"filebrowser": SystemStatus.UNKNOWN,
+				"fun-client": SystemStatus.UNKNOWN,
+				"hb-client": SystemStatus.UNKNOWN,
+				"hb-gateway": SystemStatus.UNKNOWN
 			}
 		}
 	}

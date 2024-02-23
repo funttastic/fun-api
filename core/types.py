@@ -18,3 +18,11 @@ class SystemStatus(Enum):
 	RUNNING = 'running'
 	STOPPING = 'stopping'
 	UNKNOWN = 'unknown'
+
+	@staticmethod
+	def get_by_id(id_: str):
+		for status in SystemStatus:
+			if status.value == id_:
+				return status
+
+		raise ValueError(f"""Status with id "{id_}" not found.""")

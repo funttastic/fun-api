@@ -1,6 +1,5 @@
 import threading
 
-import requests
 from pathlib import Path
 
 import asyncio
@@ -49,7 +48,7 @@ async def status(request: Request) -> Dict[str, Any]:
 	except JSONDecodeError:
 		body = {}
 
-	return await controller.service_status(body)
+	return (await controller.service_status(body)).toDict()
 
 
 @app.post("/service/start")
@@ -58,6 +57,8 @@ async def start(request: Request) -> Dict[str, Any]:
 		body = await request.json()
 	except JSONDecodeError:
 		body = {}
+
+	body = DotMap(body, _dynamic=False)
 
 	return await controller.service_start(body)
 
@@ -68,6 +69,8 @@ async def stop(request: Request) -> Dict[str, Any]:
 		body = await request.json()
 	except JSONDecodeError:
 		body = {}
+
+	body = DotMap(body, _dynamic=False)
 
 	return await controller.service_stop(body)
 

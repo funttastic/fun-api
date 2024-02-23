@@ -41,17 +41,17 @@ def sanitize_options(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	return output
 
 
-@async_logged_method
 async def continuously_solve_services_status():
 	while True:
 		try:
-			current = properties.get_or_default("services.status.current", constants.services.status.default)
 			system = DotMap(json.loads(await execute(constants.system.commands.status)), _dynamic=False)
+			for (key, value) in system.items():
+				system[key] = SystemStatus.get_by_id(value)
+
+			current = properties.get_or_default("services.status.current", constants.services.status.default)
 			final = deep_merge(current, system)
 
 			properties.set("services.status.current", final)
-
-			logger.log(logging.CRITICAL, "statuses", { "current": current, "sytem": system, "final": final})
 
 			await asyncio.sleep(constants.services.status.delay / 1000.0)
 		except Exception as exception:
@@ -60,7 +60,6 @@ async def continuously_solve_services_status():
 			pass
 
 
-@async_logged_method
 async def service_status(_options: DotMap[str, Any]) -> Dict[str, Any]:
 	try:
 		if not tasks[constants.services.status.task]:
@@ -73,12 +72,12 @@ async def service_status(_options: DotMap[str, Any]) -> Dict[str, Any]:
 
 async def service_start(options: DotMap[str, Any]):
 	try:
-		if properties.get_or_default(f"services.status.current.{options.id}", SystemStatus.UNKNOWN) == SystemStatus.STOPPED:
+		if properties.get_or_default(f"services.status.current.{options.id}", SystemStatus.UNKNOWN) in [SystemStatus.STOPPED, SystemStatus.UNKNOWN]:
 			properties.set(f"services.status.current.{options.id}", SystemStatus.STARTING)
 
-			await execute(constants.system.commands.service_start[options.id])
+			await execute(constants.system.commands.start[options.id])
 
-			properties.set(f"services.status.current.{options.id}", SystemStatus.IDLE)
+			properties.set(f"services.status.current.{options.id}", SystemStatus.RUNNING)
 
 			return {
 				"message": f"""Service "{options.id}" has started."""
