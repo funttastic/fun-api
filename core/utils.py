@@ -1,6 +1,6 @@
 from datetime import datetime
 from functools import reduce
-from typing import Any
+from typing import Any, Dict
 
 import jsonpickle
 from dateutil.relativedelta import relativedelta
@@ -59,6 +59,9 @@ def dump(target: Any):
 
 		if isinstance(target, DotMap):
 			target = target.toDict()
+
+		if isinstance(target, Dict):
+			return str(target)
 
 		return jsonpickle.encode(target, unpicklable=True, indent=2)
 	except (Exception,):

@@ -53,7 +53,7 @@ async def continuously_solve_services_status():
 
 			logger.log(logging.CRITICAL, "statuses", { "current": current, "sytem": system, "final": final})
 
-			await asyncio.sleep(constants.services.status.delay)
+			await asyncio.sleep(constants.services.status.delay / 1000.0)
 		except Exception as exception:
 			logger.ignore_exception(exception)
 
