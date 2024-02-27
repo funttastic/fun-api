@@ -1,3 +1,5 @@
+import json
+
 import threading
 
 from pathlib import Path
@@ -9,17 +11,27 @@ import os
 import signal
 import ssl
 from json import JSONDecodeError
+
+from starlette.status import HTTP_401_UNAUTHORIZED
 from typing import Any, Dict
 
 import nest_asyncio
 import uvicorn
 from dotmap import DotMap
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordBearer
 from starlette.requests import Request
+from pydantic import BaseModel
+
+
+from jose import jwt
+from passlib.context import CryptContext
+import datetime
 
 from core.constants import constants
 from core.properties import properties
+from core.system import execute
 from core.types import HttpMethod
 
 nest_asyncio.apply()
@@ -39,6 +51,74 @@ tasks: DotMap[str, asyncio.Task] = DotMap({
 
 processes: DotMap[str, StrategyBase] = DotMap({
 })
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+
+class Credentials(BaseModel):
+	username: str
+	password: str
+
+
+class Token(BaseModel):
+	token: str
+	type: str
+
+
+async def authenticate(username: str, password: str):
+	try:
+		result = DotMap(
+			json.loads(
+				str(
+					await execute(
+						str(constants.system.commands.authenticate).format(
+							username=username, password=password
+						)
+
+					)
+				)
+			),
+			_dynamic=False
+		)
+
+		return result
+	except Exception as exception:
+		return False
+
+
+def create_jwt_token(data: dict, expires_delta: datetime.timedelta):
+	to_encode = data.copy()
+	expiration_datetime = datetime.datetime.now(datetime.UTC) + expires_delta
+	to_encode.update({"exp": expiration_datetime})
+	password = os.environ.get("PASSWORD", properties.get("hummingbot.gateway.certificates.server_private_key_password"))
+	encoded_jwt = jwt.encode(to_encode, password, algorithm=constants.authentication.jwt.algorithm)
+
+	return encoded_jwt
+
+
+@app.post("/auth/login", response_model=Token)
+async def auth_login(request: Credentials):
+	credentials = await authenticate(request.username, request.password)
+
+	if not credentials:
+		raise HTTPException(
+			status_code=HTTP_401_UNAUTHORIZED,
+			detail="Incorrect username or password",
+			headers={"WWW-Authenticate": "Bearer"},
+		)
+
+	token_expiration_delta = datetime.timedelta(minutes=constants.authentication.jwt.token.expiration)
+	token = create_jwt_token(
+		data={"sub": credentials.username}, expires_delta=token_expiration_delta
+	)
+
+	return {"token": token, "type": constants.authentication.jwt.token.type}
+
+
+@app.get("/auth/token")
+async def secure_endpoint(token: str = Depends(oauth2_scheme)):
+	return {"token": token, "type": constants.authentication.jwt.token.type}
 
 
 @app.get("/service/status")
@@ -208,7 +288,7 @@ async def start_api():
 		ssl_keyfile=certificates.server_private_key,
 		ssl_keyfile_password=certificates.server_private_key_password,
 		ssl_ca_certs=certificates.certificate_authority_certificate,
-		ssl_cert_reqs=ssl.CERT_REQUIRED
+		ssl_cert_reqs=ssl.CERT_OPTIONAL
 	)
 	server = uvicorn.Server(config)
 	await server.serve()

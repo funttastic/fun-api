@@ -11,6 +11,6 @@ async def execute(command: str) -> str:
     stdout, stderr = await process.communicate()
 
     if process.returncode == 0:
-        return stdout.decode()
+        return str(stdout.decode()).strip()
     else:
-        raise Exception(stderr.decode())
+        raise Exception(str(stderr.decode()).strip())
