@@ -1,4 +1,5 @@
 GET https://localhost:5000/
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
@@ -6,6 +7,7 @@ Content-Type: application/json
 ###
 
 GET https://localhost:5000/clob/markets?chain=kujira&network=testnet&connector=kujira&market=KUJI-DEMO
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {}
@@ -13,6 +15,7 @@ Content-Type: application/json
 ###
 
 POST https://localhost:5000/chain/balances
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
@@ -25,6 +28,7 @@ Content-Type: application/json
 ###
 
 POST https://localhost:5000/clob/orders
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
@@ -42,6 +46,7 @@ Content-Type: application/json
 ###
 
 POST https://localhost:15888/wallet/add
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
@@ -55,6 +60,7 @@ Content-Type: application/json
 ###
 
 DELETE https://localhost:15888/wallet/remove
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {

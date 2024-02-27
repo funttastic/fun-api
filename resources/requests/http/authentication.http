@@ -9,10 +9,6 @@ Content-Type: application/json
 ###
 
 GET https://localhost:5000/auth/token
-Content-Type: application/json
 Authorization: Bearer {{token}}
-
-{
-}
 
 ###

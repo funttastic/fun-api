@@ -97,6 +97,30 @@ def create_jwt_token(data: dict, expires_delta: datetime.timedelta):
 	return encoded_jwt
 
 
+def validate_token(token: str) -> bool:
+	try:
+		password = os.environ.get("PASSWORD", properties.get("hummingbot.gateway.certificates.server_private_key_password"))
+		payload = jwt.decode(token, password, algorithms=[constants.authentication.jwt.algorithm])
+
+		exp = payload.get("exp")
+		if exp is not None:
+			expiration_date = datetime.datetime.fromtimestamp(exp, datetime.UTC)
+			if datetime.datetime.now(datetime.UTC) > expiration_date:
+				raise HTTPException(
+					status_code=HTTP_401_UNAUTHORIZED,
+					detail="Invalid or expired token",
+					headers={"WWW-Authenticate": "Bearer"},
+				)
+
+		return True
+	except Exception as _exception:
+		raise HTTPException(
+			status_code=HTTP_401_UNAUTHORIZED,
+			detail="Invalid or expired token",
+			headers={"WWW-Authenticate": "Bearer"},
+		)
+
+
 @app.post("/auth/login", response_model=Token)
 async def auth_login(request: Credentials):
 	credentials = await authenticate(request.username, request.password)
@@ -117,12 +141,16 @@ async def auth_login(request: Credentials):
 
 
 @app.get("/auth/token")
-async def secure_endpoint(token: str = Depends(oauth2_scheme)):
+async def auth_token(token: str = Depends(oauth2_scheme)):
+	validate_token(token)
+
 	return {"token": token, "type": constants.authentication.jwt.token.type}
 
 
 @app.get("/service/status")
-async def status(request: Request) -> Dict[str, Any]:
+async def status(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+	validate_token(token)
+
 	try:
 		body = await request.json()
 	except JSONDecodeError:
@@ -132,7 +160,9 @@ async def status(request: Request) -> Dict[str, Any]:
 
 
 @app.post("/service/start")
-async def start(request: Request) -> Dict[str, Any]:
+async def start(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+	validate_token(token)
+
 	try:
 		body = await request.json()
 	except JSONDecodeError:
@@ -144,7 +174,9 @@ async def start(request: Request) -> Dict[str, Any]:
 
 
 @app.post("/service/stop")
-async def stop(request: Request) -> Dict[str, Any]:
+async def stop(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+	validate_token(token)
+
 	try:
 		body = await request.json()
 	except JSONDecodeError:
@@ -156,7 +188,9 @@ async def stop(request: Request) -> Dict[str, Any]:
 
 
 @app.get("/strategy/status")
-async def strategy_status(request: Request) -> Dict[str, Any]:
+async def strategy_status(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+	validate_token(token)
+
 	try:
 		body = await request.json()
 	except JSONDecodeError:
@@ -166,7 +200,9 @@ async def strategy_status(request: Request) -> Dict[str, Any]:
 
 
 @app.post("/strategy/start")
-async def strategy_start(request: Request) -> Dict[str, Any]:
+async def strategy_start(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+	validate_token(token)
+
 	try:
 		body = await request.json()
 	except JSONDecodeError:
@@ -176,7 +212,9 @@ async def strategy_start(request: Request) -> Dict[str, Any]:
 
 
 @app.post("/strategy/stop")
-async def strategy_stop(request: Request) -> Dict[str, Any]:
+async def strategy_stop(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+	validate_token(token)
+
 	try:
 		body = await request.json()
 	except JSONDecodeError:
@@ -186,7 +224,9 @@ async def strategy_stop(request: Request) -> Dict[str, Any]:
 
 
 @app.get("/strategy/worker/status")
-async def strategy_worker_status(request: Request) -> Dict[str, Any]:
+async def strategy_worker_status(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+	validate_token(token)
+
 	try:
 		body = await request.json()
 	except JSONDecodeError:
@@ -196,7 +236,9 @@ async def strategy_worker_status(request: Request) -> Dict[str, Any]:
 
 
 @app.post("/strategy/worker/start")
-async def strategy_worker_start(request: Request) -> Dict[str, Any]:
+async def strategy_worker_start(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+	validate_token(token)
+
 	try:
 		body = await request.json()
 	except JSONDecodeError:
@@ -206,7 +248,9 @@ async def strategy_worker_start(request: Request) -> Dict[str, Any]:
 
 
 @app.post("/strategy/worker/stop")
-async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
+async def strategy_worker_stop(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+	validate_token(token)
+
 	try:
 		body = await request.json()
 	except JSONDecodeError:
@@ -229,7 +273,9 @@ async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
 @app.patch("/{subpath:path}")
 @app.head("/{subpath:path}")
 @app.options("/{subpath:path}")
-async def root(request: Request, subpath=''):
+async def root(request: Request, subpath='', token: str = Depends(oauth2_scheme)):
+	validate_token(token)
+
 	parameters = dict(request.query_params)
 	try:
 		body = await request.json()
