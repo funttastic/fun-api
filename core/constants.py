@@ -22,6 +22,7 @@ constants = DotMap({
 		"jwt": {
 			"algorithm": "HS256",
 			"token": {
+				"type": "bearer",
 				"expiration": 30  # in minutes
 			}
 		}
