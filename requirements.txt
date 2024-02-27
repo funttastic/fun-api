@@ -22,3 +22,6 @@ nest_asyncio>=1.5.8
 telegram>=0.0.1
 click~=8.1.7
 eth-keyfile==0.6.1
+python-jose==3.3.0
+passlib==1.7.4
+python-multipart==0.0.9
