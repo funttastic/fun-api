@@ -2,6 +2,7 @@ server:
   environment: development
   debug: true
   port: 50001
+  enforce_authentication: false
 logging:
   level: 30 # 30 -> WARNING
   use_telegram: false

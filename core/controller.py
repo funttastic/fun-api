@@ -180,6 +180,7 @@ async def strategy_stop(options: DotMap[str, Any]):
 		processes[options.full_id] = None
 		tasks[options.full_id].start = None
 
+
 async def strategy_worker_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)
 
@@ -197,6 +198,7 @@ async def strategy_worker_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 	except Exception as exception:
 		raise exception
 
+
 async def strategy_worker_stop(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)
 
@@ -213,6 +215,7 @@ async def strategy_worker_stop(options: DotMap[str, Any]) -> Dict[str, Any]:
 			}
 	except Exception as exception:
 		raise exception
+
 
 async def strategy_worker_status(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)

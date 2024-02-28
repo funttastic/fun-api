@@ -12,3 +12,4 @@ GET https://localhost:5000/auth/token
 Authorization: Bearer {{token}}
 
 ###
+

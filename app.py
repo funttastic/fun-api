@@ -1,33 +1,27 @@
-import json
-
-import threading
-
-from pathlib import Path
+from json import JSONDecodeError
 
 import asyncio
 import atexit
+import datetime
+import json
 import logging
+import nest_asyncio
 import os
 import signal
 import ssl
-from json import JSONDecodeError
-
-from starlette.status import HTTP_401_UNAUTHORIZED
-from typing import Any, Dict
-
-import nest_asyncio
+import threading
 import uvicorn
 from dotmap import DotMap
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
-from starlette.requests import Request
-from pydantic import BaseModel
-
-
 from jose import jwt
 from passlib.context import CryptContext
-import datetime
+from pathlib import Path
+from pydantic import BaseModel
+from starlette.requests import Request
+from starlette.status import HTTP_401_UNAUTHORIZED
+from typing import Any, Dict, Optional
 
 from core.constants import constants
 from core.properties import properties
@@ -55,6 +49,12 @@ processes: DotMap[str, StrategyBase] = DotMap({
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
+unauthorized_exception = HTTPException(
+	status_code=HTTP_401_UNAUTHORIZED,
+	detail="Unauthorized",
+	headers={"WWW-Authenticate": "Bearer"},
+)
+
 
 class Credentials(BaseModel):
 	username: str
@@ -68,21 +68,22 @@ class Token(BaseModel):
 
 async def authenticate(username: str, password: str):
 	try:
-		result = DotMap(
-			json.loads(
-				str(
-					await execute(
-						str(constants.system.commands.authenticate).format(
-							username=username, password=password
+		if properties.get_or_default("server.enforce_authentication", True):
+			return DotMap(
+				json.loads(
+					str(
+						await execute(
+							str(constants.system.commands.authenticate).format(
+								username=username, password=password
+							)
+
 						)
-
 					)
-				)
-			),
-			_dynamic=False
-		)
-
-		return result
+				),
+				_dynamic=False
+			)
+		else:
+			return DotMap({"username": username, "password": password}, _dynamic=False)
 	except Exception as exception:
 		return False
 
@@ -91,34 +92,80 @@ def create_jwt_token(data: dict, expires_delta: datetime.timedelta):
 	to_encode = data.copy()
 	expiration_datetime = datetime.datetime.now(datetime.UTC) + expires_delta
 	to_encode.update({"exp": expiration_datetime})
-	password = os.environ.get("PASSWORD", properties.get("hummingbot.gateway.certificates.server_private_key_password"))
-	encoded_jwt = jwt.encode(to_encode, password, algorithm=constants.authentication.jwt.algorithm)
+	encoded_jwt = jwt.encode(to_encode, properties.get("password"), algorithm=constants.authentication.jwt.algorithm)
 
 	return encoded_jwt
 
 
-def validate_token(token: str) -> bool:
+def validate_token(request: Request) -> bool:
 	try:
-		password = os.environ.get("PASSWORD", properties.get("hummingbot.gateway.certificates.server_private_key_password"))
-		payload = jwt.decode(token, password, algorithms=[constants.authentication.jwt.algorithm])
+		test = OAuth2PasswordBearer(tokenUrl="auth/login")(request)
 
-		exp = payload.get("exp")
-		if exp is not None:
-			expiration_date = datetime.datetime.fromtimestamp(exp, datetime.UTC)
-			if datetime.datetime.now(datetime.UTC) > expiration_date:
-				raise HTTPException(
-					status_code=HTTP_401_UNAUTHORIZED,
-					detail="Invalid or expired token",
-					headers={"WWW-Authenticate": "Bearer"},
-				)
+		print(test)
+
+		authorization = request.headers.get("Authorization")
+		if not authorization:
+			return False
+
+		token = str(authorization).strip().removeprefix("Bearer ")
+		if not token:
+			return False
+
+		payload = jwt.decode(token, properties.get("password"), algorithms=[constants.authentication.jwt.algorithm])
+		if not payload:
+			return False
+
+		token_expiration_timestamp = payload.get("exp")
+		token_expiration_datetime = datetime.datetime.fromtimestamp(token_expiration_timestamp, datetime.UTC)
+		if not token_expiration_datetime:
+			return False
+
+		if datetime.datetime.now(datetime.UTC) > token_expiration_datetime:
+			return False
 
 		return True
-	except Exception as _exception:
-		raise HTTPException(
-			status_code=HTTP_401_UNAUTHORIZED,
-			detail="Invalid or expired token",
-			headers={"WWW-Authenticate": "Bearer"},
-		)
+	except Exception as exception:
+		return False
+
+
+def validate_certificate(request: Request) -> bool:
+	try:
+		provided_certificate = request.headers.get("X-SSL-Cert-Subject")
+		client_verify = request.headers.get("X-SSL-Client-Verify")
+		client_s_dn = request.headers.get("X-SSL-Client-S-DN")
+
+		if not provided_certificate and not client_verify and not client_s_dn:
+			return False
+
+		if client_verify != "SUCCESS":
+			return False
+
+		certificate_authority_certificate = properties.get("hummingbot.gateway.certificates.certificate.certificate_authority_certificate")
+		client_certificate = properties.get("hummingbot.gateway.certificates.certificate.client_certificate")
+
+		now = datetime.datetime.now(datetime.UTC)
+		if client_certificate.not_valid_before > now or client_certificate.not_valid_after < now:
+			return False
+
+		if client_certificate.issuer != certificate_authority_certificate.subject:
+			return False
+
+		if client_certificate.subject.rfc4514_string() != provided_certificate:
+			return False
+
+		return True
+	except Exception as exception:
+		return False
+
+
+def validate(request: Request) -> Request:
+	try:
+		if not validate_token(request) and not validate_certificate(request):
+			raise unauthorized_exception
+
+		return request
+	except Exception as exception:
+		raise unauthorized_exception
 
 
 @app.post("/auth/login", response_model=Token)
@@ -126,11 +173,7 @@ async def auth_login(request: Credentials):
 	credentials = await authenticate(request.username, request.password)
 
 	if not credentials:
-		raise HTTPException(
-			status_code=HTTP_401_UNAUTHORIZED,
-			detail="Incorrect username or password",
-			headers={"WWW-Authenticate": "Bearer"},
-		)
+		raise unauthorized_exception
 
 	token_expiration_delta = datetime.timedelta(minutes=constants.authentication.jwt.token.expiration)
 	token = create_jwt_token(
@@ -141,27 +184,27 @@ async def auth_login(request: Credentials):
 
 
 @app.get("/auth/token")
-async def auth_token(token: str = Depends(oauth2_scheme)):
-	validate_token(token)
-
-	return {"token": token, "type": constants.authentication.jwt.token.type}
+async def auth_token(request: Request):
+	validate(request)
+	
+	return {"token": request.headers.get("Authorization").removeprefix("Bearer "), "type": constants.authentication.jwt.token.type}
 
 
 @app.get("/service/status")
-async def status(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-	validate_token(token)
+async def status(request: Request) -> Dict[str, Any]:
+	validate(request)
 
 	try:
 		body = await request.json()
 	except JSONDecodeError:
 		body = {}
 
-	return (await controller.service_status(body)).toDict()
+	return DotMap(await controller.service_status(body)).toDict()
 
 
 @app.post("/service/start")
-async def start(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-	validate_token(token)
+async def start(request: Request) -> Dict[str, Any]:
+	validate(request)
 
 	try:
 		body = await request.json()
@@ -174,8 +217,8 @@ async def start(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[s
 
 
 @app.post("/service/stop")
-async def stop(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-	validate_token(token)
+async def stop(request: Request) -> Dict[str, Any]:
+	validate(request)
 
 	try:
 		body = await request.json()
@@ -188,8 +231,8 @@ async def stop(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[st
 
 
 @app.get("/strategy/status")
-async def strategy_status(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-	validate_token(token)
+async def strategy_status(request: Request) -> Dict[str, Any]:
+	validate(request)
 
 	try:
 		body = await request.json()
@@ -200,8 +243,8 @@ async def strategy_status(request: Request, token: str = Depends(oauth2_scheme))
 
 
 @app.post("/strategy/start")
-async def strategy_start(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-	validate_token(token)
+async def strategy_start(request: Request) -> Dict[str, Any]:
+	validate(request)
 
 	try:
 		body = await request.json()
@@ -212,8 +255,8 @@ async def strategy_start(request: Request, token: str = Depends(oauth2_scheme)) 
 
 
 @app.post("/strategy/stop")
-async def strategy_stop(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-	validate_token(token)
+async def strategy_stop(request: Request) -> Dict[str, Any]:
+	validate(request)
 
 	try:
 		body = await request.json()
@@ -224,8 +267,8 @@ async def strategy_stop(request: Request, token: str = Depends(oauth2_scheme)) -
 
 
 @app.get("/strategy/worker/status")
-async def strategy_worker_status(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-	validate_token(token)
+async def strategy_worker_status(request: Request) -> Dict[str, Any]:
+	validate(request)
 
 	try:
 		body = await request.json()
@@ -236,8 +279,8 @@ async def strategy_worker_status(request: Request, token: str = Depends(oauth2_s
 
 
 @app.post("/strategy/worker/start")
-async def strategy_worker_start(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-	validate_token(token)
+async def strategy_worker_start(request: Request) -> Dict[str, Any]:
+	validate(request)
 
 	try:
 		body = await request.json()
@@ -248,8 +291,8 @@ async def strategy_worker_start(request: Request, token: str = Depends(oauth2_sc
 
 
 @app.post("/strategy/worker/stop")
-async def strategy_worker_stop(request: Request, token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-	validate_token(token)
+async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
+	validate(request)
 
 	try:
 		body = await request.json()
@@ -274,7 +317,7 @@ async def strategy_worker_stop(request: Request, token: str = Depends(oauth2_sch
 @app.head("/{subpath:path}")
 @app.options("/{subpath:path}")
 async def root(request: Request, subpath='', token: str = Depends(oauth2_scheme)):
-	validate_token(token)
+	validate(request)
 
 	parameters = dict(request.query_params)
 	try:
@@ -308,7 +351,6 @@ async def start_api():
 	host = os.environ.get("HOST", properties.get('server.host'))
 	port = int(os.environ.get("PORT", properties.get('server.port')))
 	environment = properties.get_or_default('server.environment', constants.environments.production)
-	server_private_key_password = os.environ.get("PASSWORD", properties.get("hummingbot.gateway.certificates.server_private_key_password"))
 
 	os.environ['ENV'] = environment
 
@@ -316,12 +358,34 @@ async def start_api():
 		"hummingbot.gateway.certificates.path.base.absolute",
 		os.path.join(properties.get("root_path"), properties.get("hummingbot.gateway.certificates.path.base.relative")),
 	)
+
+	properties.set("hummingbot.gateway.certificates.path.certificate_authority_certificate", os.path.abspath(os.path.join(path_prefix, properties.get("hummingbot.gateway.certificates.path.certificate_authority_certificate"))))
+	properties.set("hummingbot.gateway.certificates.path.certificate_authority_private_key", os.path.abspath(os.path.join(path_prefix, properties.get("hummingbot.gateway.certificates.path.certificate_authority_private_key"))))
+	properties.set("hummingbot.gateway.certificates.path.client_certificate", os.path.abspath(os.path.join(path_prefix, properties.get("hummingbot.gateway.certificates.path.client_certificate"))))
+	properties.set("hummingbot.gateway.certificates.path.client_certificate_signing_request", os.path.abspath(os.path.join(path_prefix, properties.get("hummingbot.gateway.certificates.path.client_certificate_signing_request"))))
+	properties.set("hummingbot.gateway.certificates.path.client_private_key", os.path.abspath(os.path.join(path_prefix, properties.get("hummingbot.gateway.certificates.path.client_private_key"))))
+	properties.set("hummingbot.gateway.certificates.path.server_certificate", os.path.abspath(os.path.join(path_prefix, properties.get("hummingbot.gateway.certificates.path.server_certificate"))))
+	properties.set("hummingbot.gateway.certificates.path.server_certificate_signing_request", os.path.abspath(os.path.join(path_prefix, properties.get("hummingbot.gateway.certificates.path.server_certificate_signing_request"))))
+	properties.set("hummingbot.gateway.certificates.path.server_private_key", os.path.abspath(os.path.join(path_prefix, properties.get("hummingbot.gateway.certificates.path.server_private_key"))))
+
+	properties.set("password", os.environ.get("PASSWORD", properties.get("hummingbot.gateway.certificates.server_private_key_password")))
+
 	certificates = DotMap({
-		"server_private_key_password": server_private_key_password,
-		"server_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.server_certificate")}"""),
-		"server_private_key": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.server_private_key")}"""),
-		"certificate_authority_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.certificate_authority_certificate")}""")
+		"server_private_key_password": properties.get("password"),
+		"server_certificate": properties.get("hummingbot.gateway.certificates.path.server_certificate"),
+		"server_private_key": properties.get("hummingbot.gateway.certificates.path.server_private_key"),
+		"certificate_authority_certificate": properties.get("hummingbot.gateway.certificates.path.certificate_authority_certificate")
 	}, _dynamic=False)
+
+	key = "hummingbot.gateway.certificates.path.certificate_authority_certificate"
+	with open(properties.get(key), "rb") as file:
+		content = file.read()
+		properties.set(key, content)
+
+	key = "hummingbot.gateway.certificates.path.client_certificate"
+	with open(properties.get(key), "rb") as file:
+		content = file.read()
+		properties.set(key, content)
 
 	config = uvicorn.Config(
 		"app:app",
@@ -334,7 +398,7 @@ async def start_api():
 		ssl_keyfile=certificates.server_private_key,
 		ssl_keyfile_password=certificates.server_private_key_password,
 		ssl_ca_certs=certificates.certificate_authority_certificate,
-		ssl_cert_reqs=ssl.CERT_OPTIONAL
+		ssl_cert_reqs=ssl.CERT_REQUIRED
 	)
 	server = uvicorn.Server(config)
 	await server.serve()
