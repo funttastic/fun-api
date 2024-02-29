@@ -27,22 +27,6 @@ constants = DotMap({
 			}
 		}
 	},
-	"system": {
-		"commands": {
-			"authenticate": """source ~/.bashrc && authenticate "{username}" "{password}" """,
-			"status": "status",
-			"start": {
-				"fun_client": "source ~/.bashrc && start_fun_client",
-				"hb_client": "source ~/.bashrc && start_hb_client",
-				"hb_gateway": "source ~/.bashrc && start_hb_gateway",
-			},
-			"stop": {
-				"fun_client": "source ~/.bashrc && stop_fun_client",
-				"hb_client": "source ~/.bashrc && stop_hb_client",
-				"hb_gateway": "source ~/.bashrc && stop_hb_gateway",
-			}
-		}
-	},
 	"services": {
 		"status": {
 			"task": "services.status",
