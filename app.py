@@ -68,12 +68,12 @@ class Token(BaseModel):
 
 async def authenticate(username: str, password: str):
 	try:
-		if properties.get_or_default("server.enforce_authentication", True):
+		if properties.get_or_default("server.authentication.enforce", True):
 			return DotMap(
 				json.loads(
 					str(
 						await execute(
-							str(constants.system.commands.authenticate).format(
+							str(properties.get("system.commands.authenticate")).format(
 								username=username, password=password
 							)
 
@@ -160,8 +160,13 @@ def validate_certificate(request: Request) -> bool:
 
 def validate(request: Request) -> Request:
 	try:
-		if not validate_token(request) and not validate_certificate(request):
+		if properties.get_or_default("server.authentication.require.token", True) and not validate_token(request):
 			raise unauthorized_exception
+
+		# TODO In order to make this validation to work, a reverse proxy must be configured to foward some headers as well.
+		#	But the certificates validation will be enforced while lifting the application.
+		# if properties.get_or_default("server.authentication.require.certificate", True) and not validate_certificate(request):
+		# 	raise unauthorized_exception
 
 		return request
 	except Exception as exception:
@@ -387,6 +392,11 @@ async def start_api():
 		content = file.read()
 		properties.set(key, content)
 
+	if properties.get_or_default("server.authentication.require.certificate", True):
+		certificate_requirement = ssl.CERT_REQUIRED
+	else:
+		certificate_requirement = ssl.CERT_OPTIONAL
+
 	config = uvicorn.Config(
 		"app:app",
 		host=host,
@@ -398,7 +408,7 @@ async def start_api():
 		ssl_keyfile=certificates.server_private_key,
 		ssl_keyfile_password=certificates.server_private_key_password,
 		ssl_ca_certs=certificates.certificate_authority_certificate,
-		ssl_cert_reqs=ssl.CERT_REQUIRED
+		ssl_cert_reqs=certificate_requirement
 	)
 	server = uvicorn.Server(config)
 	await server.serve()

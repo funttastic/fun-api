@@ -44,7 +44,7 @@ def sanitize_options(options: DotMap[str, Any]) -> DotMap[str, Any]:
 async def continuously_solve_services_status():
 	while True:
 		try:
-			system = DotMap(json.loads(await execute(constants.system.commands.status)), _dynamic=False)
+			system = DotMap(json.loads(await execute(properties.get("system.commands.status"))), _dynamic=False)
 			for (key, value) in system.items():
 				system[key] = SystemStatus.get_by_id(value)
 
@@ -75,7 +75,7 @@ async def service_start(options: DotMap[str, Any]):
 		if properties.get_or_default(f"services.status.current.{options.id}", SystemStatus.UNKNOWN) in [SystemStatus.STOPPED, SystemStatus.UNKNOWN]:
 			properties.set(f"services.status.current.{options.id}", SystemStatus.STARTING)
 
-			await execute(constants.system.commands.start[options.id])
+			await execute(properties.get(f"system.commands.start.{options.id}"))
 
 			properties.set(f"services.status.current.{options.id}", SystemStatus.RUNNING)
 
@@ -95,7 +95,7 @@ async def service_stop(options: DotMap[str, Any]):
 		if properties.get_or_default(f"services.status.current.{options.id}", SystemStatus.UNKNOWN) in [SystemStatus.STARTING, SystemStatus.IDLE, SystemStatus.RUNNING]:
 			properties.set(f"services.status.current.{options.id}", SystemStatus.STOPPING)
 
-			await execute(constants.system.commands.stop[options.id])
+			await execute(properties.get(f"system.commands.stop.{options.id}"))
 
 			properties.set(f"services.status.current.{options.id}", SystemStatus.STOPPED)
 

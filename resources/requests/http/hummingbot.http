@@ -1,4 +1,4 @@
-GET https://localhost:5000/
+GET https://{{host}}:{{port}}/
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -6,7 +6,7 @@ Content-Type: application/json
 
 ###
 
-GET https://localhost:5000/clob/markets?chain=kujira&network=testnet&connector=kujira&market=KUJI-DEMO
+GET https://{{host}}:{{port}}/clob/markets?chain=kujira&network=testnet&connector=kujira&market=KUJI-DEMO
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -14,7 +14,7 @@ Content-Type: application/json
 
 ###
 
-POST https://localhost:5000/chain/balances
+POST https://{{host}}:{{port}}/chain/balances
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -27,7 +27,7 @@ Content-Type: application/json
 
 ###
 
-POST https://localhost:5000/clob/orders
+POST https://{{host}}:{{port}}/clob/orders
 Authorization: Bearer {{token}}
 Content-Type: application/json
 

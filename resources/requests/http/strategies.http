@@ -1,9 +1,9 @@
-GET https://localhost:5000/strategy/status
+GET https://{{host}}:{{port}}/strategy/status
 Authorization: Bearer {{token}}
 
 ###
 
-GET https://localhost:5000/strategy/status
+GET https://{{host}}:{{port}}/strategy/status
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -15,29 +15,12 @@ Content-Type: application/json
 
 ###
 
-POST https://localhost:5000/strategy/start
+POST https://{{host}}:{{port}}/strategy/start
 Authorization: Bearer {{token}}
 
 ###
 
-POST https://localhost:5000/strategy/start
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-	"strategy": "pure_market_making",
-	"version": "1.0.0",
-	"id": "id"
-}
-
-###
-
-POST https://localhost:5000/strategy/stop
-Authorization: Bearer {{token}}
-
-###
-
-POST https://localhost:5000/strategy/stop
+POST https://{{host}}:{{port}}/strategy/start
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -49,7 +32,24 @@ Content-Type: application/json
 
 ###
 
-GET https://localhost:5000/strategy/worker/status
+POST https://{{host}}:{{port}}/strategy/stop
+Authorization: Bearer {{token}}
+
+###
+
+POST https://{{host}}:{{port}}/strategy/stop
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+	"strategy": "pure_market_making",
+	"version": "1.0.0",
+	"id": "id"
+}
+
+###
+
+GET https://{{host}}:{{port}}/strategy/worker/status
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -62,7 +62,7 @@ Content-Type: application/json
 
 ###
 
-POST https://localhost:5000/strategy/worker/start
+POST https://{{host}}:{{port}}/strategy/worker/start
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -75,7 +75,7 @@ Content-Type: application/json
 
 ###
 
-POST https://localhost:5000/strategy/worker/stop
+POST https://{{host}}:{{port}}/strategy/worker/stop
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -88,7 +88,7 @@ Content-Type: application/json
 
 ###
 
-GET https://localhost:5000/strategy/task/status
+GET https://{{host}}:{{port}}/strategy/task/status
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -101,7 +101,7 @@ Content-Type: application/json
 
 ###
 
-POST https://localhost:5000/strategy/task/start
+POST https://{{host}}:{{port}}/strategy/task/start
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -114,7 +114,7 @@ Content-Type: application/json
 
 ###
 
-POST https://localhost:5000/strategy/task/stop
+POST https://{{host}}:{{port}}/strategy/task/stop
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -127,21 +127,7 @@ Content-Type: application/json
 
 ###
 
-POST https://localhost:5000/strategy/worker/task/start
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-	"strategy": "pure_market_making",
-	"version": "1.0.0",
-	"id": "id",
-	"workerId": "workerId",
-	"task": "task-id"
-}
-
-###
-
-POST https://localhost:5000/strategy/worker/task/stop
+POST https://{{host}}:{{port}}/strategy/worker/task/start
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -155,7 +141,7 @@ Content-Type: application/json
 
 ###
 
-GET https://localhost:5000/strategy/worker/task/status
+POST https://{{host}}:{{port}}/strategy/worker/task/stop
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -169,7 +155,21 @@ Content-Type: application/json
 
 ###
 
-GET https://localhost:5000/strategy/statistics
+GET https://{{host}}:{{port}}/strategy/worker/task/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+	"strategy": "pure_market_making",
+	"version": "1.0.0",
+	"id": "id",
+	"workerId": "workerId",
+	"task": "task-id"
+}
+
+###
+
+GET https://{{host}}:{{port}}/strategy/statistics
 Authorization: Bearer {{token}}
 Content-Type: application/json
 

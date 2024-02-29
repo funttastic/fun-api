@@ -13,7 +13,7 @@ class Clock(object):
 	def __init__(self):
 		self._initialized = False
 		self._can_run = False
-		self._delay = properties.get_or_default('clock.delay', 1)
+		self._delay = properties.get_or_default('system.clock.delay', 1)
 		self._has_new_events = asyncio.Event()
 		self._events: Dict[float, asyncio.Event] = dict({})
 		self._tick_task: Optional[asyncio.Task] = None

@@ -1,4 +1,4 @@
-POST https://localhost:5000/auth/login
+POST https://{{host}}:{{port}}/auth/login
 Content-Type: application/json
 
 {
@@ -8,7 +8,7 @@ Content-Type: application/json
 
 ###
 
-GET https://localhost:5000/auth/token
+GET https://{{host}}:{{port}}/auth/token
 Authorization: Bearer {{token}}
 
 ###
