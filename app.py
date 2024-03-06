@@ -12,7 +12,7 @@ import ssl
 import threading
 import uvicorn
 from dotmap import DotMap
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
@@ -21,7 +21,7 @@ from pathlib import Path
 from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.status import HTTP_401_UNAUTHORIZED
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from core.constants import constants
 from core.properties import properties
@@ -61,15 +61,10 @@ class Credentials(BaseModel):
 	password: str
 
 
-class Token(BaseModel):
-	token: str
-	type: str
-
-
 async def authenticate(username: str, password: str):
 	try:
 		if properties.get_or_default("server.authentication.enforce", True):
-			return DotMap(
+			result = DotMap(
 				json.loads(
 					str(
 						await execute(
@@ -82,6 +77,10 @@ async def authenticate(username: str, password: str):
 				),
 				_dynamic=False
 			)
+
+			properties.set("admin.username", result.username)
+
+			return result
 		else:
 			return DotMap({"username": username, "password": password}, _dynamic=False)
 	except Exception as exception:
@@ -99,15 +98,17 @@ def create_jwt_token(data: dict, expires_delta: datetime.timedelta):
 
 def validate_token(request: Request) -> bool:
 	try:
-		test = OAuth2PasswordBearer(tokenUrl="auth/login")(request)
+		token = request.cookies.get("access_token")
 
-		print(test)
+		if token:
+			token = token.removeprefix("Bearer ")
+		else:
+			authorization = request.headers.get("Authorization")
+			if not authorization:
+				return False
 
-		authorization = request.headers.get("Authorization")
-		if not authorization:
-			return False
+			token = str(authorization).strip().removeprefix("Bearer ")
 
-		token = str(authorization).strip().removeprefix("Bearer ")
 		if not token:
 			return False
 
@@ -173,8 +174,8 @@ def validate(request: Request) -> Request:
 		raise unauthorized_exception
 
 
-@app.post("/auth/login", response_model=Token)
-async def auth_login(request: Credentials):
+@app.post("/auth/login")
+async def auth_login(request: Credentials, response: Response):
 	credentials = await authenticate(request.username, request.password)
 
 	if not credentials:
@@ -185,14 +186,23 @@ async def auth_login(request: Credentials):
 		data={"sub": credentials.username}, expires_delta=token_expiration_delta
 	)
 
+	response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax")
+
 	return {"token": token, "type": constants.authentication.jwt.token.type}
 
 
-@app.get("/auth/token")
-async def auth_token(request: Request):
+@app.post("/auth/token/refresh")
+async def auth_token(request: Request, response: Response):
 	validate(request)
-	
-	return {"token": request.headers.get("Authorization").removeprefix("Bearer "), "type": constants.authentication.jwt.token.type}
+
+	token_expiration_delta = datetime.timedelta(minutes=constants.authentication.jwt.token.expiration)
+	token = create_jwt_token(
+		data={"sub": properties.get("admin.username")}, expires_delta=token_expiration_delta
+	)
+
+	response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax")
+
+	return {"token": token, "type": constants.authentication.jwt.token.type}
 
 
 @app.get("/service/status")

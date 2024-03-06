@@ -8,7 +8,7 @@ Content-Type: application/json
 
 ###
 
-GET https://{{host}}:{{port}}/auth/token
+POST https://{{host}}:{{port}}/auth/token/refresh
 Authorization: Bearer {{token}}
 
 ###
