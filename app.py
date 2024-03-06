@@ -174,8 +174,13 @@ def validate(request: Request) -> Request:
 		raise unauthorized_exception
 
 
-@app.post("/auth/login")
-async def auth_login(request: Credentials, response: Response):
+@app.post("/auth/signUp")
+async def auth_sign_up(_request: Request, response: Response):
+	raise NotImplemented
+
+
+@app.post("/auth/signIn")
+async def auth_sign_in(request: Credentials, response: Response):
 	credentials = await authenticate(request.username, request.password)
 
 	if not credentials:
@@ -191,8 +196,15 @@ async def auth_login(request: Credentials, response: Response):
 	return {"token": token, "type": constants.authentication.jwt.token.type}
 
 
-@app.post("/auth/token/refresh")
-async def auth_token(request: Request, response: Response):
+@app.post("/auth/signOut")
+async def auth_sign_out(_request: Request, response: Response):
+	response.delete_cookie(key="access_token")
+
+	return {"message": "Cookie successfully deleted."}
+
+
+@app.post("/auth/refresh")
+async def auth_refresh(request: Request, response: Response):
 	validate(request)
 
 	token_expiration_delta = datetime.timedelta(minutes=constants.authentication.jwt.token.expiration)

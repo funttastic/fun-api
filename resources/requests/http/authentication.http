@@ -1,4 +1,15 @@
-POST https://{{host}}:{{port}}/auth/login
+POST https://{{host}}:{{port}}/auth/signUp
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}",
+  "email": "{{email}}"
+}
+
+###
+
+POST https://{{host}}:{{port}}/auth/signIn
 Content-Type: application/json
 
 {
@@ -8,7 +19,12 @@ Content-Type: application/json
 
 ###
 
-POST https://{{host}}:{{port}}/auth/token/refresh
+POST https://{{host}}:{{port}}/auth/signOut
+Authorization: Bearer {{token}}
+
+###
+
+POST https://{{host}}:{{port}}/auth/refresh
 Authorization: Bearer {{token}}
 
 ###
