@@ -75,7 +75,10 @@ async def service_start(options: DotMap[str, Any]):
 		if properties.get_or_default(f"services.status.current.{options.id}", SystemStatus.UNKNOWN) in [SystemStatus.STOPPED, SystemStatus.UNKNOWN]:
 			properties.set(f"services.status.current.{options.id}", SystemStatus.STARTING)
 
-			await execute(properties.get(f"system.commands.start.{options.id}"))
+			if options.id == constants.id:
+				await strategy_start(DotMap({}))
+			else:
+				await execute(properties.get(f"system.commands.start.{options.id}"))
 
 			properties.set(f"services.status.current.{options.id}", SystemStatus.RUNNING)
 
@@ -94,6 +97,11 @@ async def service_stop(options: DotMap[str, Any]):
 	try:
 		if properties.get_or_default(f"services.status.current.{options.id}", SystemStatus.UNKNOWN) in [SystemStatus.STARTING, SystemStatus.IDLE, SystemStatus.RUNNING]:
 			properties.set(f"services.status.current.{options.id}", SystemStatus.STOPPING)
+
+			if options.id == constants.id:
+				await strategy_stop(DotMap({}))
+			else:
+				await execute(properties.get(f"system.commands.stop.{options.id}"))
 
 			await execute(properties.get(f"system.commands.stop.{options.id}"))
 

@@ -3,6 +3,7 @@ from dotmap import DotMap
 from core.types import SystemStatus
 
 constants = DotMap({
+	"id": "fun-client",
 	"configuration": {
 		"main": "main.yml",
 		"common": "common.yml",
