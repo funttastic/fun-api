@@ -46,7 +46,18 @@ async def continuously_solve_services_status():
 		try:
 			system = DotMap(json.loads(await execute(properties.get("system.commands.status"))), _dynamic=False)
 			for (key, value) in system.items():
-				system[key] = SystemStatus.get_by_id(value)
+				if key == constants.id:
+					try:
+						status = DotMap(await strategy_status(DotMap({})), _dynamic=False)
+
+						if status.get("message") == "Process not running":
+							system[key] = SystemStatus.STOPPED
+						else:
+							system[key] = DotMap(status, _dynamic=False).status
+					except Exception as exception:
+						system[key] = SystemStatus.UNKNOWN
+				else:
+					system[key] = SystemStatus.get_by_id(value)
 
 			current = properties.get_or_default("services.status.current", constants.services.status.default)
 			final = deep_merge(current, system)

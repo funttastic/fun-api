@@ -14,6 +14,7 @@ from dotmap import DotMap
 
 from core.decorators import log_class_exceptions
 from core.properties import properties
+from core.types import SystemStatus
 from core.utils import dump, deep_merge
 from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column, DECIMAL_INFINITY
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
@@ -1265,22 +1266,23 @@ class Worker(WorkerBase):
 		status = DotMap({})
 
 		status.initialized = self._initialized
+		status.status = SystemStatus.UNKNOWN
 
 		if self._can_run:
-			status.status = "running"
+			status.status = SystemStatus.RUNNING
 		else:
-			status.status = "stopping"
+			status.status = SystemStatus.STOPPING
 
 		stopped = True
 		for (task_name, task) in self._tasks.items():
 			if task is not None:
-				status.tasks[task_name] = "running"
+				status.tasks[task_name] = SystemStatus.RUNNING
 				stopped = False
 			else:
-				status.tasks[task_name] = "stopped"
+				status.tasks[task_name] = SystemStatus.STOPPED
 
 		if stopped:
-			status.status = "stopped"
+			status.status = SystemStatus.STOPPED
 
 		status._dynamic = False
 

@@ -14,6 +14,7 @@ from dotmap import DotMap
 
 from core.decorators import log_class_exceptions
 from core.properties import properties
+from core.types import SystemStatus
 from core.utils import deep_merge
 from core.utils import dump
 from hummingbot.gateway import Gateway
@@ -111,15 +112,16 @@ class Supervisor(StrategyBase):
 		status = DotMap({})
 
 		status.initialized = self._initialized
+		status.status = SystemStatus.UNKNOWN
 		if not self._can_run and self._tasks.on_tick is None:
-			status.status = "stopped"
+			status.status = SystemStatus.STOPPED
 		elif not self._can_run and self._tasks.on_tick is not None:
-			status.status = "stopping..."
+			status.status = SystemStatus.STOPPING
 		if self._can_run and self._tasks.on_tick is not None:
-			status.status = "running"
+			status.status = SystemStatus.RUNNING
 
 		for (task_name, task) in self._tasks.items():
-			status.tasks[task_name] = "running" if task is not None else "stopped"
+			status.tasks[task_name] = SystemStatus.RUNNING if task is not None else SystemStatus.STOPPED
 
 		for worker_id in self._configuration.workers.keys():
 			status.workers[worker_id] = self._workers[worker_id].get_status()
