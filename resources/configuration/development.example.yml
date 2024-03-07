@@ -58,10 +58,10 @@ hummingbot:
 #    authenticate: 'source ~/.bashrc && authenticate "{username}" "{password}"'
 #    status: "status"
 #    start:
-#      fun_client: "source ~/.bashrc && start_fun_client"
-#      hb_client: "source ~/.bashrc && start_hb_client"
-#      hb_gateway: "source ~/.bashrc && start_hb_gateway"
+#      fun-client: "source ~/.bashrc && start_fun_client"
+#      hb-client: "source ~/.bashrc && start_hb_client"
+#      hb-gateway: "source ~/.bashrc && start_hb_gateway"
 #    stop:
-#      fun_client: "source ~/.bashrc && stop_fun_client"
-#      hb_client: "source ~/.bashrc && stop_hb_client"
-#      hb_gateway: "source ~/.bashrc && stop_hb_gateway"
+#      fun-client: "source ~/.bashrc && stop_fun_client"
+#      hb-client: "source ~/.bashrc && stop_hb_client"
+#      hb-gateway: "source ~/.bashrc && stop_hb_gateway"
