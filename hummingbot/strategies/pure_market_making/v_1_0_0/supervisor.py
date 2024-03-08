@@ -112,7 +112,8 @@ class Supervisor(StrategyBase):
 		status = DotMap({})
 
 		status.initialized = self._initialized
-		status.status = SystemStatus.UNKNOWN
+
+		status.status = SystemStatus.STARTING
 		if not self._can_run and self._tasks.on_tick is None:
 			status.status = SystemStatus.STOPPED
 		elif not self._can_run and self._tasks.on_tick is not None:

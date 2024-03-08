@@ -1266,8 +1266,8 @@ class Worker(WorkerBase):
 		status = DotMap({})
 
 		status.initialized = self._initialized
-		status.status = SystemStatus.UNKNOWN
 
+		status.status = SystemStatus.STARTING
 		if self._can_run:
 			status.status = SystemStatus.RUNNING
 		else:
