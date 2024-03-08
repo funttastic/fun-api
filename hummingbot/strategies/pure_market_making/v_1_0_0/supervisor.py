@@ -113,13 +113,15 @@ class Supervisor(StrategyBase):
 
 		status.initialized = self._initialized
 
-		status.status = SystemStatus.STARTING
-		if not self._can_run and self._tasks.on_tick is None:
-			status.status = SystemStatus.STOPPED
-		elif not self._can_run and self._tasks.on_tick is not None:
-			status.status = SystemStatus.STOPPING
-		if self._can_run and self._tasks.on_tick is not None:
-			status.status = SystemStatus.RUNNING
+		if self._initialized:
+			if not self._can_run and self._tasks.on_tick is None:
+				status.status = SystemStatus.STOPPED
+			elif not self._can_run and self._tasks.on_tick is not None:
+				status.status = SystemStatus.STOPPING
+			if self._can_run and self._tasks.on_tick is not None:
+				status.status = SystemStatus.RUNNING
+		else:
+			status.status = SystemStatus.STARTING
 
 		for (task_name, task) in self._tasks.items():
 			status.tasks[task_name] = SystemStatus.RUNNING if task is not None else SystemStatus.STOPPED

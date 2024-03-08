@@ -1267,11 +1267,13 @@ class Worker(WorkerBase):
 
 		status.initialized = self._initialized
 
-		status.status = SystemStatus.STARTING
-		if self._can_run:
-			status.status = SystemStatus.RUNNING
+		if self._initialized:
+			if self._can_run:
+				status.status = SystemStatus.RUNNING
+			else:
+				status.status = SystemStatus.STOPPING
 		else:
-			status.status = SystemStatus.STOPPING
+			status.status = SystemStatus.STARTING
 
 		stopped = True
 		for (task_name, task) in self._tasks.items():
