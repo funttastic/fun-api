@@ -56,7 +56,7 @@ hummingbot:
 #    delay: 1
 #  commands:
 #    authenticate: 'source ~/.bashrc && authenticate "{username}" "{password}"'
-#    status: "status"
+#    status: "source ~/.bashrc && status"
 #    start:
 #      fun-client: "source ~/.bashrc && start_fun_client"
 #      hb-client: "source ~/.bashrc && start_hb_client"
