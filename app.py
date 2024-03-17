@@ -218,7 +218,7 @@ async def auth_refresh(request: Request, response: Response):
 
 
 @app.get("/service/status")
-async def status(request: Request) -> Dict[str, Any]:
+async def service_status(request: Request) -> Dict[str, Any]:
 	validate(request)
 
 	try:
@@ -230,7 +230,7 @@ async def status(request: Request) -> Dict[str, Any]:
 
 
 @app.post("/service/start")
-async def start(request: Request) -> Dict[str, Any]:
+async def service_start(request: Request) -> Dict[str, Any]:
 	validate(request)
 
 	try:
@@ -244,7 +244,7 @@ async def start(request: Request) -> Dict[str, Any]:
 
 
 @app.post("/service/stop")
-async def stop(request: Request) -> Dict[str, Any]:
+async def service_stop(request: Request) -> Dict[str, Any]:
 	validate(request)
 
 	try:
@@ -328,22 +328,22 @@ async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
 
 	return await controller.strategy_worker_stop(body)
 
-@app.get("/")
-@app.post("/")
-@app.put("/")
-@app.delete("/")
-@app.patch("/")
-@app.head("/")
-@app.options("/")
-@app.get("/{subpath:path}")
-@app.post("/{subpath:path}")
-@app.post("/{subpath:path}")
-@app.put("/{subpath:path}")
-@app.delete("/{subpath:path}")
-@app.patch("/{subpath:path}")
-@app.head("/{subpath:path}")
-@app.options("/{subpath:path}")
-async def root(request: Request, subpath='', token: str = Depends(oauth2_scheme)):
+@app.get("/hummingbot/gateway/")
+@app.post("/hummingbot/gateway/")
+@app.put("/hummingbot/gateway/")
+@app.delete("/hummingbot/gateway/")
+@app.patch("/hummingbot/gateway/")
+@app.head("/hummingbot/gateway/")
+@app.options("/hummingbot/gateway/")
+@app.get("/hummingbot/gateway/{subpath:path}")
+@app.post("/hummingbot/gateway/{subpath:path}")
+@app.post("/hummingbot/gateway/{subpath:path}")
+@app.put("/hummingbot/gateway/{subpath:path}")
+@app.delete("/hummingbot/gateway/{subpath:path}")
+@app.patch("/hummingbot/gateway/{subpath:path}")
+@app.head("/hummingbot/gateway/{subpath:path}")
+@app.options("/hummingbot/gateway/{subpath:path}")
+async def hummingbot_gateway(request: Request, subpath=''):
 	validate(request)
 
 	parameters = dict(request.query_params)
