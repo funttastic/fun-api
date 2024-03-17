@@ -114,8 +114,6 @@ async def service_stop(options: DotMap[str, Any]):
 			else:
 				await execute(properties.get(f"system.commands.stop.{options.id}"))
 
-			await execute(properties.get(f"system.commands.stop.{options.id}"))
-
 			properties.set(f"services.status.current.{options.id}", SystemStatus.STOPPED)
 
 			return {
