@@ -364,7 +364,10 @@ async def hummingbot_gateway(request: Request, subpath=''):
 	)
 
 	try:
-		return JSONResponse(response.toDict())
+		if response:
+			return JSONResponse(response.toDict())
+		else:
+			return {}
 	except:
 		return response
 
