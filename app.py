@@ -422,6 +422,10 @@ async def start_api():
 	else:
 		certificate_requirement = ssl.CERT_OPTIONAL
 
+	if environment == constants.environments.development:
+		import pydevd_pycharm
+		pydevd_pycharm.settrace('localhost', port=30001, stdoutToServer=True, stderrToServer=True)
+
 	config = uvicorn.Config(
 		"app:app",
 		host=host,

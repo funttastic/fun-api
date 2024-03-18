@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - python=3.11
   - _libgcc_mutex=0.1=conda_forge
   - _openmp_mutex=4.5=2_gnu
   - bzip2=1.0.8=hd590300_5
@@ -66,6 +67,7 @@ dependencies:
       - pycryptodome==3.20.0
       - pydantic==2.5.3
       - pydantic-core==2.14.6
+      - pydevd-pycharm==233.11799.298
       - pyopenssl==23.3.0
       - python-dateutil==2.8.2
       - python-jose==3.3.0
