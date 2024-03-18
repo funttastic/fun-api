@@ -56,12 +56,12 @@ hummingbot:
 #    delay: 1
 #  commands:
 #    authenticate: 'source ~/.bashrc && authenticate "{username}" "{password}"'
-#    status: "source ~/.bashrc && status"
+#    status: 'source ~/.bashrc && status'
 #    start:
-#      fun-client: "source ~/.bashrc && start_fun_client"
-#      hb-client: "source ~/.bashrc && start_hb_client"
-#      hb-gateway: "source ~/.bashrc && start_hb_gateway"
+#      fun-client: 'source ~/.bashrc && start_fun_client "{password}"'
+#      hb-client: 'source ~/.bashrc && start_hb_client "{password}"'
+#      hb-gateway: 'source ~/.bashrc && start_hb_gateway "{password}"'
 #    stop:
-#      fun-client: "source ~/.bashrc && stop_fun_client"
-#      hb-client: "source ~/.bashrc && stop_hb_client"
-#      hb-gateway: "source ~/.bashrc && stop_hb_gateway"
+#      fun-client: 'source ~/.bashrc && stop_fun_client'
+#      hb-client: 'source ~/.bashrc && stop_hb_client'
+#      hb-gateway: 'source ~/.bashrc && stop_hb_gateway'

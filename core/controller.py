@@ -75,7 +75,7 @@ async def service_status(_options: DotMap[str, Any]) -> Dict[str, Any]:
 	try:
 		if not tasks[constants.services.status.task]:
 			tasks[constants.services.status.task].start = asyncio.create_task(continuously_solve_services_status())
-		
+
 		return properties.get_or_default("services.status.current", constants.services.status.default)
 	except Exception as exception:
 		raise exception
@@ -89,7 +89,9 @@ async def service_start(options: DotMap[str, Any]):
 			if options.id == constants.id:
 				await strategy_start(DotMap({}))
 			else:
-				await execute(properties.get(f"system.commands.start.{options.id}"))
+				await execute(str(properties.get(f"system.commands.start.{options.id}")).format(
+					username=properties.get("admin.username"), password=properties.get("admin.password")
+				))
 
 			properties.set(f"services.status.current.{options.id}", SystemStatus.RUNNING)
 
