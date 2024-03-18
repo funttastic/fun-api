@@ -91,7 +91,7 @@ def create_jwt_token(data: dict, expires_delta: datetime.timedelta):
 	to_encode = data.copy()
 	expiration_datetime = datetime.datetime.now(datetime.UTC) + expires_delta
 	to_encode.update({"exp": expiration_datetime})
-	encoded_jwt = jwt.encode(to_encode, properties.get("password"), algorithm=constants.authentication.jwt.algorithm)
+	encoded_jwt = jwt.encode(to_encode, properties.get("admin.password"), algorithm=constants.authentication.jwt.algorithm)
 
 	return encoded_jwt
 
@@ -112,7 +112,7 @@ def validate_token(request: Request) -> bool:
 		if not token:
 			return False
 
-		payload = jwt.decode(token, properties.get("password"), algorithms=[constants.authentication.jwt.algorithm])
+		payload = jwt.decode(token, properties.get("admin.password"), algorithms=[constants.authentication.jwt.algorithm])
 		if not payload:
 			return False
 
@@ -398,10 +398,10 @@ async def start_api():
 	properties.set("hummingbot.gateway.certificates.path.server_certificate_signing_request", os.path.abspath(os.path.join(path_prefix, properties.get("hummingbot.gateway.certificates.path.server_certificate_signing_request"))))
 	properties.set("hummingbot.gateway.certificates.path.server_private_key", os.path.abspath(os.path.join(path_prefix, properties.get("hummingbot.gateway.certificates.path.server_private_key"))))
 
-	properties.set("password", os.environ.get("PASSWORD", properties.get("hummingbot.gateway.certificates.server_private_key_password")))
+	properties.set("admin.password", os.environ.get("PASSWORD", properties.get("hummingbot.gateway.certificates.server_private_key_password")))
 
 	certificates = DotMap({
-		"server_private_key_password": properties.get("password"),
+		"server_private_key_password": properties.get("admin.password"),
 		"server_certificate": properties.get("hummingbot.gateway.certificates.path.server_certificate"),
 		"server_private_key": properties.get("hummingbot.gateway.certificates.path.server_private_key"),
 		"certificate_authority_certificate": properties.get("hummingbot.gateway.certificates.path.certificate_authority_certificate")
