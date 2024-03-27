@@ -12,7 +12,7 @@ import ssl
 import threading
 import uvicorn
 from dotmap import DotMap
-from fastapi import FastAPI, Depends, HTTPException, Response
+from fastapi import FastAPI, WebSocket, HTTPException, Response
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
@@ -96,7 +96,7 @@ def create_jwt_token(data: dict, expires_delta: datetime.timedelta):
 	return encoded_jwt
 
 
-def validate_token(request: Request) -> bool:
+async def validate_token(request: Request | WebSocket) -> bool:
 	try:
 		token = request.cookies.get("access_token")
 
@@ -129,7 +129,7 @@ def validate_token(request: Request) -> bool:
 		return False
 
 
-def validate_certificate(request: Request) -> bool:
+async def validate_certificate(request: Request | WebSocket) -> bool:
 	try:
 		provided_certificate = request.headers.get("X-SSL-Cert-Subject")
 		client_verify = request.headers.get("X-SSL-Client-Verify")
@@ -159,17 +159,42 @@ def validate_certificate(request: Request) -> bool:
 		return False
 
 
-def validate(request: Request) -> Request:
+async def validate_request_token(request: Request):
+	return await validate_token(request)
+
+
+async def validate_websocket_token(websocket: WebSocket):
 	try:
-		if properties.get_or_default("server.authentication.require.token", True) and not validate_token(request):
-			raise unauthorized_exception
+		if not await validate_token(websocket):
+			await websocket.close(code=1008)
 
-		# TODO In order to make this validation to work, a reverse proxy must be configured to foward some headers as well.
-		#	But the certificates validation will be enforced while lifting the application.
-		# if properties.get_or_default("server.authentication.require.certificate", True) and not validate_certificate(request):
-		# 	raise unauthorized_exception
+			return False
+	except Exception as e:
+		await websocket.close(code=1008)
 
-		return request
+		return False
+
+	return True
+
+
+async def validate(target: Request | WebSocket) -> Request:
+	try:
+		if properties.get_or_default("server.authentication.require.token", True):
+			if target is Request:
+				if not validate_request_token(target):
+					raise unauthorized_exception
+			elif target is WebSocket:
+				if not await validate_websocket_token(target):
+					raise unauthorized_exception
+			else:
+				raise unauthorized_exception
+
+		# TODO In order to make this validation to work, a reverse proxy must be configured to forward some headers as well.
+		# if properties.get_or_default("server.authentication.require.certificate", True):
+		# 	if not validate_certificate(target):
+		# 		raise unauthorized_exception
+
+		return target
 	except Exception as exception:
 		raise unauthorized_exception
 
@@ -205,7 +230,7 @@ async def auth_sign_out(_request: Request, response: Response):
 
 @app.post("/auth/refresh")
 async def auth_refresh(request: Request, response: Response):
-	validate(request)
+	await validate(request)
 
 	token_expiration_delta = datetime.timedelta(minutes=constants.authentication.jwt.token.expiration)
 	token = create_jwt_token(
@@ -219,7 +244,7 @@ async def auth_refresh(request: Request, response: Response):
 
 @app.get("/service/status")
 async def service_status(request: Request) -> Dict[str, Any]:
-	validate(request)
+	await validate(request)
 
 	try:
 		body = await request.json()
@@ -231,7 +256,7 @@ async def service_status(request: Request) -> Dict[str, Any]:
 
 @app.post("/service/start")
 async def service_start(request: Request) -> Dict[str, Any]:
-	validate(request)
+	await validate(request)
 
 	try:
 		body = await request.json()
@@ -245,7 +270,7 @@ async def service_start(request: Request) -> Dict[str, Any]:
 
 @app.post("/service/stop")
 async def service_stop(request: Request) -> Dict[str, Any]:
-	validate(request)
+	await validate(request)
 
 	try:
 		body = await request.json()
@@ -259,7 +284,7 @@ async def service_stop(request: Request) -> Dict[str, Any]:
 
 @app.get("/strategy/status")
 async def strategy_status(request: Request) -> Dict[str, Any]:
-	validate(request)
+	await validate(request)
 
 	try:
 		body = await request.json()
@@ -271,7 +296,7 @@ async def strategy_status(request: Request) -> Dict[str, Any]:
 
 @app.post("/strategy/start")
 async def strategy_start(request: Request) -> Dict[str, Any]:
-	validate(request)
+	await validate(request)
 
 	try:
 		body = await request.json()
@@ -283,7 +308,7 @@ async def strategy_start(request: Request) -> Dict[str, Any]:
 
 @app.post("/strategy/stop")
 async def strategy_stop(request: Request) -> Dict[str, Any]:
-	validate(request)
+	await validate(request)
 
 	try:
 		body = await request.json()
@@ -295,7 +320,7 @@ async def strategy_stop(request: Request) -> Dict[str, Any]:
 
 @app.get("/strategy/worker/status")
 async def strategy_worker_status(request: Request) -> Dict[str, Any]:
-	validate(request)
+	await validate(request)
 
 	try:
 		body = await request.json()
@@ -307,7 +332,7 @@ async def strategy_worker_status(request: Request) -> Dict[str, Any]:
 
 @app.post("/strategy/worker/start")
 async def strategy_worker_start(request: Request) -> Dict[str, Any]:
-	validate(request)
+	await validate(request)
 
 	try:
 		body = await request.json()
@@ -319,7 +344,7 @@ async def strategy_worker_start(request: Request) -> Dict[str, Any]:
 
 @app.post("/strategy/worker/stop")
 async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
-	validate(request)
+	await validate(request)
 
 	try:
 		body = await request.json()
@@ -344,7 +369,7 @@ async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
 @app.head("/hummingbot/gateway/{subpath:path}")
 @app.options("/hummingbot/gateway/{subpath:path}")
 async def hummingbot_gateway(request: Request, subpath=''):
-	validate(request)
+	await validate(request)
 
 	parameters = dict(request.query_params)
 	try:
@@ -370,6 +395,22 @@ async def hummingbot_gateway(request: Request, subpath=''):
 			return {}
 	except:
 		return response
+
+
+@app.websocket("/ws/log")
+async def websocket_log(websocket: WebSocket):
+	await websocket.accept()
+
+	await validate(websocket)
+
+	try:
+		while True:
+			id = await websocket.receive_text()
+
+			async for message in controller.websocket_log(DotMap({"id": id})):
+				await websocket.send_text(message)
+	except Exception as exception:
+		raise exception
 
 
 async def start_api():

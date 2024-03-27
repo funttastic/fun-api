@@ -65,3 +65,5 @@ hummingbot:
 #      fun-client: 'source ~/.bashrc && stop_fun_client'
 #      hb-client: 'source ~/.bashrc && stop_hb_client'
 #      hb-gateway: 'source ~/.bashrc && stop_hb_gateway'
+#    log:
+#      all: 'source ~/.bashrc && log_all'

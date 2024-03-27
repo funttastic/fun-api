@@ -1,12 +1,9 @@
-import logging
-
-import json
-
 import asyncio
+import json
 from dotmap import DotMap
+from typing import Any, Dict, AsyncGenerator, LiteralString
 
 from core.constants import constants
-from core.decorators import async_logged_method
 from core.logger import logger
 from core.properties import properties
 from core.system import execute
@@ -14,7 +11,6 @@ from core.types import SystemStatus
 from core.utils import deep_merge
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
-from typing import Any, Dict
 
 tasks: DotMap[str, asyncio.Task] = DotMap({
 })
@@ -254,3 +250,15 @@ async def strategy_worker_status(options: DotMap[str, Any]) -> Dict[str, Any]:
 
 	except Exception as exception:
 		raise exception
+
+
+async def websocket_log(options: DotMap[str, Any]) -> AsyncGenerator[LiteralString, Any]:
+	command = str(properties.get(f"system.commands.log.{options.id}"))
+
+	while True:
+		lines = await execute(command)
+
+		for line in lines:
+			yield line
+
+		await asyncio.sleep(1)
