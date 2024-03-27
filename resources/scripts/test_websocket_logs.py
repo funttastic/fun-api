@@ -1,10 +1,38 @@
+import os
+
+from pathlib import Path
+
+import requests
 import ssl
 import websocket
+
+username = os.environ.get("USERNAME")
+password = os.environ.get("PASSWORD")
+client_cert = Path("../certificates/client_cert.pem").absolute().resolve().as_posix()
+client_key = Path("../certificates/client_key.pem").absolute().resolve().as_posix()
 
 ssl_defaults = ssl.get_default_verify_paths()
 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
+
+
+def sign_in(username, password):
+	url = "https://localhost:30001/auth/signIn"
+
+	credentials = {"username": username, "password": password}
+
+	response = requests.post(
+		url,
+		json=credentials,
+		verify=False,  # In a production environment, you should verify SSL certificates
+		cert=(client_cert, client_key)
+	)
+
+	if response.status_code == 200:
+		return response.json()["token"]
+	else:
+		raise Exception("Authentication failed")
 
 
 def on_message(_ws, message):
@@ -21,18 +49,28 @@ def on_close(ws, close_status_code, close_msg):
 
 def on_open(ws):
 	print(f'''on_open -> sending: "all"''')
-
 	ws.send("all")
-
 	print(f'''on_open -> sent: "all"''')
 
 
 if __name__ == "__main__":
+	token = sign_in(username, password)
+
 	url = "wss://localhost:30001/ws/log"
 	websocket.enableTrace(True)
 
+	header = [
+		f"Authorization: Bearer {token}",
+	]
+
+	ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+	ssl_context.load_cert_chain(certfile=client_cert, keyfile=client_key)
+	ssl_context.check_hostname = False
+	ssl_context.verify_mode = ssl.CERT_NONE
+
 	ws = websocket.WebSocketApp(
 		url,
+		header=header,
 		on_message=on_message,
 		on_error=on_error,
 		on_close=on_close,

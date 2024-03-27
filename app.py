@@ -180,10 +180,10 @@ async def validate_websocket_token(websocket: WebSocket):
 async def validate(target: Request | WebSocket) -> Request:
 	try:
 		if properties.get_or_default("server.authentication.require.token", True):
-			if target is Request:
-				if not validate_request_token(target):
+			if isinstance(target, Request):
+				if not await validate_request_token(target):
 					raise unauthorized_exception
-			elif target is WebSocket:
+			elif isinstance(target, WebSocket):
 				if not await validate_websocket_token(target):
 					raise unauthorized_exception
 			else:
