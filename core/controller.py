@@ -278,29 +278,32 @@ def update_gateway_connections(params: Any):
 	chain = params["chain"]
 
 	if params["subpath"] == "wallet/add":
-		network = params["network"]
+		new_connector_specs: List[Dict[str, str]] = []
 
-		new_connector_spec: Dict[str, str] = {
-			"connector": connector_name,
-			"chain": chain,
-			"network": network,
-			"trading_type": chains_connector_spec[params["chain"].upper()]["TRADING_TYPE"].value,
-			"chain_type": chains_connector_spec[params["chain"].upper()]["CHAIN_TYPE"].value,
-			"wallet_address": params["publickey"],
-			"additional_spenders": chains_connector_spec[params["chain"].upper()]["ADDITIONAL_SPENDERS"].value,
-			"additional_prompt_values": chains_connector_spec[params["chain"].upper()]["ADDITIONAL_PROMPT_VALUES"].value
-		}
+		for network in chains_connector_spec[params["chain"].upper()]["NETWORK"].value:
+			new_connector_specs.append({
+				"connector": connector_name,
+				"chain": chain,
+				"network": network,
+				"trading_type": chains_connector_spec[params["chain"].upper()]["TRADING_TYPE"].value,
+				"chain_type": chains_connector_spec[params["chain"].upper()]["CHAIN_TYPE"].value,
+				"wallet_address": params["publickey"],
+				"additional_spenders": chains_connector_spec[params["chain"].upper()]["ADDITIONAL_SPENDERS"].value,
+				"additional_prompt_values": chains_connector_spec[params["chain"].upper()]["ADDITIONAL_PROMPT_VALUES"].value
+			})
 
-		updated: bool = False
+		for spec in new_connector_specs:
+			updated: bool = False
+			network = spec["network"]
 
-		for i, c in enumerate(connectors_conf):
-			if c["connector"] == connector_name and c["chain"] == chain and c["network"] == network:
-				connectors_conf[i] = new_connector_spec
-				updated = True
-				break
+			for i, c in enumerate(connectors_conf):
+				if c["connector"] == connector_name and c["chain"] == chain and c["network"] == network:
+					connectors_conf[i] = spec
+					updated = True
+					break
 
-		if updated is False:
-			connectors_conf.append(new_connector_spec)
+			if updated is False:
+				connectors_conf.append(spec)
 
 	elif params["subpath"] == "wallet/remove":
 		connectors_conf = [c for c in connectors_conf if not (c["chain"] == chain and c["wallet_address"] == params["address"])]
