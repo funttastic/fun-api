@@ -1,4 +1,5 @@
 from dotmap import DotMap
+from enum import Enum
 
 from core.types import SystemStatus
 
@@ -43,3 +44,18 @@ constants = DotMap({
 		}
 	}
 }, _dynamic=False)
+
+
+class KujiraConnectorSpec(Enum):
+	CONNECTOR = "kujira"
+	CHAIN = "kujira"
+	NETWORK = ["mainnet", "testnet"]
+	TRADING_TYPE = "CLOB_SPOT"
+	CHAIN_TYPE = "KUJIRA"
+	ADDITIONAL_SPENDERS = []
+	ADDITIONAL_PROMPT_VALUES = {'accountId': '0'}
+
+
+chains_connector_spec = {
+	"KUJIRA": KujiraConnectorSpec
+}

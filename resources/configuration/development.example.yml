@@ -51,6 +51,9 @@ hummingbot:
 #        server_certificate_signing_request: 'server_csr.pem'
 #        # Server's private key. Used to prove the server's identity and to secure communication. Must be kept secret and secure.
 #        server_private_key: 'server_key.pem'
+#  client:
+#    gateway_connections:
+#      file_path: "~/hummingbot/client/conf/gateway_connections.json"
 #system:
 #  clock:
 #    delay: 1

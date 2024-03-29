@@ -19,10 +19,10 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-	"chain": "kujira",
-	"network": "mainnet",
-	"connector": "kujira",
-	"address": "<wallet address>"
+  "chain": "kujira",
+  "network": "mainnet",
+  "connector": "kujira",
+  "address": "<wallet address>"
 }
 
 ###
@@ -32,40 +32,40 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-		"chain": "kujira",
-		"network": "testnet",
-		"connector": "kujira",
-		"price": "999.99",
-		"amount": "1.0",
-		"orderType": "LIMIT",
-		"side": "SELL",
-		"market": "KUJI-USK",
-		"address": "kujira1d6ld7s0edsh5qsmt3lq4tnrqgvxc3jdrk9z3km"
+  "chain": "kujira",
+  "network": "testnet",
+  "connector": "kujira",
+  "price": "999.99",
+  "amount": "1.0",
+  "orderType": "LIMIT",
+  "side": "SELL",
+  "market": "KUJI-USK",
+  "address": "kujira1d6ld7s0edsh5qsmt3lq4tnrqgvxc3jdrk9z3km"
 }
 
 ###
 
-POST https://localhost:15888/wallet/add
+POST https://{{host}}:{{port}}/hummingbot/gateway/wallet/add
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-	"chain": "kujira",
-	"network": "testnet",
-	"connector": "kujira",
-	"privateKey": "your_mnemonic_here",
-	"accountNumber": 0
+  "chain": "kujira",
+  "network": "testnet",
+  "connector": "kujira",
+  "privateKey": "{{mnemonic}}",
+  "accountNumber": 0
 }
 
 ###
 
-DELETE https://localhost:15888/wallet/remove
+DELETE https://{{host}}:{{port}}/hummingbot/gateway/wallet/remove
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-	"chain": "kujira",
-	"address": "your_publickey_here"
+  "chain": "kujira",
+  "address": "{{publickey}}"
 }
 
 ###

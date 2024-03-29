@@ -1,9 +1,10 @@
 import asyncio
 import json
+import os
 from dotmap import DotMap
-from typing import Any, Dict, AsyncGenerator
+from typing import Any, Dict, List, AsyncGenerator
 
-from core.constants import constants
+from core.constants import constants, chains_connector_spec
 from core.logger import logger
 from core.properties import properties
 from core.system import execute, execute_continuously
@@ -258,3 +259,52 @@ async def websocket_log(options: Any) -> AsyncGenerator[str, None]:
 	async for line in execute_continuously(command):
 		yield line
 		await asyncio.sleep(0.1)
+
+
+def update_gateway_connections(params: Any):
+	absolute_file_path = os.path.expanduser(str(properties.get("hummingbot.client.gateway_connections.file_path")))
+
+	# Opening and loading file
+	if os.path.exists(absolute_file_path):
+		with open(absolute_file_path) as connections_file:
+			try:
+				connectors_conf: List[Dict[str, str]] = json.load(connections_file)
+			except json.JSONDecodeError:
+				connectors_conf: List[Dict[str, str]] = []
+	else:
+		connectors_conf: List[Dict[str, str]] = []
+
+	connector_name = chains_connector_spec[params["chain"].upper()]["CONNECTOR"].value
+	chain = params["chain"]
+
+	if params["subpath"] == "wallet/add":
+		network = params["network"]
+
+		new_connector_spec: Dict[str, str] = {
+			"connector": connector_name,
+			"chain": chain,
+			"network": network,
+			"trading_type": chains_connector_spec[params["chain"].upper()]["TRADING_TYPE"].value,
+			"chain_type": chains_connector_spec[params["chain"].upper()]["CHAIN_TYPE"].value,
+			"wallet_address": params["publickey"],
+			"additional_spenders": chains_connector_spec[params["chain"].upper()]["ADDITIONAL_SPENDERS"].value,
+			"additional_prompt_values": chains_connector_spec[params["chain"].upper()]["ADDITIONAL_PROMPT_VALUES"].value
+		}
+
+		updated: bool = False
+
+		for i, c in enumerate(connectors_conf):
+			if c["connector"] == connector_name and c["chain"] == chain and c["network"] == network:
+				connectors_conf[i] = new_connector_spec
+				updated = True
+				break
+
+		if updated is False:
+			connectors_conf.append(new_connector_spec)
+
+	elif params["subpath"] == "wallet/remove":
+		connectors_conf = [c for c in connectors_conf if not (c["chain"] == chain and c["wallet_address"] == params["address"])]
+
+	# Saving file
+	with open(absolute_file_path, "w") as connections_file:
+		json.dump(connectors_conf, connections_file)

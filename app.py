@@ -380,7 +380,7 @@ async def hummingbot_gateway(request: Request, subpath=''):
 
 	method = HttpMethod[request.method.upper()]
 
-	response = await router(
+	response, response_status_code = await router(
 		method=method,
 		url=subpath,
 		parameters=parameters,
@@ -389,11 +389,24 @@ async def hummingbot_gateway(request: Request, subpath=''):
 	)
 
 	try:
-		if response:
-			return JSONResponse(response.toDict())
+		if (response or response is not None) and response_status_code == 200:
+			subpath = request.path_params['subpath']
+
+			if subpath == "wallet/add":
+				publickey = response["address"]
+				chain = body['chain']
+
+				controller.update_gateway_connections({"chain": chain, "network": body["network"], "publickey": publickey, "subpath": subpath})
+			elif subpath == "wallet/remove":
+				publickey = body["address"]
+				chain = body['chain']
+
+				controller.update_gateway_connections({"chain": chain, "address": publickey, "subpath": subpath})
+			else:
+				return JSONResponse(response.toDict())
 		else:
 			return {}
-	except:
+	except (ValueError, TypeError):
 		return response
 
 

@@ -18,7 +18,7 @@ async def router(
 	parameters: dict[str, Any] = None,
 	body: dict[str, Any] = None,
 	certificates: DotMap[str, str] = None
-) -> DotMap[str, Any]:
+) -> DotMap[str, Any] | Any:
 	if not host:
 		host = properties.get("hummingbot.gateway.host")
 
@@ -80,4 +80,4 @@ Stacktrace:\n\t{result.stack}\
 """
 		)
 
-	return result
+	return result, response.status_code
