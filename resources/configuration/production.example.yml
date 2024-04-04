@@ -52,8 +52,7 @@ hummingbot:
 #        # Server's private key. Used to prove the server's identity and to secure communication. Must be kept secret and secure.
 #        server_private_key: 'server_key.pem'
 #  client:
-#    gateway_connections:
-#      file_path: "~/hummingbot/client/conf/gateway_connections.json"
+#    configuration_path: "~/hummingbot/client/conf"
 #system:
 #  clock:
 #    delay: 1
