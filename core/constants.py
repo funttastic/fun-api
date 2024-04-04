@@ -46,7 +46,7 @@ constants = DotMap({
 }, _dynamic=False)
 
 
-class KujiraConnectorSpec(Enum):
+class KujiraConnectorSpecification(Enum):
 	CONNECTOR = "kujira"
 	CHAIN = "kujira"
 	NETWORK = ["mainnet", "testnet"]
@@ -54,8 +54,11 @@ class KujiraConnectorSpec(Enum):
 	CHAIN_TYPE = "KUJIRA"
 	ADDITIONAL_SPENDERS = []
 	ADDITIONAL_PROMPT_VALUES = {'accountId': '0'}
+	CHAIN_NETWORKS = ["kujira_mainnet", "kujira_testnet"]
+	TOKENS = ["KUJI", "USK"]
 
 
-chains_connector_spec = {
-	"KUJIRA": KujiraConnectorSpec
+chains_connector_specification = {
+	"KUJIRA": KujiraConnectorSpecification
 }
+

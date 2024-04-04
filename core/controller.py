@@ -4,7 +4,7 @@ import os
 from dotmap import DotMap
 from typing import Any, Dict, List, AsyncGenerator
 
-from core.constants import constants, chains_connector_spec
+from core.constants import constants, chains_connector_specification
 from core.logger import logger
 from core.properties import properties
 from core.system import execute, execute_continuously
@@ -262,52 +262,117 @@ async def websocket_log(options: Any) -> AsyncGenerator[str, None]:
 
 
 def update_gateway_connections(params: Any):
-	absolute_file_path = os.path.expanduser(str(properties.get("hummingbot.client.gateway_connections.file_path")))
+	absolute_configuration_path = os.path.expanduser(str(properties.get("hummingbot.client.configuration_path")))
 
-	# Opening and loading file
-	if os.path.exists(absolute_file_path):
-		with open(absolute_file_path) as connections_file:
-			try:
-				connectors_conf: List[Dict[str, str]] = json.load(connections_file)
-			except json.JSONDecodeError:
-				connectors_conf: List[Dict[str, str]] = []
-	else:
-		connectors_conf: List[Dict[str, str]] = []
+	def load(path) -> List[Dict[str, str]]:
+		if os.path.exists(path):
+			with open(path) as target_file:
+				try:
+					file_content: List[Dict[str, str]] = json.load(target_file)
 
-	connector_name = chains_connector_spec[params["chain"].upper()]["CONNECTOR"].value
+					return file_content
+				except json.JSONDecodeError:
+					return []
+		return []
+
+	def save(path, settings: List[Dict[str, str]]):
+		with open(path, "w") as target_file:
+			json.dump(settings, target_file)
+
+	gateway_connections_absolute_file_path = (
+		absolute_configuration_path + "gateway_connections.json"
+		if absolute_configuration_path[-1] == "/"
+		else absolute_configuration_path + "/gateway_connections.json"
+	)
+	gateway_connections_content = load(gateway_connections_absolute_file_path)
+
+	gateway_networks_absolute_file_path = (
+		absolute_configuration_path + "gateway_network.json"
+		if absolute_configuration_path[-1] == "/"
+		else absolute_configuration_path + "/gateway_network.json"
+	)
+	gateway_network_content = load(gateway_networks_absolute_file_path)
+
+	connector_name = chains_connector_specification[params["chain"].upper()]["CONNECTOR"].value
 	chain = params["chain"]
 
 	if params["subpath"] == "wallet/add":
-		new_connector_specs: List[Dict[str, str]] = []
+		# Updating gateway_connections.json
+		new_connector_specification: List[Dict[str, str]] = []
 
-		for network in chains_connector_spec[params["chain"].upper()]["NETWORK"].value:
-			new_connector_specs.append({
+		for network in chains_connector_specification[params["chain"].upper()]["NETWORK"].value:
+			new_connector_specification.append({
 				"connector": connector_name,
 				"chain": chain,
 				"network": network,
-				"trading_type": chains_connector_spec[params["chain"].upper()]["TRADING_TYPE"].value,
-				"chain_type": chains_connector_spec[params["chain"].upper()]["CHAIN_TYPE"].value,
+				"trading_type": chains_connector_specification[params["chain"].upper()]["TRADING_TYPE"].value,
+				"chain_type": chains_connector_specification[params["chain"].upper()]["CHAIN_TYPE"].value,
 				"wallet_address": params["publickey"],
-				"additional_spenders": chains_connector_spec[params["chain"].upper()]["ADDITIONAL_SPENDERS"].value,
-				"additional_prompt_values": chains_connector_spec[params["chain"].upper()]["ADDITIONAL_PROMPT_VALUES"].value
+				"additional_spenders": chains_connector_specification[params["chain"].upper()]["ADDITIONAL_SPENDERS"].value,
+				"additional_prompt_values": chains_connector_specification[params["chain"].upper()]["ADDITIONAL_PROMPT_VALUES"].value
 			})
 
-		for spec in new_connector_specs:
+		for spec in new_connector_specification:
 			updated: bool = False
 			network = spec["network"]
 
-			for i, c in enumerate(connectors_conf):
+			for i, c in enumerate(gateway_connections_content):
 				if c["connector"] == connector_name and c["chain"] == chain and c["network"] == network:
-					connectors_conf[i] = spec
+					gateway_connections_content[i] = spec
 					updated = True
 					break
 
 			if updated is False:
-				connectors_conf.append(spec)
+				gateway_connections_content.append(spec)
+
+		# Updating gateway_networks.json
+		for chain_network in chains_connector_specification[params["chain"].upper()]["CHAIN_NETWORKS"].value:
+			new_network_specification: Dict[str, str] = {
+				"chain_network": chain_network,
+			}
+
+			updated: bool = False
+
+			for i, c in enumerate(gateway_network_content):
+				if c["chain_network"] == chain_network:
+					gateway_network_content[i] = new_network_specification
+					updated = True
+					break
+
+			if updated is False:
+				gateway_network_content.append(new_network_specification)
+
+		# Updating gateway_networks.json - Adding tokens to watch
+		tokens = chains_connector_specification[params["chain"].upper()]["TOKENS"].value
+
+		network_found = False
+
+		for chain_network in chains_connector_specification[params["chain"].upper()]["CHAIN_NETWORKS"].value:
+			for network in gateway_network_content:
+				if network.get("chain_network") == chain_network:
+					network['tokens'] = tokens
+					network_found = True
+					break
+			if not network_found:
+				new_network = {
+					"chain_network": chain_network,
+					"tokens": tokens
+				}
+				gateway_network_content.append(new_network)
 
 	elif params["subpath"] == "wallet/remove":
-		connectors_conf = [c for c in connectors_conf if not (c["chain"] == chain and c["wallet_address"] == params["address"])]
+		# Updating gateway_connections.json
+		gateway_connections_content = [
+			c for c in gateway_connections_content if not (
+				c["chain"] == chain and c["wallet_address"] == params["address"]
+			)
+		]
 
-	# Saving file
-	with open(absolute_file_path, "w") as connections_file:
-		json.dump(connectors_conf, connections_file)
+		# Updating gateway_networks.json
+		for chain_network in chains_connector_specification[params["chain"].upper()]["CHAIN_NETWORKS"].value:
+			for i, c in enumerate(gateway_network_content):
+				if c["chain_network"] == chain_network:
+					gateway_network_content.remove(c)
+
+	save(gateway_connections_absolute_file_path, gateway_connections_content)
+	save(gateway_networks_absolute_file_path, gateway_network_content)
