@@ -16,6 +16,8 @@ ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
+target_id = "fun-client.back"
+
 
 def sign_in(username, password):
 	url = "https://localhost:30001/auth/signIn"
@@ -48,9 +50,9 @@ def on_close(ws, close_status_code, close_msg):
 
 
 def on_open(ws):
-	print(f'''on_open -> sending: "all"''')
-	ws.send("all")
-	print(f'''on_open -> sent: "all"''')
+	print(f'''on_open -> sending: "{target_id}"''')
+	ws.send(target_id)
+	print(f'''on_open -> sent: "{target_id}"''')
 
 
 if __name__ == "__main__":
