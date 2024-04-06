@@ -25,6 +25,8 @@ from typing import Any, Dict
 
 from core.constants import constants
 from core.properties import properties
+from core.router.hummingbot_client import hummingbot_client_router
+from core.router.hummingbot_gateway import hummingbot_gateway_router
 from core.system import execute
 from core.types import HttpMethod
 
@@ -37,7 +39,6 @@ properties.load(app)
 from core.logger import logger
 from core.telegram.telegram import telegram
 from core import controller
-from hummingbot.router import router
 from hummingbot.strategies.strategy_base import StrategyBase
 
 tasks: DotMap[str, asyncio.Task] = DotMap({
@@ -371,19 +372,22 @@ async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
 async def hummingbot_gateway(request: Request, subpath=''):
 	await validate(request)
 
-	parameters = dict(request.query_params)
+	paths = DotMap(request.path_params)
+	parameters = DotMap(request.query_params)
 	try:
-		body = await request.json()
+		body = DotMap(await request.json())
 	except:
-		body = {}
-	# headers = dict(request.headers)
+		body = DotMap({})
+	headers = DotMap(request.headers)
 
 	method = HttpMethod[request.method.upper()]
 
-	response, response_status_code = await router(
+	response, response_status_code = await hummingbot_gateway_router(
 		method=method,
 		url=subpath,
+		paths=paths,
 		parameters=parameters,
+		headers=headers,
 		body=body,
 		certificates=None
 	)
@@ -402,12 +406,53 @@ async def hummingbot_gateway(request: Request, subpath=''):
 				chain = body['chain']
 
 				controller.update_gateway_connections({"chain": chain, "address": publickey, "subpath": subpath})
-			else:
-				return JSONResponse(response.toDict())
+
+			return JSONResponse(response.toDict())
 		else:
 			return {}
-	except (ValueError, TypeError):
-		return response
+	except Exception as exception:
+		raise exception
+
+
+@app.get("/hummingbot/client/")
+@app.post("/hummingbot/client/")
+@app.put("/hummingbot/client/")
+@app.delete("/hummingbot/client/")
+@app.patch("/hummingbot/client/")
+@app.head("/hummingbot/client/")
+@app.options("/hummingbot/client/")
+@app.get("/hummingbot/client/{subpath:path}")
+@app.post("/hummingbot/client/{subpath:path}")
+@app.post("/hummingbot/client/{subpath:path}")
+@app.put("/hummingbot/client/{subpath:path}")
+@app.delete("/hummingbot/client/{subpath:path}")
+@app.patch("/hummingbot/client/{subpath:path}")
+@app.head("/hummingbot/client/{subpath:path}")
+@app.options("/hummingbot/client/{subpath:path}")
+async def hummingbot_client(request: Request, subpath=''):
+	await validate(request)
+
+	paths = DotMap(request.path_params)
+	parameters = DotMap(request.query_params)
+	try:
+		body = DotMap(await request.json())
+	except:
+		body = DotMap({})
+	headers = DotMap(request.headers)
+
+	method = HttpMethod[request.method.upper()]
+
+	response, response_status_code = await hummingbot_client_router(
+		method=method,
+		url=subpath,
+		paths=paths,
+		parameters=parameters,
+		headers=headers,
+		body=body,
+		certificates=None
+	)
+
+	return JSONResponse(response.toDict())
 
 
 @app.websocket("/ws/log")
@@ -476,10 +521,6 @@ async def start_api():
 	else:
 		certificate_requirement = ssl.CERT_OPTIONAL
 
-	if environment == constants.environments.development:
-		import pydevd_pycharm
-		pydevd_pycharm.settrace('localhost', port=30001, stdoutToServer=True, stderrToServer=True)
-
 	config = uvicorn.Config(
 		"app:app",
 		host=host,
@@ -494,7 +535,12 @@ async def start_api():
 		ssl_cert_reqs=certificate_requirement
 	)
 	server = uvicorn.Server(config)
+
 	await server.serve()
+
+	if environment == constants.environments.development:
+		import pydevd_pycharm
+		pydevd_pycharm.settrace('localhost', port=30001, stdoutToServer=True, stderrToServer=True, suspend=False)
 
 
 async def main():

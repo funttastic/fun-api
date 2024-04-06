@@ -9,14 +9,15 @@ from core.properties import properties
 from core.types import HttpMethod
 
 
-async def router(
+async def hummingbot_gateway_router(
 	method: HttpMethod = HttpMethod.GET,
 	host: str = None,
 	port: int = None,
 	url: str = None,
 	headers: Any = None,
-	parameters: dict[str, Any] = None,
-	body: dict[str, Any] = None,
+	paths: DotMap[str, Any] = None,
+	parameters: DotMap[str, Any] = None,
+	body: DotMap[str, Any] = None,
 	certificates: DotMap[str, str] = None
 ) -> DotMap[str, Any] | Any:
 	if not host:
