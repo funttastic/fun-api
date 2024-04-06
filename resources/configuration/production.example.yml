@@ -68,4 +68,27 @@ hummingbot:
 #      hb-client: 'source ~/.bashrc && stop_hb_client'
 #      hb-gateway: 'source ~/.bashrc && stop_hb_gateway'
 #    log:
-#      all: 'source ~/.bashrc && log_all'
+#      all:
+#        front: 'source ~/.bashrc && log_back_all'
+#        back: 'source ~/.bashrc && log_front_all'
+#        all: 'source ~/.bashrc && log_all'
+#      fun-client:
+#        front: 'source ~/.bashrc && log_front_fun_client'
+#        back: 'source ~/.bashrc && log_back_fun_client'
+#        all: 'source ~/.bashrc && log_fun_client'
+#      fun-frontend:
+#        front: 'source ~/.bashrc && log_front_fun_frontend'
+#        back: 'source ~/.bashrc && log_back_fun_frontend'
+#        all: 'source ~/.bashrc && log_fun_frontend'
+#      hb-client:
+#        front: 'source ~/.bashrc && log_front_hb_client'
+#        back: 'source ~/.bashrc && log_back_hb_client'
+#        all: 'source ~/.bashrc && log_hb_client'
+#      hb-gateway:
+#        front: 'source ~/.bashrc && log_front_hb_gateway'
+#        back: 'source ~/.bashrc && log_back_hb_gateway'
+#        all: 'source ~/.bashrc && log_hb_gateway'
+#      filebrowser:
+#        front: 'source ~/.bashrc && log_front_filebrowser'
+#        back: 'source ~/.bashrc && log_back_filebrowser'
+#        all: 'source ~/.bashrc && log_filebrowser'
