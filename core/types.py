@@ -26,3 +26,10 @@ class SystemStatus(Enum):
 				return status
 
 		raise ValueError(f"""Status with id "{id_}" not found.""")
+
+
+class WorkerType(Enum):
+	CCXT = 'ccxt'
+	HB_CLIENT = 'hb-client'
+	HB_GATEWAY_CLOB = 'hb-gateway-clob'
+	HB_GATEWAY_KUJIRA = 'hb-gateway-kujira'
