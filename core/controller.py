@@ -15,9 +15,11 @@ from hummingbot.strategies.types import Strategy
 
 tasks: DotMap[str, asyncio.Task] = DotMap({
 })
+tasks._dynamic=True
 
 processes: DotMap[str, StrategyBase] = DotMap({
 })
+processes._dynamic=True
 
 
 def sanitize_options(options: DotMap[str, Any]) -> DotMap[str, Any]:
