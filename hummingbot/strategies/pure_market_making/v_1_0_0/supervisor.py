@@ -408,15 +408,15 @@ class Supervisor(StrategyBase):
 			return
 
 		self.state.wallets.previous_initial_pnl = Decimal(round(
-			100 * ((self.state.wallets.previous_value / self.state.wallets.initial_value) - 1),
+			100 * (self.safe_division(self.state.wallets.previous_value, self.state.wallets.initial_value) - 1),
 			DEFAULT_PRECISION
 		))
 		self.state.wallets.current_initial_pnl = Decimal(round(
-			100 * ((self.state.wallets.current_value / self.state.wallets.initial_value) - 1),
+			100 * (self.safe_division(self.state.wallets.current_value, self.state.wallets.initial_value) - 1),
 			DEFAULT_PRECISION
 		))
 		self.state.wallets.current_previous_pnl = Decimal(round(
-			100 * ((self.state.wallets.current_value / self.state.wallets.previous_value) - 1),
+			100 * (self.safe_division(self.state.wallets.current_value, self.state.wallets.previous_value) - 1),
 			DEFAULT_PRECISION
 		))
 		self.state.wallets.current_initial_pnl_in_usd = Decimal(round(
@@ -469,29 +469,29 @@ class Supervisor(StrategyBase):
 
 	def _get_new_state(self) -> DotMap[str, Any]:
 		return DotMap({
-				"configurations": {
-					"tick_interval": None,
-					"run_only_once": None
-				},
-				"active_workers": [],
-				"balances": DotMap({
-					"total": {
-						"free": DECIMAL_ZERO,
-						"lockedInOrders": DECIMAL_ZERO,
-						"unsettled": DECIMAL_ZERO,
-						"total": DECIMAL_ZERO,
-					}
-				}, _dynamic=False),
-				"wallets": {
-					"initial_value": DECIMAL_ZERO,
-					"previous_value": DECIMAL_ZERO,
-					"current_value": DECIMAL_ZERO,
-					"previous_initial_pnl": DECIMAL_ZERO,
-					"current_initial_pnl": DECIMAL_ZERO,
-					"current_previous_pnl": DECIMAL_ZERO,
-					"current_initial_pnl_in_usd": DECIMAL_ZERO,
-				},
-			}, _dynamic=False)
+			"configurations": {
+				"tick_interval": None,
+				"run_only_once": None
+			},
+			"active_workers": [],
+			"balances": DotMap({
+				"total": {
+					"free": DECIMAL_ZERO,
+					"lockedInOrders": DECIMAL_ZERO,
+					"unsettled": DECIMAL_ZERO,
+					"total": DECIMAL_ZERO,
+				}
+			}, _dynamic=False),
+			"wallets": {
+				"initial_value": DECIMAL_ZERO,
+				"previous_value": DECIMAL_ZERO,
+				"current_value": DECIMAL_ZERO,
+				"previous_initial_pnl": DECIMAL_ZERO,
+				"current_initial_pnl": DECIMAL_ZERO,
+				"current_previous_pnl": DECIMAL_ZERO,
+				"current_initial_pnl_in_usd": DECIMAL_ZERO,
+			},
+		}, _dynamic=False)
 
 	def _recreate_state(self):
 		self.state = self._get_new_state()
@@ -540,10 +540,8 @@ class Supervisor(StrategyBase):
 	def _print_summary_and_save_state(self):
 		summary = self._get_summary()
 
-		if not summary or summary is None:
-			summary = "Summary not ready."
-		else:
+		if summary:
 			self._save_state()
 
-		self.log(INFO, summary)
-		self.telegram_log(INFO, summary)
+			self.log(INFO, summary)
+			self.telegram_log(INFO, summary)

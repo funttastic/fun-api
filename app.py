@@ -378,11 +378,11 @@ async def hummingbot_gateway(request: Request, subpath=''):
 		body = DotMap(await request.json())
 	except:
 		body = DotMap({})
-	headers = DotMap(request.headers)
+	headers = DotMap(request.headers.raw)
 
 	method = HttpMethod[request.method.upper()]
 
-	response, response_status_code = await hummingbot_gateway_router(
+	response = await hummingbot_gateway_router(
 		method=method,
 		url=subpath,
 		paths=paths,
@@ -393,7 +393,7 @@ async def hummingbot_gateway(request: Request, subpath=''):
 	)
 
 	try:
-		if (response or response is not None) and response_status_code == 200:
+		if response is not None:
 			subpath = request.path_params['subpath']
 
 			if subpath == "wallet/add":
@@ -438,11 +438,11 @@ async def hummingbot_client(request: Request, subpath=''):
 		body = DotMap(await request.json())
 	except:
 		body = DotMap({})
-	headers = DotMap(request.headers)
+	headers = DotMap(request.headers.raw)
 
 	method = HttpMethod[request.method.upper()]
 
-	response, response_status_code = await hummingbot_client_router(
+	response = await hummingbot_client_router(
 		method=method,
 		url=subpath,
 		paths=paths,

@@ -389,9 +389,9 @@ class Worker(WorkerBase):
 				else:
 					raise ValueError(f"Invalid budget in layer {index}.")
 
-				bid_size = bid_budget / quotation / bid_quantity if bid_quantity > 0 else 0
+				bid_size = self.safe_division(self.safe_division(bid_budget, quotation), bid_quantity)
 
-				if not (bid_quantity > 0):
+				if bid_size.is_nan() or (not (bid_size > 0)):
 					continue
 
 				if bid_price < minimum_price_increment:
@@ -438,9 +438,9 @@ class Worker(WorkerBase):
 				else:
 					raise ValueError(f"Invalid budget in layer {index}.")
 
-				ask_size = ask_budget / quotation / ask_quantity if ask_quantity > 0 else 0
+				ask_size = self.safe_division(self.safe_division(ask_budget, quotation), ask_quantity)
 
-				if not (ask_quantity > 0):
+				if ask_size.is_nan() or (not (ask_size > 0)):
 					continue
 
 				if ask_price < minimum_price_increment:
@@ -1170,7 +1170,7 @@ class Worker(WorkerBase):
 
 				try:
 					wallet_previous_initial_pnl = Decimal(round(
-						100 * ((self.state.wallet.previous_value / self.state.wallet.initial_value) - 1),
+						100 * (self.safe_division(self.state.wallet.previous_value, self.state.wallet.initial_value) - 1),
 						DEFAULT_PRECISION
 					))
 					wallet_current_initial_pnl_in_usd = Decimal(round(
@@ -1178,28 +1178,28 @@ class Worker(WorkerBase):
 						DEFAULT_PRECISION
 					))
 					wallet_current_initial_pnl = Decimal(round(
-						100 * ((self.state.wallet.current_value / self.state.wallet.initial_value) - 1),
+						100 * (self.safe_division(self.state.wallet.current_value, self.state.wallet.initial_value) - 1),
 						DEFAULT_PRECISION
 					))
 					wallet_current_previous_pnl = Decimal(round(
-						100 * ((self.state.wallet.current_value / self.state.wallet.previous_value) - 1),
+						100 * (self.safe_division(self.state.wallet.current_value, self.state.wallet.previous_value) - 1),
 						DEFAULT_PRECISION
 					))
 					token_base_previous_initial_pnl = Decimal(round(
-						100 * ((self.state.token.base.previous_price / self.state.token.base.initial_price) - 1),
+						100 * (self.safe_division(self.state.token.base.previous_price, self.state.token.base.initial_price) - 1),
 						DEFAULT_PRECISION
 					))
 					token_base_current_initial_pnl = Decimal(round(
-						100 * ((self.state.token.base.current_price / self.state.token.base.initial_price) - 1),
+						100 * (self.safe_division(self.state.token.base.current_price, self.state.token.base.initial_price) - 1),
 						DEFAULT_PRECISION
 					))
 					token_base_current_previous_pnl = Decimal(round(
-						100 * ((self.state.token.base.current_price / self.state.token.base.previous_price) - 1),
+						100 * (self.safe_division(self.state.token.base.current_price, self.state.token.base.previous_price) - 1),
 						DEFAULT_PRECISION
 					))
 
 					wallet_current_initial_pnl_to_token_base_current_initial_pnl = Decimal(round(
-						100 * ((wallet_current_initial_pnl / token_base_current_initial_pnl) - 1),
+						100 * (self.safe_division(wallet_current_initial_pnl, token_base_current_initial_pnl) - 1),
 						DEFAULT_PRECISION
 					))
 				except Exception as exception:
@@ -1340,8 +1340,8 @@ class Worker(WorkerBase):
 			groups: array[array[str]] = [[]]
 			for order in orders:
 				groups[0].append(order.id)
-				# groups[1].append(str(order.type).lower())
-				# groups[2].append(order.marketName)
+			# groups[1].append(str(order.type).lower())
+			# groups[2].append(order.marketName)
 
 			canceled_orders_summary = format_lines(groups)
 
@@ -1461,7 +1461,7 @@ class Worker(WorkerBase):
 		)
 
 		return summary
-	
+
 	def _hot_reload(self):
 		import importlib
 		module = importlib.reload(importlib.import_module(self.__module__))
@@ -1493,7 +1493,7 @@ class Worker(WorkerBase):
 					min_value = min(*values)
 					quotation = self._balances.tokens[self.state.gas_payed.token.id].inUSD.quotation
 
-					factor = quotation if quotation else min_value / max_value
+					factor = quotation if quotation else self.safe_division(min_value, max_value)
 
 					self.state.gas_payed.usd_amounts[transaction_type] += Decimal(order.fee) * factor
 					self.state.gas_payed.usd_amounts.total += Decimal(order.fee) * factor
@@ -1540,67 +1540,67 @@ class Worker(WorkerBase):
 
 	def _get_new_state(self) -> DotMap[str, Any]:
 		return DotMap({
-				"configurations": {
-					"order_type": None,
-					"price_strategy": None,
-					"middle_price_strategy": None,
-					"use_adjusted_price": None
+			"configurations": {
+				"order_type": None,
+				"price_strategy": None,
+				"middle_price_strategy": None,
+				"use_adjusted_price": None
+			},
+			"balances": DotMap({}, _dynamic=False),
+			"orders": {
+				"new": DotMap({}, _dynamic=False),
+				"open": DotMap({}, _dynamic=False),
+				"canceled": DotMap({}, _dynamic=False),
+				"filled": DotMap({}, _dynamic=False),
+			},
+			"gas_payed": {
+				"token": KUJIRA_NATIVE_TOKEN,
+				"token_amounts": {
+					"creation": DECIMAL_ZERO,
+					"cancellation": DECIMAL_ZERO,
+					"withdrawing": {
+						"native": DECIMAL_ZERO,
+						"base": DECIMAL_ZERO,
+						"quote": DECIMAL_ZERO
+					},
+					"total": DECIMAL_ZERO
 				},
-				"balances": DotMap({}, _dynamic=False),
-				"orders": {
-					"new": DotMap({}, _dynamic=False),
-					"open": DotMap({}, _dynamic=False),
-					"canceled": DotMap({}, _dynamic=False),
-					"filled": DotMap({}, _dynamic=False),
-				},
-				"gas_payed": {
-					"token": KUJIRA_NATIVE_TOKEN,
-					"token_amounts": {
-						"creation": DECIMAL_ZERO,
-						"cancellation": DECIMAL_ZERO,
-						"withdrawing": {
-							"native": DECIMAL_ZERO,
-							"base": DECIMAL_ZERO,
-							"quote": DECIMAL_ZERO
-						},
+				"usd_amounts": {
+					"creation": DECIMAL_ZERO,
+					"cancellation": DECIMAL_ZERO,
+					"withdrawing": {
+						"base": DECIMAL_ZERO,
+						"quote": DECIMAL_ZERO,
 						"total": DECIMAL_ZERO
 					},
-					"usd_amounts": {
-						"creation": DECIMAL_ZERO,
-						"cancellation": DECIMAL_ZERO,
-						"withdrawing": {
-							"base": DECIMAL_ZERO,
-							"quote": DECIMAL_ZERO,
-							"total": DECIMAL_ZERO
-						},
-						"total": DECIMAL_ZERO,
-					}
-				},
-				"wallet": {
-					"initial_value": DECIMAL_ZERO,
-					"previous_value": DECIMAL_ZERO,
-					"current_value": DECIMAL_ZERO,
+					"total": DECIMAL_ZERO,
+				}
+			},
+			"wallet": {
+				"initial_value": DECIMAL_ZERO,
+				"previous_value": DECIMAL_ZERO,
+				"current_value": DECIMAL_ZERO,
+				"previous_initial_pnl": DECIMAL_ZERO,
+				"current_initial_pnl": DECIMAL_ZERO,
+				"current_previous_pnl": DECIMAL_ZERO,
+				"current_initial_pnl_in_usd": DECIMAL_ZERO,
+			},
+			"token": {
+				"base": {
+					"initial_price": DECIMAL_ZERO,
+					"previous_price": DECIMAL_ZERO,
+					"current_price": DECIMAL_ZERO,
 					"previous_initial_pnl": DECIMAL_ZERO,
 					"current_initial_pnl": DECIMAL_ZERO,
 					"current_previous_pnl": DECIMAL_ZERO,
-					"current_initial_pnl_in_usd": DECIMAL_ZERO,
 				},
-				"token": {
-					"base": {
-						"initial_price": DECIMAL_ZERO,
-						"previous_price": DECIMAL_ZERO,
-						"current_price": DECIMAL_ZERO,
-						"previous_initial_pnl": DECIMAL_ZERO,
-						"current_initial_pnl": DECIMAL_ZERO,
-						"current_previous_pnl": DECIMAL_ZERO,
-					},
-				},
-				"price": {
-					"used_price": DECIMAL_ZERO,
-					"ticker_price": DECIMAL_ZERO,
-					"last_filled_order_price": DECIMAL_ZERO,
-				}
-			}, _dynamic=False)
+			},
+			"price": {
+				"used_price": DECIMAL_ZERO,
+				"ticker_price": DECIMAL_ZERO,
+				"last_filled_order_price": DECIMAL_ZERO,
+			}
+		}, _dynamic=False)
 
 	def _recreate_state(self):
 		self.state = self._get_new_state()

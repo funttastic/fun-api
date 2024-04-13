@@ -408,15 +408,15 @@ class Supervisor(StrategyBase):
 			return
 
 		self.state.wallets.previous_initial_pnl = Decimal(round(
-			100 * ((self.state.wallets.previous_value / self.state.wallets.initial_value) - 1),
+			100 * (self.safe_division(self.state.wallets.previous_value, self.state.wallets.initial_value) - 1),
 			DEFAULT_PRECISION
 		))
 		self.state.wallets.current_initial_pnl = Decimal(round(
-			100 * ((self.state.wallets.current_value / self.state.wallets.initial_value) - 1),
+			100 * (self.safe_division(self.state.wallets.current_value, self.state.wallets.initial_value) - 1),
 			DEFAULT_PRECISION
 		))
 		self.state.wallets.current_previous_pnl = Decimal(round(
-			100 * ((self.state.wallets.current_value / self.state.wallets.previous_value) - 1),
+			100 * (self.safe_division(self.state.wallets.current_value, self.state.wallets.previous_value) - 1),
 			DEFAULT_PRECISION
 		))
 		self.state.wallets.current_initial_pnl_in_usd = Decimal(round(
@@ -540,10 +540,8 @@ class Supervisor(StrategyBase):
 	def _print_summary_and_save_state(self):
 		summary = self._get_summary()
 
-		if not summary or summary is None:
-			summary = "Summary not ready."
-		else:
+		if summary:
 			self._save_state()
 
-		self.log(INFO, summary)
-		self.telegram_log(INFO, summary)
+			self.log(INFO, summary)
+			self.telegram_log(INFO, summary)

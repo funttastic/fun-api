@@ -389,9 +389,9 @@ class Worker(WorkerBase):
 				else:
 					raise ValueError(f"Invalid budget in layer {index}.")
 
-				bid_size = bid_budget / quotation / bid_quantity if bid_quantity > 0 else 0
+				bid_size = self.safe_division(self.safe_division(bid_budget, quotation), bid_quantity)
 
-				if not (bid_quantity > 0):
+				if bid_size.is_nan() or (not (bid_size > 0)):
 					continue
 
 				if bid_price < minimum_price_increment:
@@ -438,9 +438,9 @@ class Worker(WorkerBase):
 				else:
 					raise ValueError(f"Invalid budget in layer {index}.")
 
-				ask_size = ask_budget / quotation / ask_quantity if ask_quantity > 0 else 0
+				ask_size = self.safe_division(self.safe_division(ask_budget, quotation), ask_quantity)
 
-				if not (ask_quantity > 0):
+				if ask_size.is_nan() or (not (ask_size > 0)):
 					continue
 
 				if ask_price < minimum_price_increment:
@@ -1170,7 +1170,7 @@ class Worker(WorkerBase):
 
 				try:
 					wallet_previous_initial_pnl = Decimal(round(
-						100 * ((self.state.wallet.previous_value / self.state.wallet.initial_value) - 1),
+						100 * (self.safe_division(self.state.wallet.previous_value, self.state.wallet.initial_value) - 1),
 						DEFAULT_PRECISION
 					))
 					wallet_current_initial_pnl_in_usd = Decimal(round(
@@ -1178,28 +1178,28 @@ class Worker(WorkerBase):
 						DEFAULT_PRECISION
 					))
 					wallet_current_initial_pnl = Decimal(round(
-						100 * ((self.state.wallet.current_value / self.state.wallet.initial_value) - 1),
+						100 * (self.safe_division(self.state.wallet.current_value, self.state.wallet.initial_value) - 1),
 						DEFAULT_PRECISION
 					))
 					wallet_current_previous_pnl = Decimal(round(
-						100 * ((self.state.wallet.current_value / self.state.wallet.previous_value) - 1),
+						100 * (self.safe_division(self.state.wallet.current_value, self.state.wallet.previous_value) - 1),
 						DEFAULT_PRECISION
 					))
 					token_base_previous_initial_pnl = Decimal(round(
-						100 * ((self.state.token.base.previous_price / self.state.token.base.initial_price) - 1),
+						100 * (self.safe_division(self.state.token.base.previous_price, self.state.token.base.initial_price) - 1),
 						DEFAULT_PRECISION
 					))
 					token_base_current_initial_pnl = Decimal(round(
-						100 * ((self.state.token.base.current_price / self.state.token.base.initial_price) - 1),
+						100 * (self.safe_division(self.state.token.base.current_price, self.state.token.base.initial_price) - 1),
 						DEFAULT_PRECISION
 					))
 					token_base_current_previous_pnl = Decimal(round(
-						100 * ((self.state.token.base.current_price / self.state.token.base.previous_price) - 1),
+						100 * (self.safe_division(self.state.token.base.current_price, self.state.token.base.previous_price) - 1),
 						DEFAULT_PRECISION
 					))
 
 					wallet_current_initial_pnl_to_token_base_current_initial_pnl = Decimal(round(
-						100 * ((wallet_current_initial_pnl / token_base_current_initial_pnl) - 1),
+						100 * (self.safe_division(wallet_current_initial_pnl, token_base_current_initial_pnl) - 1),
 						DEFAULT_PRECISION
 					))
 				except Exception as exception:
@@ -1493,7 +1493,7 @@ class Worker(WorkerBase):
 					min_value = min(*values)
 					quotation = self._balances.tokens[self.state.gas_payed.token.id].inUSD.quotation
 
-					factor = quotation if quotation else min_value / max_value
+					factor = quotation if quotation else self.safe_division(min_value, max_value)
 
 					self.state.gas_payed.usd_amounts[transaction_type] += Decimal(order.fee) * factor
 					self.state.gas_payed.usd_amounts.total += Decimal(order.fee) * factor

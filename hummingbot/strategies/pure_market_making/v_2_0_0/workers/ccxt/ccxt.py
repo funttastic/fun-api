@@ -1,21 +1,20 @@
-from logging import DEBUG, INFO, WARNING, CRITICAL
-from pathlib import Path
-
 import asyncio
 import copy
 import json
 import os
 import textwrap
 import traceback
-import yaml
 from array import array
 from decimal import Decimal, DecimalException
-from dotmap import DotMap
+from logging import DEBUG, INFO, WARNING, CRITICAL
 from typing import Any, List, Optional
+
+import yaml
+from dotmap import DotMap
 
 from core.decorators import log_class_exceptions
 from core.properties import properties
-from core.types import SystemStatus, WorkerType
+from core.types import SystemStatus
 from core.utils import dump, deep_merge
 from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column, DECIMAL_INFINITY
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
@@ -27,12 +26,11 @@ from hummingbot.utils import calculate_middle_price, format_currency, format_lin
 
 
 @log_class_exceptions
-class CCXTWorker(WorkerBase):
+class Worker(WorkerBase):
 	CATEGORY = "worker"
 
 	def __init__(self, parent: Any, client_id: str):
 		try:
-			self._type = WorkerType.CCXT
 			self._parent = parent
 			self._client_id = client_id
 
@@ -89,7 +87,7 @@ class CCXTWorker(WorkerBase):
 		self.log(INFO, "start")
 
 		root_path = properties.get('app_root_path')
-		base_path = Path(str(os.path.join(root_path, "resources", "strategies", self._parent.ID, self._parent.VERSION))).absolute().as_posix()
+		base_path = os.path.join(root_path, "resources", "strategies", self._parent.ID, self._parent.VERSION)
 
 		configuration = {}
 
@@ -107,7 +105,7 @@ class CCXTWorker(WorkerBase):
 
 		self._configuration = DotMap(configuration, _dynamic=False)
 
-		self._database_path = os.path.join(root_path, "resources", "databases", self._parent.ID, self._parent.VERSION, "workers", f"{self._client_id}.sqlite")
+		self._database_path = os.path.join(root_path, "resources", "databases", self._parent.ID, self._parent.VERSION, "workers", f"{self._client_id}.json")
 
 		self.log(INFO, "end")
 
@@ -118,7 +116,7 @@ class CCXTWorker(WorkerBase):
 
 			self._initialized = False
 
-			self._load_database()
+			self._load_state()
 
 			self._market_name = self._configuration.market
 
@@ -391,9 +389,9 @@ class CCXTWorker(WorkerBase):
 				else:
 					raise ValueError(f"Invalid budget in layer {index}.")
 
-				bid_size = bid_budget / quotation / bid_quantity if bid_quantity > 0 else 0
+				bid_size = self.safe_division(self.safe_division(bid_budget, quotation), bid_quantity)
 
-				if not (bid_quantity > 0):
+				if bid_size.is_nan() or (not (bid_size > 0)):
 					continue
 
 				if bid_price < minimum_price_increment:
@@ -440,9 +438,9 @@ class CCXTWorker(WorkerBase):
 				else:
 					raise ValueError(f"Invalid budget in layer {index}.")
 
-				ask_size = ask_budget / quotation / ask_quantity if ask_quantity > 0 else 0
+				ask_size = self.safe_division(self.safe_division(ask_budget, quotation), ask_quantity)
 
-				if not (ask_quantity > 0):
+				if ask_size.is_nan() or (not (ask_size > 0)):
 					continue
 
 				if ask_price < minimum_price_increment:
@@ -1172,7 +1170,7 @@ class CCXTWorker(WorkerBase):
 
 				try:
 					wallet_previous_initial_pnl = Decimal(round(
-						100 * ((self.state.wallet.previous_value / self.state.wallet.initial_value) - 1),
+						100 * (self.safe_division(self.state.wallet.previous_value, self.state.wallet.initial_value) - 1),
 						DEFAULT_PRECISION
 					))
 					wallet_current_initial_pnl_in_usd = Decimal(round(
@@ -1180,28 +1178,28 @@ class CCXTWorker(WorkerBase):
 						DEFAULT_PRECISION
 					))
 					wallet_current_initial_pnl = Decimal(round(
-						100 * ((self.state.wallet.current_value / self.state.wallet.initial_value) - 1),
+						100 * (self.safe_division(self.state.wallet.current_value, self.state.wallet.initial_value) - 1),
 						DEFAULT_PRECISION
 					))
 					wallet_current_previous_pnl = Decimal(round(
-						100 * ((self.state.wallet.current_value / self.state.wallet.previous_value) - 1),
+						100 * (self.safe_division(self.state.wallet.current_value, self.state.wallet.previous_value) - 1),
 						DEFAULT_PRECISION
 					))
 					token_base_previous_initial_pnl = Decimal(round(
-						100 * ((self.state.token.base.previous_price / self.state.token.base.initial_price) - 1),
+						100 * (self.safe_division(self.state.token.base.previous_price, self.state.token.base.initial_price) - 1),
 						DEFAULT_PRECISION
 					))
 					token_base_current_initial_pnl = Decimal(round(
-						100 * ((self.state.token.base.current_price / self.state.token.base.initial_price) - 1),
+						100 * (self.safe_division(self.state.token.base.current_price, self.state.token.base.initial_price) - 1),
 						DEFAULT_PRECISION
 					))
 					token_base_current_previous_pnl = Decimal(round(
-						100 * ((self.state.token.base.current_price / self.state.token.base.previous_price) - 1),
+						100 * (self.safe_division(self.state.token.base.current_price, self.state.token.base.previous_price) - 1),
 						DEFAULT_PRECISION
 					))
 
 					wallet_current_initial_pnl_to_token_base_current_initial_pnl = Decimal(round(
-						100 * ((wallet_current_initial_pnl / token_base_current_initial_pnl) - 1),
+						100 * (self.safe_division(wallet_current_initial_pnl, token_base_current_initial_pnl) - 1),
 						DEFAULT_PRECISION
 					))
 				except Exception as exception:
@@ -1495,7 +1493,7 @@ class CCXTWorker(WorkerBase):
 					min_value = min(*values)
 					quotation = self._balances.tokens[self.state.gas_payed.token.id].inUSD.quotation
 
-					factor = quotation if quotation else min_value / max_value
+					factor = quotation if quotation else self.safe_division(min_value, max_value)
 
 					self.state.gas_payed.usd_amounts[transaction_type] += Decimal(order.fee) * factor
 					self.state.gas_payed.usd_amounts.total += Decimal(order.fee) * factor
@@ -1622,7 +1620,7 @@ class CCXTWorker(WorkerBase):
 		with open(filepath, "w+") as file:
 			json.dump(self.state.toDict(), file, indent=2, default=handle_serialization)
 
-	def _load_database(self):
+	def _load_state(self):
 		if self._configuration.state.recreate_on_start:
 			self._recreate_state()
 		else:

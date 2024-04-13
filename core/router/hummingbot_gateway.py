@@ -81,4 +81,4 @@ Stacktrace:\n\t{result.stack}\
 """
 		)
 
-	return result, response.status_code
+	return result
