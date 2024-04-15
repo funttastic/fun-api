@@ -1291,7 +1291,7 @@ class Worker(WorkerBase):
 		return status
 
 	# noinspection DuplicatedCode
-	def _get_summary(self) -> str:
+	def _get_summary(self) -> str | None:
 		summary = ""
 
 		new_orders_summary = ""
@@ -1649,10 +1649,8 @@ class Worker(WorkerBase):
 	def _print_summary_and_save_state(self):
 		summary = self._get_summary()
 
-		if not summary or summary is None:
-			summary = "Summary not ready."
-		else:
+		if summary:
 			self._save_state()
 
-		self.log(INFO, summary)
-		self.telegram_log(INFO, summary)
+			self.log(INFO, summary)
+			self.telegram_log(INFO, summary)
