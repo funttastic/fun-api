@@ -543,6 +543,26 @@ async def start_api():
 		pydevd_pycharm.settrace('localhost', port=30001, stdoutToServer=True, stderrToServer=True, suspend=False)
 
 
+@app.get("/development/test")
+@app.post("/development/test")
+@app.put("/development/test")
+@app.delete("/development/test")
+@app.patch("/development/test")
+@app.head("/development/test")
+@app.options("/development/test")
+async def development_test(request: Request) -> Dict[str, Any]:
+	await validate(request)
+
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
+
+	body = DotMap(body, _dynamic=False)
+
+	return await controller.test(body)
+
+
 async def main():
 	loop = asyncio.get_event_loop()
 

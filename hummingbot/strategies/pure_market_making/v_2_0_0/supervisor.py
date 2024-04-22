@@ -1,27 +1,28 @@
+from logging import DEBUG, INFO
+
 import asyncio
 import copy
 import json
 import os
 import textwrap
 import traceback
+import yaml
 from _decimal import Decimal
 from decimal import DecimalException
-from logging import DEBUG, INFO
-from typing import Any
-
-import yaml
 from dotmap import DotMap
+from typing import Any
 
 from core.decorators import log_class_exceptions
 from core.properties import properties
 from core.types import SystemStatus
 from core.utils import deep_merge
 from core.utils import dump
+from hummingbot.constants import DECIMAL_ZERO, alignment_column, DEFAULT_PRECISION
 from hummingbot.gateway import Gateway
 from hummingbot.strategies.pure_market_making.v_1_0_0.worker import Worker
+from hummingbot.strategies.pure_market_making.v_2_0_0.types import WorkerType
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.worker_base import WorkerBase
-from hummingbot.constants import DECIMAL_ZERO, alignment_column, DEFAULT_PRECISION
 from hummingbot.utils import format_currency, format_line, format_percentage
 
 
@@ -30,7 +31,7 @@ class Supervisor(StrategyBase):
 
 	ID = "pure_market_making"
 	SHORT_ID = "pmm"
-	VERSION = "1.0.0"
+	VERSION = "2.0.0"
 	TITLE = "Pure Market Making"
 	CATEGORY = "supervisor"
 
@@ -146,7 +147,8 @@ class Supervisor(StrategyBase):
 
 			coroutines = []
 			for worker_id in self._configuration.workers.keys():
-				worker = Worker(self, worker_id)
+				worker_class = WorkerType.get_by_id(self._configuration.workers[worker_id].type).class_
+				worker = worker_class(self, worker_id)
 				self._workers[worker_id] = worker
 				self._tasks.workers[worker_id] = asyncio.create_task(self._workers[worker_id].start())
 				coroutines.append(self._tasks.workers[worker_id])
@@ -154,7 +156,7 @@ class Supervisor(StrategyBase):
 			await asyncio.gather(*coroutines, return_exceptions=True)
 
 			self._initialized = True
-			self._can_run = True
+			self._can_run = False  # TODO revert to True when the implementation is ready!!!
 		except Exception as exception:
 			self.ignore_exception(exception)
 

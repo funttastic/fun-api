@@ -378,3 +378,40 @@ def update_gateway_connections(params: Any):
 
 	save(gateway_connections_absolute_file_path, gateway_connections_content)
 	save(gateway_networks_absolute_file_path, gateway_network_content)
+
+
+async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
+	from hummingbot.strategies.pure_market_making.v_2_0_0.connectors.ccxt.ccxt import CCXTConnector
+
+	options = DotMap({
+		"ccxt": {
+			"exchange": {
+				"id": os.environ.get("EXCHANGE_ID", "binance"),
+				"environment": os.environ.get("EXCHANGE_ENVIRONMENT", "production"),
+				"rest": {
+					"constructor": {
+						"apiKey": os.environ.get("EXCHANGE_API_KEY"),
+						"secret": os.environ.get("EXCHANGE_API_SECRET"),
+					},
+					"options": {
+						"subaccountId": os.environ.get("EXCHANGE_SUB_ACCOUNT_ID"),
+					},
+				},
+				"websocket": {
+					"constructor": {
+						"apiKey": os.environ.get("EXCHANGE_API_KEY"),
+						"secret": os.environ.get("EXCHANGE_API_SECRET"),
+					},
+					"options": {
+						"subaccountId": os.environ.get("EXCHANGE_SUB_ACCOUNT_ID"),
+					},
+				}
+			}
+		}
+	}, _dynamic=False)
+	connector = CCXTConnector(options)
+	await connector.initialize(options)
+
+	print(await connector.rest.get_markets())
+
+	return options
