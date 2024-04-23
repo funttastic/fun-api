@@ -362,3 +362,91 @@ class Gateway:
 			url='kujira/fees/estimated',
 			body=body,
 		)
+
+	@staticmethod
+	@automatic_retry_with_timeout(retries=NUMBER_OF_RETRIES, delay=DELAY_BETWEEN_RETRIES, timeout=TIMEOUT)
+	async def clob_get_markets(
+		body: Dict[str, Any] | DotMap[str, Any]
+	) -> DotMap[str, Any]:
+		return await hummingbot_gateway_router(
+			method=HttpMethod.GET,
+			url='clob/markets',
+			body=body,
+		)
+
+	@staticmethod
+	@automatic_retry_with_timeout(retries=NUMBER_OF_RETRIES, delay=DELAY_BETWEEN_RETRIES, timeout=TIMEOUT)
+	async def clob_get_orderbook(
+		body: Dict[str, Any] | DotMap[str, Any]
+	) -> DotMap[str, Any]:
+		return await hummingbot_gateway_router(
+			method=HttpMethod.GET,
+			url='clob/orderbook',
+			body=body,
+		)
+
+	@staticmethod
+	@automatic_retry_with_timeout(retries=NUMBER_OF_RETRIES, delay=DELAY_BETWEEN_RETRIES, timeout=TIMEOUT)
+	async def clob_get_ticker(
+		body: Dict[str, Any] | DotMap[str, Any]
+	) -> DotMap[str, Any]:
+		return await hummingbot_gateway_router(
+			method=HttpMethod.GET,
+			url='clob/ticker',
+			body=body,
+		)
+
+	@staticmethod
+	@automatic_retry_with_timeout(retries=NUMBER_OF_RETRIES, delay=DELAY_BETWEEN_RETRIES, timeout=TIMEOUT)
+	async def clob_get_orders(
+		body: Dict[str, Any] | DotMap[str, Any]
+	) -> DotMap[str, Any]:
+		return await hummingbot_gateway_router(
+			method=HttpMethod.GET,
+			url='clob/orders',
+			body=body,
+		)
+
+	@staticmethod
+	@automatic_retry_with_timeout(retries=NUMBER_OF_RETRIES, delay=DELAY_BETWEEN_RETRIES, timeout=TIMEOUT)
+	async def clob_post_orders(
+		body: Dict[str, Any] | DotMap[str, Any]
+	) -> DotMap[str, Any]:
+		return await hummingbot_gateway_router(
+			method=HttpMethod.POST,
+			url='clob/orders',
+			body=body,
+		)
+
+	@staticmethod
+	@automatic_retry_with_timeout(retries=NUMBER_OF_RETRIES, delay=DELAY_BETWEEN_RETRIES, timeout=TIMEOUT)
+	async def clob_delete_orders(
+		body: Dict[str, Any] | DotMap[str, Any]
+	) -> DotMap[str, Any]:
+		return await hummingbot_gateway_router(
+			method=HttpMethod.DELETE,
+			url='clob/orders',
+			body=body,
+		)
+
+	@staticmethod
+	@automatic_retry_with_timeout(retries=NUMBER_OF_RETRIES, delay=DELAY_BETWEEN_RETRIES, timeout=TIMEOUT)
+	async def clob_post_batch_orders(
+		body: Dict[str, Any] | DotMap[str, Any]
+	) -> DotMap[str, Any]:
+		return await hummingbot_gateway_router(
+			method=HttpMethod.POST,
+			url='clob/batchOrders',
+			body=body,
+		)
+
+	@staticmethod
+	@automatic_retry_with_timeout(retries=NUMBER_OF_RETRIES, delay=DELAY_BETWEEN_RETRIES, timeout=TIMEOUT)
+	async def clob_get_estimate_gas(
+		body: Dict[str, Any] | DotMap[str, Any]
+	) -> DotMap[str, Any]:
+		return await hummingbot_gateway_router(
+			method=HttpMethod.GET,
+			url='clob/estimateGas',
+			body=body,
+		)
