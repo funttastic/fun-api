@@ -9,7 +9,7 @@ from core.types import HttpMethod
 from hummingbot.constants import NUMBER_OF_RETRIES, DELAY_BETWEEN_RETRIES, TIMEOUT
 
 
-class Gateway:
+class HummingbotGateway:
 
 	@staticmethod
 	@automatic_retry_with_timeout(retries=NUMBER_OF_RETRIES, delay=DELAY_BETWEEN_RETRIES, timeout=TIMEOUT)
@@ -412,6 +412,9 @@ class Gateway:
 	async def clob_post_orders(
 		body: Dict[str, Any] | DotMap[str, Any]
 	) -> DotMap[str, Any]:
+		"""
+			Although the function name is `clob_post_orders`, it is used to place a single order.
+		"""
 		return await hummingbot_gateway_router(
 			method=HttpMethod.POST,
 			url='clob/orders',
@@ -423,6 +426,9 @@ class Gateway:
 	async def clob_delete_orders(
 		body: Dict[str, Any] | DotMap[str, Any]
 	) -> DotMap[str, Any]:
+		"""
+		Although the function name is `clob_delete_orders`, it is used to delete a single order.
+		"""
 		return await hummingbot_gateway_router(
 			method=HttpMethod.DELETE,
 			url='clob/orders',
