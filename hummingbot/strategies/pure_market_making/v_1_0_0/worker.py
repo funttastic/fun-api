@@ -18,7 +18,7 @@ from core.types import SystemStatus
 from core.utils import dump, deep_merge
 from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column, DECIMAL_INFINITY
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
-from hummingbot.gateway import Gateway
+from hummingbot.hummingbot_gateway import HummingbotGateway
 from hummingbot.strategies.worker_base import WorkerBase
 from hummingbot.types import OrderStatus, OrderType, OrderSide, PriceStrategy, MiddlePriceStrategy, Order
 from hummingbot.utils import calculate_middle_price, format_currency, format_lines, format_line, format_percentage, \
@@ -725,7 +725,7 @@ class Worker(WorkerBase):
 				if use_cache and self._balances is not None:
 					response = self._balances
 				else:
-					response = await Gateway.kujira_get_balances(request)
+					response = await HummingbotGateway.kujira_get_balances(request)
 
 					self._balances = DotMap(copy.deepcopy(response), _dynamic=False)
 
@@ -772,7 +772,7 @@ class Worker(WorkerBase):
 
 				self.log(DEBUG, f"""gateway.kujira_get_market: request:\n{dump(request)}""")
 
-				response = await Gateway.kujira_get_market(request)
+				response = await HummingbotGateway.kujira_get_market(request)
 
 				return response
 			except Exception as exception:
@@ -800,7 +800,7 @@ class Worker(WorkerBase):
 
 				self.log(DEBUG, f"""gateway.kujira_get_order_books: request:\n{dump(request)}""")
 
-				response = await Gateway.kujira_get_order_book(request)
+				response = await HummingbotGateway.kujira_get_order_book(request)
 
 				return response
 			except Exception as exception:
@@ -831,7 +831,7 @@ class Worker(WorkerBase):
 				if use_cache and self._tickers is not None:
 					response = self._tickers
 				else:
-					response = await Gateway.kujira_get_ticker(request)
+					response = await HummingbotGateway.kujira_get_ticker(request)
 
 					self._tickers = response
 
@@ -867,7 +867,7 @@ class Worker(WorkerBase):
 				if use_cache and self._open_orders is not None:
 					response = self._open_orders
 				else:
-					response = await Gateway.kujira_get_orders(request)
+					response = await HummingbotGateway.kujira_get_orders(request)
 					self._open_orders = response
 
 				return response
@@ -916,7 +916,7 @@ class Worker(WorkerBase):
 				if use_cache and self._filled_orders is not None:
 					response = self._filled_orders
 				else:
-					response = await Gateway.kujira_get_orders(request)
+					response = await HummingbotGateway.kujira_get_orders(request)
 					self._filled_orders = response
 
 				self.state.orders.filled = response
@@ -960,7 +960,7 @@ class Worker(WorkerBase):
 				self.log(DEBUG, f"""gateway.kujira_post_orders: request:\n{dump(request)}""")
 
 				if len(orders):
-					response = await Gateway.kujira_post_orders(request)
+					response = await HummingbotGateway.kujira_post_orders(request)
 
 					self._currently_tracked_orders_ids = list(response.keys())
 					self._all_tracked_orders_ids.extend(self._currently_tracked_orders_ids)
@@ -1010,7 +1010,7 @@ class Worker(WorkerBase):
 
 					self.log(DEBUG, f"""gateway.kujira_delete_orders: request:\n{dump(request)}""")
 
-					response = await Gateway.kujira_delete_orders(request)
+					response = await HummingbotGateway.kujira_delete_orders(request)
 
 					if response:
 						self._calculate_gas_sum(response, "cancellation")
@@ -1047,7 +1047,7 @@ class Worker(WorkerBase):
 
 				self.log(DEBUG, f"""gateway.clob_delete_orders: request:\n{dump(request)}""")
 
-				response = await Gateway.kujira_delete_orders_all(request)
+				response = await HummingbotGateway.kujira_delete_orders_all(request)
 
 				if response:
 					if not self._balances:
@@ -1078,7 +1078,7 @@ class Worker(WorkerBase):
 
 				self.log(DEBUG, f"""gateway.kujira_post_market_withdraw: request:\n{dump(request)}""")
 
-				response = await Gateway.kujira_post_market_withdraw(request)
+				response = await HummingbotGateway.kujira_post_market_withdraw(request)
 
 				if response:
 					self._calculate_gas_sum(response, "withdrawing")

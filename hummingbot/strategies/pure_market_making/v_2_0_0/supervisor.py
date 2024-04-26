@@ -18,7 +18,7 @@ from core.types import SystemStatus
 from core.utils import deep_merge
 from core.utils import dump
 from hummingbot.constants import DECIMAL_ZERO, alignment_column, DEFAULT_PRECISION
-from hummingbot.gateway import Gateway
+from hummingbot.hummingbot_gateway import HummingbotGateway
 from hummingbot.strategies.pure_market_making.v_1_0_0.worker import Worker
 from hummingbot.strategies.pure_market_making.v_2_0_0.types import WorkerType
 from hummingbot.strategies.strategy_base import StrategyBase
@@ -326,7 +326,7 @@ class Supervisor(StrategyBase):
 				if use_cache and self._balances is not None:
 					response = self._balances
 				else:
-					response = await Gateway.kujira_get_balances(request)
+					response = await HummingbotGateway.kujira_get_balances(request)
 
 					self._balances = DotMap(copy.deepcopy(response), _dynamic=False)
 

@@ -3,7 +3,7 @@ from typing import Any
 
 from core.decorators import log_class_exceptions
 from core.utils import deep_merge
-from hummingbot.gateway import Gateway
+from hummingbot.hummingbot_gateway import HummingbotGateway
 from hummingbot.strategies.pure_market_making.v_2_0_0.connectors.base import ConnectorBase, RESTConnectorBase, \
 	WebSocketConnectorBase
 
@@ -90,7 +90,7 @@ class HummingbotGatewayCLOBRESTConnector(RESTConnectorBase):
 	async def get_market(self, options: DotMap[str, Any] = None):
 		parameters = options
 
-		response = Gateway.clob_get_markets(parameters)
+		response = HummingbotGateway.clob_get_markets(parameters)
 
 		output = response
 
