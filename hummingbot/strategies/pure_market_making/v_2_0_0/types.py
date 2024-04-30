@@ -40,9 +40,9 @@ from typing import Any, Callable, Dict, List, Tuple, TypeVar, Union
 # Types and Constants
 #
 
-KujiraOrder = DeliverTxResponse
-KujiraEvent = Event
-KujiraEventAttribute = Attribute
+KujiraOrder = Any
+KujiraEvent = Any
+KujiraEventAttribute = Any
 
 FunctionType = Callable[..., Any]
 AsyncFunctionType = Callable[..., Any]
@@ -51,9 +51,9 @@ IList = list
 ISet = set
 IMap = Dict
 
-BasicKujiraToken = Denom
-BasicKujiraMarket = fin.Pair
-KujiraWithdraw = ExecuteResult
+BasicKujiraToken = Any
+BasicKujiraMarket = Any
+KujiraWithdraw = Any
 
 Address = str
 OwnerAddress = Address
@@ -313,12 +313,12 @@ class BasicWallet:
 
 class KujiraWalletArtifacts:
 	publicKey: Address
-	accountData: AccountData
+	accountData: Any
 	accountNumber: AccountNumber
-	directSecp256k1HdWallet: DirectSecp256k1HdWallet
-	signingStargateClient: SigningStargateClient
-	signingCosmWasmClient: SigningCosmWasmClient
-	finClients: IMap[MarketId, fin.FinClient]
+	directSecp256k1HdWallet: Any
+	signingStargateClient: Any
+	signingCosmWasmClient: Any
+	finClients: IMap[MarketId, Any]
 
 #
 # Errors
@@ -571,7 +571,7 @@ class CancelAllOrdersRequest:
 CancelAllOrdersResponse = CancelOrdersResponse
 
 class TransferFromToRequest:
-	from: OwnerAddress
+	from_: Any
 	to: OwnerAddress
 	amount: OrderAmount
 	tokenId: TokenId = None
@@ -656,6 +656,6 @@ class EstimatedGasResponse:
 class LatencyData:
 	endpoint: str
 	latency: int
-	latestBlockTime: datetime
+	latestBlockTime: Any
 
-RequestWrapper = Union[NetworkSelectionRequest, Any]
+RequestWrapper = Union[Any, Any]
