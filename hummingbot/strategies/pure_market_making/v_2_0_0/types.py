@@ -31,66 +31,98 @@ class WorkerType(Enum):
 		raise ValueError(f"""Worker type with id "{id_}" not found.""")
 
 
-#
-#  Types and Constants
-#
-
-address = str
-owner_address = address
-payer_address = address
-price = Decimal
-amount = Decimal
-fee = Decimal
-percentage = Decimal
-timestamp = int
-block = int
-encrypted_wallet = str
-token_id = address
-token_name = str
-token_symbol = str
-token_decimals = int
-market_name = str
-market_id = address
-market_precision = int
-market_program_id = address
-market_deprecation = bool
-market_minimum_order_size = Decimal
-market_minimum_price_increment = Decimal
-market_minimum_base_increment = Decimal
-market_minimum_quote_increment = Decimal
-ticker_price = price
-ticker_timestamp = timestamp
-transaction_hash = str
-order_id = str
-order_client_id = str
-order_market_name = market_name
-order_market_id = market_id
-fee_maker = fee
-fee_taker = fee
-fee_service_provider = fee
-estimated_fees_token = str
-estimated_fees_price = price
-estimate_fees_limit = Decimal
-estimate_fees_cost = Decimal
-mnemonic = str
-password = str
-account_number = int
-coin_gecko_symbol = str
-coin_gecko_id = str
-
-raw_market = any
-raw_ticker = any
-raw_order_book = any
-raw_order = any
-
-def frozen_set(values):
-	return frozenset(values)
-
-def dot_map(mapping):
-	return DotMap(mapping)
+from dotmap import DotMap
+from enum import Enum
+from decimal import Decimal
+from typing import Any, Callable, Dict, List, Tuple, TypeVar, Union
 
 #
-#  Enums
+# Types and Constants
+#
+
+KujiraOrder = DeliverTxResponse
+KujiraEvent = Event
+KujiraEventAttribute = Attribute
+
+FunctionType = Callable[..., Any]
+AsyncFunctionType = Callable[..., Any]
+
+IList = list
+ISet = set
+IMap = Dict
+
+BasicKujiraToken = Denom
+BasicKujiraMarket = fin.Pair
+KujiraWithdraw = ExecuteResult
+
+Address = str
+OwnerAddress = Address
+PayerAddress = Address
+Price = Decimal
+Amount = Decimal
+Fee = Decimal
+Percentage = Decimal
+Timestamp = int
+Block = int
+EncryptedWallet = str
+
+ConnectorMarket = Any
+ConnectorTicker = Any
+ConnectorOrderBook = Any
+ConnectorOrder = Any
+
+TokenId = Address
+TokenName = str
+TokenSymbol = str
+TokenDecimals = int
+
+MarketName = str
+MarketId = Address
+MarketPrecision = int
+MarketProgramId = Address
+MarketDeprecation = bool
+MarketMinimumOrderSize = Decimal
+MarketMinimumPriceIncrement = Decimal
+MarketMinimumBaseIncrement = Decimal
+MarketMinimumQuoteIncrement = Decimal
+
+TickerPrice = Price
+TickerTimestamp = Timestamp
+
+TransactionHash = str
+
+OrderId = str
+OrderClientId = str
+OrderMarketName = MarketName
+OrderMarketId = MarketId
+OrderMarket = 'Market'
+OrderOwnerAddress = OwnerAddress
+OrderPayerAddress = PayerAddress
+OrderPrice = Price
+OrderAmount = Amount
+OrderFee = Fee
+OrderCreationTimestamp = Timestamp
+OrderFillingTimestamp = Timestamp
+OrderTransactionHashes = 'TransactionHashes'
+
+FeeMaker = Fee
+FeeTaker = Fee
+FeeServiceProvider = Fee
+
+EstimatedFeesToken = str
+EstimatedFeesPrice = Price
+EstimateFeesLimit = Decimal
+EstimateFeesCost = Decimal
+
+Mnemonic = str
+Password = str
+AccountNumber = int
+
+CoinGeckoSymbol = str
+CoinGeckoId = str
+
+#
+# Enums
 #
 
 class OrderSide(Enum):
@@ -113,17 +145,22 @@ class OrderType(Enum):
 	POST_ONLY = 'POST_ONLY'
 
 class TickerSource(Enum):
-	ORDER_BOOK_SAP = 'ORDER_BOOK_SIMPLE_AVERAGE_PRICE'
-	ORDER_BOOK_WAP = 'ORDER_BOOK_WEIGHTED_AVERAGE_PRICE'
-	ORDER_BOOK_VWAP = 'ORDER_BOOK_VOLUME_WEIGHTED_AVERAGE_PRICE'
-	LAST_FILLED_ORDER = 'LAST_FILLED_ORDER'
-	COINGECKO = 'COINGECKO'
+	ORDER_BOOK_SAP = 'orderBookSimpleAveragePrice'
+	ORDER_BOOK_WAP = 'orderBookWeightedAveragePrice'
+	ORDER_BOOK_VWAP = 'orderBookVolumeWeightedAveragePrice'
+	LAST_FILLED_ORDER = 'lastFilledOrder'
+	COINGECKO = 'coinGecko'
+
+class ConvertOrderType(Enum):
+	GET_ORDERS = 'getOrders'
+	PLACE_ORDERS = 'placeOrders'
+	CANCELLED_ORDERS = 'cancelledOrders'
 
 class RequestStrategy(Enum):
-	REST = 'REST'
-	WS = 'WEBSOCKET'
+	RESTful = 'RESTful'
+	Controller = 'Controller'
 
-class REST_METHOD(Enum):
+class RESTfulMethod(Enum):
 	GET = 'GET'
 	POST = 'POST'
 	PUT = 'PUT'
@@ -131,111 +168,70 @@ class REST_METHOD(Enum):
 	DELETE = 'DELETE'
 
 #
-#  Interfaces
+# Interfaces and Classes
 #
 
-class Token:
-	id: token_id
-	name: token_name
-	symbol: token_symbol
-	decimals: token_decimals
-
 class Withdraw:
-	fees = {
-		"token": amount,
-		"usd": amount
-	}
-	token: Token
+	fees: Dict[str, Amount]
+	token: 'Token'
 
 class Withdraws:
-	hash: transaction_hash
-	tokens: List[Withdraw]
-	total = {
-		"fees": amount
-	}
+	hash: TransactionHash
+	tokens: IMap[TokenId, Withdraw]
+	total: Dict[str, Amount]
 
-class Ticker:
-	price: price
+class KujiraTicker:
+	price: Price
 
 class TokenAmount:
-	token: Token
-	amount: amount
+	token: 'Token'
+	amount: Amount
 
 class OrderFilling:
 	free: TokenAmount
 	filled: TokenAmount
 
 class TokenPriceInDolar:
-	token: token_name
-	price: price
+	token: TokenName
+	price: Price
 
 class KujiraOrderBookItem:
 	quote_price: str
-	offer_denom = {
-		"native": str
-	}
+	offer_denom: Dict[str, str]
 	total_offer_amount: str
 
 class KujiraOrderBook:
 	base: List[KujiraOrderBookItem]
 	quote: List[KujiraOrderBookItem]
 
-class MarketFee:
-	maker: fee_maker
-	taker: fee_taker
-	serviceProvider: fee_service_provider
+class Token:
+	id: TokenId
+	name: TokenName
+	symbol: TokenSymbol
+	decimals: TokenDecimals
 
 class Market:
-	id: market_id
-	name: market_name
-	base_token: Token
-	quote_token: Token
-	precision: market_precision
-	minimum_order_size: market_minimum_order_size
-	minimum_price_increment: market_minimum_price_increment
-	minimum_base_increment: market_minimum_base_increment
-	minimum_quote_increment: market_minimum_quote_increment
-	fees: MarketFee
-	programId: market_program_id = None
-	deprecated: market_deprecation = False
-	raw: raw_market
-
-class TransactionHashes:
-	creation: transaction_hash = None
-	cancellation: transaction_hash = None
-	withdraw: transaction_hash = None
-	creations: List[transaction_hash] = None
-	cancellations: List[transaction_hash] = None
-	withdraws: List[transaction_hash] = None
-
-class Order:
-	id: order_id = None
-	client_id: order_client_id = None # Client custom id
-	marketName: order_market_name
-	marketId: order_market_id
-	market: Market
-	owner_address: owner_address = None
-	payerAddress: payer_address = None
-	price: price = None
-	amount: amount
-	side: OrderSide
-	status: OrderStatus = None
-	type: OrderType = None
-	fee: fee = None
-	filling: OrderFilling = None
-	creationTimestamp: timestamp = None
-	fillingTimestamp: timestamp = None
-	hashes: TransactionHashes = None
-	raw: raw_order = None
+	id: MarketId
+	name: MarketName
+	baseToken: Token
+	quoteToken: Token
+	precision: MarketPrecision
+	minimumOrderSize: MarketMinimumOrderSize
+	minimumPriceIncrement: MarketMinimumPriceIncrement
+	minimumBaseAmountIncrement: MarketMinimumBaseIncrement
+	minimumQuoteAmountIncrement: MarketMinimumQuoteIncrement
+	fees: 'MarketFee'
+	programId: MarketProgramId
+	deprecated: MarketDeprecation
+	connectorMarket: ConnectorMarket
 
 class OrderBook:
 	market: Market
-	test: List[tuple(order_id, Order)]
-	bids: IMap<OrderId, Order>
-	asks: IMap<OrderId, Order>
-	bestBid: Orde = None
-	bestAsk: Order = None
-	raw: raw_order_book
+	bids: IMap[OrderId, 'Order']
+	asks: IMap[OrderId, 'Order']
+	bestBid: 'Order'
+	bestAsk: 'Order'
+	connectorOrderBook: ConnectorOrderBook
 
 class Ticker:
 	market: Market
@@ -245,454 +241,421 @@ class Ticker:
 
 class SimplifiedBalance:
 	free: Amount
-lockedInOrders: Amount
-unsettled: Amount
-total: Amount
+	lockedInOrders: Amount
+	unsettled: Amount
+	total: Amount
 
-
-class SimplifiedBalanceWithUSD extends SimplifiedBalance:
+class SimplifiedBalanceWithUSD(SimplifiedBalance):
 	quotation: Amount
 
+class TotalBalance(SimplifiedBalance):
+	pass
 
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class TotalBalance extends SimplifiedBalance {}
-
-class TokenBalance extends SimplifiedBalance:
+class TokenBalance(SimplifiedBalance):
 	token: Token
-inUSD: SimplifiedBalanceWithUSD
-
+	inUSD: SimplifiedBalanceWithUSD
 
 class Balances:
-	tokens: IMap<TokenId, TokenBalance>
-total: TotalBalance
+	tokens: IMap[TokenId, TokenBalance]
+	total: TotalBalance
 
+class Order:
+	id: OrderId
+	clientId: OrderClientId
+	marketName: OrderMarketName
+	marketId: OrderMarketId
+	market: OrderMarket
+	ownerAddress: OrderOwnerAddress
+	payerAddress: OrderPayerAddress
+	price: OrderPrice
+	amount: OrderAmount
+	side: OrderSide
+	status: OrderStatus
+	type: OrderType
+	fee: OrderFee
+	filling: OrderFilling
+	creationTimestamp: OrderCreationTimestamp
+	fillingTimestamp: OrderFillingTimestamp
+	hashes: OrderTransactionHashes
+	connectorOrder: ConnectorOrder
+
+class TransactionHashes:
+	creation: TransactionHash
+	cancellation: TransactionHash
+	withdraw: TransactionHash
+	creations: List[TransactionHash]
+	cancellations: List[TransactionHash]
+	withdraws: List[TransactionHash]
 
 class MarketFee:
 	maker: FeeMaker
-taker: FeeTaker
-serviceProvider: FeeServiceProvider
-
+	taker: FeeTaker
+	serviceProvider: FeeServiceProvider
 
 class EstimatedFees:
 	token: EstimatedFeesToken
-price: EstimatedFeesPrice
-limit: EstimateFeesLimit
-cost: EstimateFeesCost
-}
+	price: EstimatedFeesPrice
+	limit: EstimateFeesLimit
+	cost: EstimateFeesCost
 
 class Transaction:
 	hash: TransactionHash
-blockNumber: number
-gasUsed: number
-gasWanted: number
-code: number
-data: any
-}
+	blockNumber: Block
+	gasUsed: int
+	gasWanted: int
+	code: int
+	data: Any
 
 class BasicWallet:
 	mnemonic: Mnemonic
-
-accountNumber: AccountNumber
-
-publicKey: Address
-}
+	accountNumber: AccountNumber
+	publicKey: Address
 
 class KujiraWalletArtifacts:
 	publicKey: Address
-
-accountData: AccountData
-
-accountNumber: AccountNumber
-
-directSecp256k1HdWallet: DirectSecp256k1HdWallet
-
-signingStargateClient: SigningStargateClient
-
-signingCosmWasmClient: SigningCosmWasmClient
-
-finClients: IMap<MarketId, fin.FinClient>
-}
+	accountData: AccountData
+	accountNumber: AccountNumber
+	directSecp256k1HdWallet: DirectSecp256k1HdWallet
+	signingStargateClient: SigningStargateClient
+	signingCosmWasmClient: SigningCosmWasmClient
+	finClients: IMap[MarketId, fin.FinClient]
 
 #
-#  Errors
+# Errors
 #
 
-export class CLOBishError extends Error {}
+class CLOBishError(Exception):
+	pass
 
-export class TokenNotFoundError extends CLOBishError {}
+class TokenNotFoundError(CLOBishError):
+	pass
 
-export class MarketNotFoundError extends CLOBishError {}
+class MarketNotFoundError(CLOBishError):
+	pass
 
-export class BalanceNotFoundError extends CLOBishError {}
+class BalanceNotFoundError(CLOBishError):
+	pass
 
-export class OrderBookNotFoundError extends CLOBishError {}
+class OrderBookNotFoundError(CLOBishError):
+	pass
 
-export class TickerNotFoundError extends CLOBishError {}
+class TickerNotFoundError(CLOBishError):
+	pass
 
-export class OrderNotFoundError extends CLOBishError {}
+class OrderNotFoundError(CLOBishError):
+	pass
 
-export class MarketWithdrawError extends CLOBishError {}
+class MarketWithdrawError(CLOBishError):
+	pass
 
-export class TransactionNotFoundError extends CLOBishError {}
+class TransactionNotFoundError(CLOBishError):
+	pass
 
-export class WalletPublicKeyNotFoundError extends CLOBishError {}
+class WalletPublicKeyNotFoundError(CLOBishError):
+	pass
 
 #
-#  Main methods options
+# Main methods options
 #
 
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetRootRequest {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetRootResponse {
-chain: string
-network: string
-connector: string
-connection: boolean
-timestamp: number
-}
+class GetRootRequest:
+	pass
 
-class GetTokenRequest {
-id?: TokenId
-name?: TokenName
-symbol?: TokenSymbol
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetTokenResponse extends Token {}
+class GetRootResponse:
+	chain: str
+	network: str
+	connector: str
+	connection: bool
+	timestamp: Timestamp
 
-class GetTokensRequest {
-ids?: TokenId[]
-names?: TokenName[]
-symbols?: TokenSymbol[]
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetTokensResponse extends IMap<TokenId, Token> {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetAllTokensRequest {}
+class GetTokenRequest:
+	id: TokenId = None
+	name: TokenName = None
+	symbol: TokenSymbol = None
 
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetAllTokensResponse extends IMap<TokenId, Token> {}
-
-class GetTokenSymbolsToTokenIdsMapRequest {
-symbols?: TokenSymbol[]
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetTokenSymbolsToTokenIdsMapResponse
-	extends IMap<TokenSymbol, TokenId> {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetKujiraTokenSymbolsToCoinGeckoTokenIdsMapResponse
-	extends IMap<TokenSymbol, CoinGeckoId | undefined> {}
-
-class GetMarketRequest {
-id?: MarketId
-name?: MarketName
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetMarketResponse extends Market {}
-
-class GetMarketsRequest {
-ids?: MarketId[]
-names?: MarketName[]
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetMarketsResponse extends IMap<MarketId, Market> {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetAllMarketsRequest extends GetMarketsRequest {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetAllMarketsResponse extends IMap<MarketId, Market> {}
-
-class GetOrderBookRequest {
-marketId?: MarketId
-marketName?: MarketName
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetOrderBookResponse extends OrderBook {}
-
-class GetOrderBooksRequest {
-marketIds?: MarketId[]
-marketNames?: MarketName[]
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetOrderBooksResponse extends IMap<MarketId, OrderBook> {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetAllOrderBooksRequest extends GetOrderBooksRequest {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetAllOrderBooksResponse extends IMap<MarketId, OrderBook> {}
-
-class GetTickerRequest {
-marketId?: MarketId
-marketName?: MarketName
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetTickerResponse extends Ticker {}
-
-class GetTickersRequest {
-marketIds?: MarketId[]
-marketNames?: MarketName[]
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetTickersResponse extends IMap<MarketId, Ticker> {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetAllTickersRequest extends GetTickersRequest {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetAllTickersResponse extends IMap<MarketId, Ticker> {}
-
-class GetWalletArtifactsRequest {
-ownerAddress: OwnerAddress
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetWalletArtifactsResponse extends KujiraWalletArtifacts {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetBalanceRequest {
-tokenId: TokenId
-tokenSymbol: TokenSymbol
-ownerAddress: OwnerAddress
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetBalanceResponse extends TokenBalance {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetBalancesRequest {
-tokenIds?: TokenId[]
-tokenSymbols?: TokenSymbol[]
-ownerAddress: OwnerAddress
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetBalancesResponse extends Balances {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetAllBalancesRequest {
-ownerAddress: OwnerAddress
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetAllBalancesResponse extends Balances {}
-
-class GetOrderRequest {
-id: OrderId
-marketId?: MarketId
-marketName?: MarketName
-marketIds?: MarketId[]
-marketNames?: MarketName[]
-ownerAddress: OrderOwnerAddress
-status?: OrderStatus
-statuses?: OrderStatus[]
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetOrderResponse extends Order {}
-
-class GetOrdersRequest {
-ids?: OrderId[]
-marketId?: MarketId
-marketName?: MarketName
-marketIds?: MarketId[]
-marketNames?: MarketName[]
-ownerAddress?: OrderOwnerAddress
-ownerAddresses?: OrderOwnerAddress[]
-status?: OrderStatus
-statuses?: OrderStatus[]
-}
-
-export type GetOrdersResponse =
-| IMap<OrderId, Order>
-| IMap<OwnerAddress, IMap<OrderId, Order>>
-
-class PlaceOrderRequest {
-clientId?: OrderClientId
-marketId?: MarketId
-marketName?: MarketName
-ownerAddress?: OrderOwnerAddress
-side: OrderSide
-price: OrderPrice
-amount: OrderAmount
-type: OrderType
-payerAddress?: OrderPayerAddress
-replaceIfExists?: boolean
-waitUntilIncludedInBlock?: boolean
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class PlaceOrderResponse extends Order {}
-
-class PlaceOrdersRequest {
-ownerAddress?: OrderOwnerAddress
-orders: PlaceOrderRequest[]
-waitUntilIncludedInBlock?: boolean
-replaceIfExists?: boolean
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class PlaceOrdersResponse extends IMap<OrderId, Order> {}
-
-class CancelOrderRequest {
-id: OrderId
-clientId?: OrderClientId
-ownerAddress: OrderOwnerAddress
-marketId?: MarketId
-marketName?: MarketName
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class CancelOrderResponse extends Order {}
-
-class CancelOrdersRequest {
-ids: OrderId[]
-clientIds?: OrderClientId[]
-marketId?: MarketId
-marketIds?: MarketId[]
-marketName?: MarketName
-marketNames?: MarketName[]
-ownerAddress?: OrderOwnerAddress
-ownerAddresses?: OrderOwnerAddress[]
-}
-
-export type CancelOrdersResponse =
-| IMap<OrderId, Order>
-| IMap<OwnerAddress, IMap<OrderId, Order>>
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class CancelAllOrdersRequest {
-marketId?: MarketId
-marketName?: MarketName
-marketIds?: MarketId[]
-marketNames?: MarketName[]
-ownerAddress?: OrderOwnerAddress
-ownerAddresses?: OrderOwnerAddress[]
-}
-
-export type CancelAllOrdersResponse = CancelOrdersResponse
-
-class TransferFromToRequest {
-from: OwnerAddress
-to: OwnerAddress
-amount: OrderAmount
-tokenId?: TokenId
-tokenSymbol?: TokenSymbol
-}
-
-export type TransferFromToResponse = TransactionHash
-
-class MarketWithdrawRequest {
-marketId?: MarketId
-marketName?: MarketName
-ownerAddress?: OrderOwnerAddress
-ownerAddresses?: OrderOwnerAddress[]
-}
-
-export type MarketWithdrawResponse = Withdraws | IMap<OwnerAddress, Withdraws>
-
-class MarketsWithdrawsRequest {
-marketIds?: MarketId[]
-marketNames?: MarketName[]
-ownerAddress?: OrderOwnerAddress
-ownerAddresses?: OrderOwnerAddress[]
-}
-
-export type MarketsWithdrawsFundsResponse =
-| IMap<MarketId, Withdraws>
-| IMap<OwnerAddress, IMap<MarketId, Withdraws>>
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class AllMarketsWithdrawsRequest extends MarketsWithdrawsRequest {}
-
-export type AllMarketsWithdrawsResponse = MarketsWithdrawsFundsResponse
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetCurrentBlockRequest {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-export type GetCurrentBlockResponse = Block
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetTransactionRequest {
-hash: TransactionHash
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetTransactionResponse extends Transaction {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetTransactionsRequest {
-hashes: TransactionHash[]
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetTransactionsResponse
-	extends IMap<TransactionHash, Transaction> {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetEstimatedFeesRequest {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetEstimatedFeesResponse extends EstimatedFees {}
-
-class GetWalletPublicKeyRequest {
-mnemonic: Mnemonic
-accountNumber: AccountNumber
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-export type GetWalletPublicKeyResponse = Address
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class GetWalletsPublicKeysRequest {}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-export type GetWalletsPublicKeysResponse = Address[]
-
-class EncryptWalletRequest {
-wallet: BasicWallet
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-export type EncryptWalletResponse = EncryptedWallet
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-class DecryptWalletRequest {
-accountAddress: OwnerAddress
-}
-
-# eslint-disable-next-line @typescript-eslint/no-empty-interface
-export type DecryptWalletResponse = BasicWallet
+class GetTokenResponse(Token):
+	pass
+
+class GetTokensRequest:
+	ids: List[TokenId] = None
+	names: List[TokenName] = None
+	symbols: List[TokenSymbol] = None
+
+class GetTokensResponse(IMap[TokenId, Token]):
+	pass
+
+class GetAllTokensRequest:
+	pass
+
+class GetAllTokensResponse(IMap[TokenId, Token]):
+	pass
+
+class GetTokenSymbolsToTokenIdsMapRequest:
+	symbols: List[TokenSymbol] = None
+
+class GetTokenSymbolsToTokenIdsMapResponse(IMap[TokenSymbol, TokenId]):
+	pass
+
+class GetKujiraTokenSymbolsToCoinGeckoTokenIdsMapResponse(IMap[TokenSymbol, Union[CoinGeckoId, None]]):
+	pass
+
+class GetMarketRequest:
+	id: MarketId = None
+	name: MarketName = None
+
+class GetMarketResponse(Market):
+	pass
+
+class GetMarketsRequest:
+	ids: List[MarketId] = None
+	names: List[MarketName] = None
+
+class GetMarketsResponse(IMap[MarketId, Market]):
+	pass
+
+class GetAllMarketsRequest(GetMarketsRequest):
+	pass
+
+class GetAllMarketsResponse(IMap[MarketId, Market]):
+	pass
+
+class GetOrderBookRequest:
+	marketId: MarketId = None
+	marketName: MarketName = None
+
+class GetOrderBookResponse(OrderBook):
+	pass
+
+class GetOrderBooksRequest:
+	marketIds: List[MarketId] = None
+	marketNames: List[MarketName] = None
+
+class GetOrderBooksResponse(IMap[MarketId, OrderBook]):
+	pass
+
+class GetAllOrderBooksRequest(GetOrderBooksRequest):
+	pass
+
+class GetAllOrderBooksResponse(IMap[MarketId, OrderBook]):
+	pass
+
+class GetTickerRequest:
+	marketId: MarketId = None
+	marketName: MarketName = None
+
+class GetTickerResponse(Ticker):
+	pass
+
+class GetTickersRequest:
+	marketIds: List[MarketId] = None
+	marketNames: List[MarketName] = None
+
+class GetTickersResponse(IMap[MarketId, Ticker]):
+	pass
+
+class GetAllTickersRequest(GetTickersRequest):
+	pass
+
+class GetAllTickersResponse(IMap[MarketId, Ticker]):
+	pass
+
+class GetWalletArtifactsRequest:
+	ownerAddress: OwnerAddress
+
+class GetWalletArtifactsResponse(KujiraWalletArtifacts):
+	pass
+
+class GetBalanceRequest:
+	tokenId: TokenId
+	tokenSymbol: TokenSymbol
+	ownerAddress: OwnerAddress
+
+class GetBalanceResponse(TokenBalance):
+	pass
+
+class GetBalancesRequest:
+	tokenIds: List[TokenId] = None
+	tokenSymbols: List[TokenSymbol] = None
+	ownerAddress: OwnerAddress
+
+class GetBalancesResponse(Balances):
+	pass
+
+class GetAllBalancesRequest:
+	ownerAddress: OwnerAddress
+
+class GetAllBalancesResponse(Balances):
+	pass
+
+class GetOrderRequest:
+	id: OrderId
+	marketId: MarketId = None
+	marketName: MarketName = None
+	marketIds: List[MarketId] = None
+	marketNames: List[MarketName] = None
+	ownerAddress: OrderOwnerAddress
+	status: OrderStatus = None
+	statuses: List[OrderStatus] = None
+
+class GetOrderResponse(Order):
+	pass
+
+class GetOrdersRequest:
+	ids: List[OrderId] = None
+	marketId: MarketId = None
+	marketName: MarketName = None
+	marketIds: List[MarketId] = None
+	marketNames: List[MarketName] = None
+	ownerAddress: OrderOwnerAddress = None
+	ownerAddresses: List[OrderOwnerAddress] = None
+	status: OrderStatus = None
+	statuses: List[OrderStatus] = None
+
+GetOrdersResponse = Union[IMap[OrderId, Order], IMap[OwnerAddress, IMap[OrderId, Order]]]
+
+class PlaceOrderRequest:
+	clientId: OrderClientId = None
+	marketId: MarketId = None
+	marketName: MarketName = None
+	ownerAddress: OrderOwnerAddress = None
+	side: OrderSide
+	price: OrderPrice
+	amount: OrderAmount
+	type: OrderType
+	payerAddress: OrderPayerAddress = None
+	replaceIfExists: bool = None
+	waitUntilIncludedInBlock: bool = None
+
+class PlaceOrderResponse(Order):
+	pass
+
+class PlaceOrdersRequest:
+	ownerAddress: OrderOwnerAddress = None
+	orders: List[PlaceOrderRequest]
+	waitUntilIncludedInBlock: bool = None
+	replaceIfExists: bool = None
+
+class PlaceOrdersResponse(IMap[OrderId, Order]):
+	pass
+
+class CancelOrderRequest:
+	id: OrderId
+	clientId: OrderClientId = None
+	ownerAddress: OrderOwnerAddress
+	marketId: MarketId = None
+	marketName: MarketName = None
+
+class CancelOrderResponse(Order):
+	pass
+
+class CancelOrdersRequest:
+	ids: List[OrderId]
+	clientIds: List[OrderClientId] = None
+	marketId: MarketId = None
+	marketIds: List[MarketId] = None
+	marketName: MarketName = None
+	marketNames: List[MarketName] = None
+	ownerAddress: OrderOwnerAddress = None
+	ownerAddresses: List[OrderOwnerAddress] = None
+
+CancelOrdersResponse = Union[IMap[OrderId, Order], IMap[OwnerAddress, IMap[OrderId, Order]]]
+
+class CancelAllOrdersRequest:
+	marketId: MarketId = None
+	marketName: MarketName = None
+	marketIds: List[MarketId] = None
+	marketNames: List[MarketName] = None
+	ownerAddress: OrderOwnerAddress = None
+	ownerAddresses: List[OrderOwnerAddress] = None
+
+CancelAllOrdersResponse = CancelOrdersResponse
+
+class TransferFromToRequest:
+	from: OwnerAddress
+	to: OwnerAddress
+	amount: OrderAmount
+	tokenId: TokenId = None
+	tokenSymbol: TokenSymbol = None
+
+TransferFromToResponse = TransactionHash
+
+class MarketWithdrawRequest:
+	marketId: MarketId = None
+	marketName: MarketName = None
+	ownerAddress: OrderOwnerAddress = None
+	ownerAddresses: List[OrderOwnerAddress] = None
+
+MarketWithdrawResponse = Union[Withdraws, IMap[OwnerAddress, Withdraws]]
+
+class MarketsWithdrawsRequest:
+	marketIds: List[MarketId] = None
+	marketNames: List[MarketName] = None
+	ownerAddress: OrderOwnerAddress = None
+	ownerAddresses: List[OrderOwnerAddress] = None
+
+MarketsWithdrawsFundsResponse = Union[IMap[MarketId, Withdraws], IMap[OwnerAddress, IMap[MarketId, Withdraws]]]
+
+class AllMarketsWithdrawsRequest(MarketsWithdrawsRequest):
+	pass
+
+AllMarketsWithdrawsResponse = MarketsWithdrawsFundsResponse
+
+class GetCurrentBlockRequest:
+	pass
+
+GetCurrentBlockResponse = Block
+
+class GetTransactionRequest:
+	hash: TransactionHash
+
+class GetTransactionResponse(Transaction):
+	pass
+
+class GetTransactionsRequest:
+	hashes: List[TransactionHash]
+
+GetTransactionsResponse = IMap[TransactionHash, Transaction]
+
+class GetEstimatedFeesRequest:
+	pass
+
+class GetEstimatedFeesResponse(EstimatedFees):
+	pass
+
+class GetWalletPublicKeyRequest:
+	mnemonic: Mnemonic
+	accountNumber: AccountNumber
+
+GetWalletPublicKeyResponse = Address
+
+class GetWalletsPublicKeysRequest:
+	pass
+
+GetWalletsPublicKeysResponse = List[Address]
+
+class EncryptWalletRequest:
+	wallet: BasicWallet
+
+EncryptWalletResponse = EncryptedWallet
+
+class DecryptWalletRequest:
+	accountAddress: OwnerAddress
+
+DecryptWalletResponse = BasicWallet
 
 #
 # Extensions
 #
 
-class EstimatedGasResponse {
-gasPrice: number
-gasPriceToken: string
-gasLimit: number
-gasCost: number
-}
+class EstimatedGasResponse:
+	gasPrice: int
+	gasPriceToken: str
+	gasLimit: int
+	gasCost: int
 
-class LatencyData {
-endpoint: string
-latency: number
-latestBlockTime: Date
-}
+class LatencyData:
+	endpoint: str
+	latency: int
+	latestBlockTime: datetime
 
-export type RequestWrapper<T> = NetworkSelectionRequest & T
+RequestWrapper = Union[NetworkSelectionRequest, Any]
