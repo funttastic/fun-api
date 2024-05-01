@@ -16,7 +16,7 @@ ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
-target_id = "fun-client.back"
+target_id = "all.all"
 
 
 def sign_in(username, password):
