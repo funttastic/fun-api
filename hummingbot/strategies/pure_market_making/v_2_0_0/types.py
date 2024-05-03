@@ -1,8 +1,10 @@
 from dotmap import DotMap
 from collections import namedtuple
 from decimal import Decimal
-from typing import Any, List, Optional
+from typing import Any, List, Dict, Optional, Callable, Tuple, TypeVar, Union
 from enum import Enum
+from dataclasses import dataclass
+from datetime import datetime
 
 from hummingbot.strategies.pure_market_making.v_2_0_0.workers.ccxt.ccxt import CCXTWorker
 from hummingbot.strategies.pure_market_making.v_2_0_0.workers.hb_client.hb_client import HBClientWorker
@@ -29,12 +31,6 @@ class WorkerType(Enum):
 				return item
 
 		raise ValueError(f"""Worker type with id "{id_}" not found.""")
-
-
-from dotmap import DotMap
-from enum import Enum
-from decimal import Decimal
-from typing import Any, Callable, Dict, List, Tuple, TypeVar, Union
 
 #
 # Types and Constants
@@ -121,6 +117,13 @@ AccountNumber = int
 CoinGeckoSymbol = str
 CoinGeckoId = str
 
+ChainName = str
+ConnectorName = str
+NetworkName = str
+Latency = int
+Leverage: int
+Limit = int
+
 
 #
 # Enums
@@ -144,6 +147,7 @@ class OrderStatus(Enum):
 class OrderType(Enum):
 	MARKET = 'MARKET'
 	LIMIT = 'LIMIT'
+	LIMIT_MAKER = "LIMIT_MAKER"
 	IOC = 'IOC'  # Immediate or Cancel
 	POST_ONLY = 'POST_ONLY'
 
@@ -951,6 +955,388 @@ class WsAllMarketsWithdrawsRequest:
 class WsAllMarketsWithdrawsResponse:
 	pass
 
+#
+# Injective Interfaces
+#
+
+
+@dataclass
+class PerpetualMarketInfo:
+	hourlyFundingRateCap: str
+	hourlyInterestRate: str
+	nextFundingTimestamp: int
+	fundingInterval: int
+
+
+@dataclass
+class PerpetualMarketFunding:
+	cumulativeFunding: str
+	cumulativePrice: str
+	lastTimestamp: int
+
+
+@dataclass
+class TokenMeta:
+	pass
+
+
+@dataclass
+class BaseDerivativeMarket:
+	oracleType: str
+	marketId: str
+	marketStatus: str
+	ticker: str
+	quoteDenom: str
+	makerFeeRate: str
+	quoteToken: Optional[TokenMeta]
+	takerFeeRate: str
+	serviceProviderFee: str
+	minPriceTickSize: Optional[Union[int, str]]
+	minQuantityTickSize: Optional[Union[int, str]]
+
+
+@dataclass
+class PerpetualMarket(BaseDerivativeMarket):
+	initialMarginRatio: str
+	maintenanceMarginRatio: str
+	isPerpetual: bool
+	oracleBase: str
+	oracleQuote: str
+	oracleScaleFactor: int
+	perpetualMarketInfo: Optional[PerpetualMarketInfo] = None
+	perpetualMarketFunding: Optional[PerpetualMarketFunding] = None
+
+
+@dataclass
+class PriceLevel:
+	price: str
+	quantity: str
+	timestamp: Timestamp
+
+
+@dataclass
+class Orderbook:
+	buys: IMap[PriceLevel]
+	sells: IMap[PriceLevel]
+
+
+class TradeDirection(Enum):
+	Buy = "buy"
+	Sell = "sell"
+	Long = "long"
+	Short = "short"
+
+
+class TradeExecutionType(Enum):
+	Market = "market"
+	LimitFill = "limitFill"
+	LimitMatchRestingOrder = "limitMatchRestingOrder"
+	LimitMatchNewOrder = "limitMatchNewOrder"
+
+
+class TradeExecutionSide(Enum):
+	Maker = "maker"
+	Taker = "taker"
+
+
+@dataclass
+class FundingPayment:
+	marketId: str
+	subaccountId: str
+	amount: str
+	timestamp: int
+
+
+@dataclass
+class Position:
+	marketId: str
+	subaccountId: str
+	direction: TradeDirection
+	quantity: str
+	entryPrice: str
+	margin: str
+	liquidationPrice: str
+	markPrice: str
+	ticker: str
+	aggregateReduceOnlyQuantity: str
+	updatedAt: int
+
+
+@dataclass
+class PositionDelta:
+	tradeDirection: TradeDirection
+	executionPrice: str
+	executionQuantity: str
+	executionMargin: str
+
+
+@dataclass
+class DerivativeTrade(PositionDelta):
+	orderHash: str
+	subaccountId: str
+	tradeId: str
+	marketId: str
+	executedAt: int
+	tradeExecutionType: TradeExecutionType
+	executionSide: TradeExecutionSide
+	fee: str
+	feeRecipient: str
+	isLiquidation: bool
+	payout: str
+
+
+#
+# Gateway Common Interfaces
+#
+
+
+@dataclass
+class NetworkSelectionRequest:
+	chain = ChainName
+	network = NetworkName
+	connector = ConnectorName
+
+#
+# CLOB Interfaces
+#
+
+
+CLOBMarkets = IMap[str, any]
+
+
+@dataclass
+class ClobMarketsRequest(NetworkSelectionRequest):
+	market: MarketName = None
+
+
+@dataclass
+class ClobMarketResponse:
+	network: NetworkName
+	timestamp: Timestamp
+	latency: Latency
+	markets: CLOBMarkets
+
+
+ClobTickerRequest = ClobMarketsRequest
+ClobTickerResponse = ClobMarketResponse
+
+
+@dataclass
+class ClobOrderbookRequest(ClobMarketsRequest):
+	market: MarketName
+
+
+@dataclass
+class ClobOrderbookResponse:
+	network: NetworkName
+	timestamp: Timestamp
+	latency: Latency
+	orderbook: Orderbook
+
+
+class ClobGetOrderRequest(ClobOrderbookRequest):
+	address: Address = None
+	orderId: OrderId
+
+
+class ClobGetOrderResponse:
+	network: str
+	timestamp: int
+	latency: int
+	orders: List[IMap[str, str]] = []
+
+
+@dataclass
+class CreateOrderParam:
+	price: str
+	amount: str
+	orderType: OrderType
+	side: OrderSide
+	market: MarketName
+	clientOrderID: OrderClientId = None
+
+
+class ClobPostOrderRequest(NetworkSelectionRequest, CreateOrderParam):
+	address: Address
+
+
+@dataclass
+class ClobDeleteOrderRequestExtract:
+	market: MarketName
+	orderId: OrderId
+
+
+@dataclass
+class ClobBatchUpdateRequest(NetworkSelectionRequest):
+	address: Address
+	createOrderParams: List[CreateOrderParam] = None
+	cancelOrderParams: List[ClobDeleteOrderRequestExtract] = None
+
+
+@dataclass
+class ClobPostOrderResponse:
+	network: str
+	timestamp: int
+	latency: int
+	txHash: str
+	clientOrderID: Union[str, List[str]] = None
+
+
+ClobDeleteOrderRequest = ClobGetOrderRequest
+ClobDeleteOrderResponse = ClobPostOrderResponse
+
+PerpClobMarketRequest = ClobMarketsRequest
+
+PerpClobMarkets = Dict[str, PerpetualMarket]
+
+
+@dataclass
+class PerpClobMarketResponse:
+	network: NetworkName
+	timestamp: Timestamp
+	latency: Latency
+	markets: PerpClobMarkets
+
+
+PerpClobTickerRequest = PerpClobMarketRequest
+PerpClobTickerResponse = PerpClobMarketResponse
+
+PerpClobOrderbookRequest = ClobOrderbookRequest
+PerpClobOrderbookResponse = ClobOrderbookResponse
+
+
+@dataclass
+class PerpClobGetOrderRequest(NetworkSelectionRequest):
+	market: MarketName
+	address: Address
+	orderId: OrderId = None
+	direction: str = None  # 'buy', 'sell', 'long', 'short'
+	orderTypes: str = None  # string like 'buy,sell,stop_buy,stop_sell,take_buy,take_sell,buy_po,sell_po'
+	limit: Limit = None  # 1 or greater, otherwise it gets all orders
+
+
+class PerpClobGetOrderResponse:
+	network: NetworkName
+	timestamp: Timestamp
+	latency: Latency
+	orders: List[Dict[str, str]] = []
+
+
+@dataclass
+class CreatePerpOrderParam:
+	price: str
+	amount: str
+	orderType: OrderType
+	side: OrderSide
+	market: MarketName
+	leverage: Leverage
+
+
+@dataclass
+class PerpClobPostOrderRequest(NetworkSelectionRequest, CreatePerpOrderParam):
+	address: Address
+
+
+PerpClobPostOrderResponse = ClobPostOrderResponse
+
+
+@dataclass
+class PerpClobDeleteOrderRequest(NetworkSelectionRequest):
+	market: MarketName
+	address: Address
+	orderId: OrderId
+
+
+PerpClobDeleteOrderResponse = PerpClobPostOrderResponse
+
+
+@dataclass
+class PerpClobBatchUpdateRequest(NetworkSelectionRequest):
+	address: Address
+	createOrderParams: List[CreatePerpOrderParam] = None
+	cancelOrderParams: List[ClobDeleteOrderRequestExtract] = None
+
+
+PerpClobBatchUpdateResponse = ClobPostOrderResponse
+
+
+@dataclass
+class PerpClobFundingInfoRequest(NetworkSelectionRequest):
+	market: MarketName
+
+
+@dataclass
+class FundingInfo:
+	marketId: MarketId
+	indexPrice: str
+	markPrice: str
+	fundingRate: str
+	nextFundingTimestamp: Timestamp
+
+
+@dataclass
+class PerpClobFundingInfoResponse:
+	network: NetworkName
+	timestamp: Timestamp
+	latency: Latency
+	fundingInfo: FundingInfo
+
+
+@dataclass
+class PerpClobGetLastTradePriceRequest(NetworkSelectionRequest):
+	market: str
+
+
+@dataclass
+class PerpClobGetLastTradePriceResponse:
+	network: NetworkName
+	timestamp: Timestamp
+	latency: Latency
+	lastTradePrice: str
+
+
+@dataclass
+class PerpClobGetTradesRequest(NetworkSelectionRequest):
+	market: MarketName
+	address: Address
+	orderId: OrderId
+
+
+@dataclass
+class PerpClobGetTradesResponse:
+	network: NetworkName
+	timestamp: Timestamp
+	latency: Latency
+	trades: List[DerivativeTrade]
+
+
+@dataclass
+class PerpClobFundingPaymentsRequest(NetworkSelectionRequest):
+	address: Address
+	market: MarketName
+
+
+@dataclass
+class PerpClobFundingPaymentsResponse:
+	network: NetworkName
+	timestamp: Timestamp
+	latency: Latency
+	fundingPayments: List[FundingPayment]
+
+
+@dataclass
+class PerpClobPositionRequest(NetworkSelectionRequest):
+	markets: List[MarketName]
+	address: Address
+
+
+@dataclass
+class PerpClobPositionResponse:
+	network: NetworkName
+	timestamp: Timestamp
+	latency: Latency
+	positions: List[Position]
+
 
 #
 # Extensions
@@ -974,14 +1360,15 @@ class LatencyData:
 # Other interfaces
 #
 
+
 class GetRootRequest:
 	pass
 
 
 class GetRootResponse:
-	chain: str
-	network: str
-	connector: str
+	chain: ConnectorName
+	network: NetworkName
+	connector: ConnectorName
 	connection: bool
 	timestamp: Timestamp
 
