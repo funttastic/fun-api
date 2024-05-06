@@ -1,6 +1,6 @@
-from dotmap import DotMap
+from dotmap import DotMap as Map
 from decimal import Decimal
-from typing import Any, List, Dict, Optional, Callable, Union
+from typing import Any, List, Optional, Union
 from enum import Enum
 from dataclasses import dataclass
 
@@ -33,19 +33,6 @@ class WorkerType(Enum):
 #
 # Types and Constants
 #
-
-KujiraOrder = Any
-KujiraEvent = Any
-KujiraEventAttribute = Any
-
-FunctionType = Callable[..., Any]
-AsyncFunctionType = Callable[..., Any]
-
-Map = DotMap
-
-BasicKujiraToken = Any
-BasicKujiraMarket = Any
-KujiraWithdraw = Any
 
 Address = str
 OwnerAddress = Address
@@ -177,18 +164,15 @@ class RESTfulMethod(Enum):
 #
 
 class Withdraw:
-	fees: Dict[str, Amount]
+	fees: Map[str, Amount]
 	token: 'Token'
 
 
 class Withdraws:
 	hash: TransactionHash
 	tokens: Map[TokenId, Withdraw]
-	total: Dict[str, Amount]
-
-
-class KujiraTicker:
-	price: Price
+	total: Map[str, Amount]
+	raw: Any
 
 
 class TokenAmount:
@@ -204,17 +188,6 @@ class OrderFilling:
 class TokenPriceInDolar:
 	token: TokenName
 	price: Price
-
-
-class KujiraOrderBookItem:
-	quote_price: str
-	offer_denom: Dict[str, str]
-	total_offer_amount: str
-
-
-class KujiraOrderBook:
-	base: List[KujiraOrderBookItem]
-	quote: List[KujiraOrderBookItem]
 
 
 class Token:
@@ -340,16 +313,6 @@ class BasicWallet:
 	public_key: Address
 
 
-class KujiraWalletArtifacts:
-	public_key: Address
-	account_data: Any
-	account_number: AccountNumber
-	direct_secp256k1_hd_wallet: Any
-	signing_stargate_client: Any
-	signing_cosm_wasm_client: Any
-	fin_clients: Map[MarketId, Any]
-
-
 #
 # Errors
 #
@@ -404,7 +367,7 @@ class RestGetCurrentBlockRequest:
 
 
 class RestGetCurrentBlockResponse:
-	pass
+	current_block: Block
 
 
 class RestGetBlockRequest:
@@ -427,7 +390,7 @@ class RestGetTransactionRequest:
 	hash: TransactionHash
 
 
-class RestGetTransactionResponse:
+class RestGetTransactionResponse(Transaction):
 	pass
 
 
@@ -435,7 +398,8 @@ class RestGetTransactionsRequest:
 	hashes: List[TransactionHash]
 
 
-RestGetTransactionsResponse = Map[TransactionHash, Transaction]
+class RestGetTransactionsResponse(Map[TransactionHash, Transaction]):
+	pass
 
 
 class RestGetTokenRequest:
@@ -462,7 +426,7 @@ class RestGetAllTokensRequest:
 	pass
 
 
-class RestGetAllTokensResponse(Map[TokenId, Token]):
+class RestGetAllTokensResponse(RestGetTokensResponse):
 	pass
 
 
@@ -484,11 +448,11 @@ class RestGetMarketsResponse(Map[MarketId, Market]):
 	pass
 
 
-class RestGetAllMarketsRequest(RestGetMarketsRequest):
+class RestGetAllMarketsRequest:
 	pass
 
 
-class RestGetAllMarketsResponse(Map[MarketId, Market]):
+class RestGetAllMarketsResponse(RestGetMarketsResponse):
 	pass
 
 
@@ -510,7 +474,7 @@ class RestGetOrderBooksResponse(Map[MarketId, OrderBook]):
 	pass
 
 
-class RestGetAllOrderBooksRequest(RestGetOrderBooksRequest):
+class RestGetAllOrderBooksRequest:
 	pass
 
 
@@ -536,11 +500,11 @@ class RestGetTickersResponse(Map[MarketId, Ticker]):
 	pass
 
 
-class RestGetAllTickersRequest(RestGetTickersRequest):
+class RestGetAllTickersRequest:
 	pass
 
 
-class RestGetAllTickersResponse(Map[MarketId, Ticker]):
+class RestGetAllTickersResponse(RestGetTickersResponse):
 	pass
 
 
@@ -568,7 +532,7 @@ class RestGetAllBalancesRequest:
 	owner_address: OwnerAddress
 
 
-class RestGetAllBalancesResponse(Balances):
+class RestGetAllBalancesResponse(RestGetBalancesResponse):
 	pass
 
 
@@ -583,7 +547,7 @@ class RestGetOrderRequest:
 	statuses: Optional[List[OrderStatus]]
 
 
-class RestGetOrderResponse(Map[OwnerAddress, Map[OrderId, Order]]):
+class RestGetOrderResponse(Order):
 	pass
 
 
@@ -607,7 +571,7 @@ class RestGetAllOpenOrdersRequest:
 	pass
 
 
-class RestGetAllOpenOrdersResponse:
+class RestGetAllOpenOrdersResponse(RestGetOrdersResponse):
 	pass
 
 
@@ -615,7 +579,7 @@ class RestGetAllFilledOrdersRequest:
 	pass
 
 
-class RestGetAllFilledOrdersResponse:
+class RestGetAllFilledOrdersResponse(RestGetOrdersResponse):
 	pass
 
 
@@ -623,7 +587,7 @@ class RestGetAllOrdersRequest:
 	pass
 
 
-class RestGetAllOrdersResponse:
+class RestGetAllOrdersResponse(RestGetOrdersResponse):
 	pass
 
 
@@ -656,8 +620,8 @@ class RestPlaceOrdersResponse(Map[OrderId, Order]):
 	pass
 
 
-class RestReplaceOrderRequest:
-	pass
+class RestReplaceOrderRequest(RestPlaceOrderRequest):
+	exchange_order_id: OrderId
 
 
 class RestReplaceOrderResponse(Order):
@@ -665,10 +629,11 @@ class RestReplaceOrderResponse(Order):
 
 
 class RestReplaceOrdersRequest:
-	pass
+	owner_address: Optional[OrderOwnerAddress]
+	orders: List[OrderId, RestPlaceOrderRequest]
 
 
-class RestReplaceOrdersResponse(Order):
+class RestReplaceOrdersResponse(Map[OrderId, Order]):
 	pass
 
 
@@ -680,7 +645,7 @@ class RestCancelOrderRequest:
 	market_name: Optional[MarketName]
 
 
-class RestCancelOrderResponse(Map[OwnerAddress, Map[OrderId, Order]]):
+class RestCancelOrderResponse(Order):
 	pass
 
 
@@ -695,7 +660,8 @@ class RestCancelOrdersRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-RestCancelOrdersResponse = Map[OwnerAddress, Map[OrderId, Order]]
+class RestCancelOrdersResponse(Map[OwnerAddress, Map[OrderId, Order]]):
+	pass
 
 
 class RestCancelAllOrdersRequest:
@@ -707,7 +673,8 @@ class RestCancelAllOrdersRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-RestCancelAllOrdersResponse = RestCancelOrdersResponse
+class RestCancelAllOrdersResponse(RestCancelOrdersResponse):
+	pass
 
 
 class RestMarketWithdrawRequest:
@@ -717,7 +684,8 @@ class RestMarketWithdrawRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-RestMarketWithdrawResponse = Map[OwnerAddress, Withdraws]
+class RestMarketWithdrawResponse(Map[OwnerAddress, Withdraws]):
+	pass
 
 
 class RestMarketsWithdrawsRequest:
@@ -727,14 +695,16 @@ class RestMarketsWithdrawsRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-RestMarketsWithdrawsFundsResponse = Map[OwnerAddress, Map[MarketId, Withdraws]]
-
-
-class RestAllMarketsWithdrawsRequest(RestMarketsWithdrawsRequest):
+class RestMarketsWithdrawsFundsResponse(Map[OwnerAddress, Map[MarketId, Withdraws]]):
 	pass
 
 
-RestAllMarketsWithdrawsResponse = RestMarketsWithdrawsFundsResponse
+class RestAllMarketsWithdrawsRequest:
+	pass
+
+
+class RestAllMarketsWithdrawsResponse(RestMarketsWithdrawsFundsResponse):
+	pass
 
 
 class RestGetEstimatedFeesRequest:
@@ -1181,7 +1151,7 @@ ClobDeleteOrderResponse = ClobPostOrderResponse
 
 PerpClobMarketRequest = ClobMarketsRequest
 
-PerpClobMarkets = Dict[str, PerpetualMarket]
+PerpClobMarkets = Map[str, PerpetualMarket]
 
 
 @dataclass
@@ -1213,7 +1183,7 @@ class PerpClobGetOrderResponse:
 	network: NetworkName
 	timestamp: Timestamp
 	latency: Latency
-	orders: List[Dict[str, str]] = []
+	orders: List[Map[str, str]] = []
 
 
 @dataclass
@@ -1372,18 +1342,6 @@ class GetTokenSymbolsToTokenIdsMapRequest:
 
 
 class GetTokenSymbolsToTokenIdsMapResponse(Map[TokenSymbol, TokenId]):
-	pass
-
-
-class GetKujiraTokenSymbolsToCoinGeckoTokenIdsMapResponse(Map[TokenSymbol, Union[CoinGeckoId, None]]):
-	pass
-
-
-class GetWalletArtifactsRequest:
-	owner_address: OwnerAddress
-
-
-class GetWalletArtifactsResponse(KujiraWalletArtifacts):
 	pass
 
 
