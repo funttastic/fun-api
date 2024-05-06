@@ -170,103 +170,103 @@ class WebSocketConnectorBase(BasicConnectorBase):
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_order_book(self, request: WsWatchOrderBookRequest = None) -> WsWatchOrderBookResponse:
+	async def watch_order_book(self, request: WsWatchOrderBookRequest = None) -> Optional[WsWatchOrderBookResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_order_books(self, request: WsWatchOrderBooksRequest = None) -> WsWatchOrderBooksResponse:
+	async def watch_order_books(self, request: WsWatchOrderBooksRequest = None) -> Optional[WsWatchOrderBooksResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_all_order_books(self, request: WsWatchAllOrderBooksRequest = None) -> WsWatchAllOrderBooksResponse:
+	async def watch_all_order_books(self, request: WsWatchAllOrderBooksRequest = None) -> Optional[WsWatchAllOrderBooksResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_ticker(self, request: WsWatchTickerRequest = None) -> WsWatchTickerResponse:
+	async def watch_ticker(self, request: WsWatchTickerRequest = None) -> Optional[WsWatchTickerResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_tickers(self, request: WsWatchTickersRequest = None) -> WsWatchTickersResponse:
+	async def watch_tickers(self, request: WsWatchTickersRequest = None) -> Optional[WsWatchTickersResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_all_tickers(self, request: WsWatchAllTickersRequest = None) -> WsWatchAllTickersResponse:
+	async def watch_all_tickers(self, request: WsWatchAllTickersRequest = None) -> Optional[WsWatchAllTickersResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_balance(self, request: WsWatchBalanceRequest = None) -> WsWatchBalanceResponse:
+	async def watch_balance(self, request: WsWatchBalanceRequest = None) -> Optional[WsWatchBalanceResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_balances(self, request: WsWatchBalancesRequest = None) -> WsWatchBalancesResponse:
+	async def watch_balances(self, request: WsWatchBalancesRequest = None) -> Optional[WsWatchBalancesResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_all_balances(self, request: WsWatchAllBalancesRequest = None) -> WsWatchAllBalancesResponse:
+	async def watch_all_balances(self, request: WsWatchAllBalancesRequest = None) -> Optional[WsWatchAllBalancesResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_order(self, request: WsWatchOrderRequest = None) -> WsWatchOrderResponse:
+	async def watch_order(self, request: WsWatchOrderRequest = None) -> Optional[WsWatchOrderResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_orders(self, request: WsWatchOrdersRequest = None) -> WsWatchOrdersResponse:
+	async def watch_orders(self, request: WsWatchOrdersRequest = None) -> Optional[WsWatchOrdersResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_all_open_orders(self, request: WsWatchAllOpenOrdersRequest = None) -> WsWatchAllOpenOrdersResponse:
+	async def watch_all_open_orders(self, request: WsWatchAllOpenOrdersRequest = None) -> Optional[WsWatchAllOpenOrdersResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_all_filled_orders(self, request: WsWatchAllFilledOrdersRequest = None) -> WsWatchAllFilledOrdersResponse:
+	async def watch_all_filled_orders(self, request: WsWatchAllFilledOrdersRequest = None) -> Optional[WsWatchAllFilledOrdersResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_all_orders(self, request: WsWatchAllOrdersRequest = None) -> WsWatchAllOrdersResponse:
+	async def watch_all_orders(self, request: WsWatchAllOrdersRequest = None) -> Optional[WsWatchAllOrdersResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def create_order(self, request: WsCreateOrderRequest = None) -> WsCreateOrderResponse:
+	async def create_order(self, request: WsCreateOrderRequest = None) -> Optional[WsCreateOrderResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def create_orders(self, request: WsCreateOrdersRequest = None) -> WsCreateOrdersResponse:
+	async def create_orders(self, request: WsCreateOrdersRequest = None) -> Optional[WsCreateOrdersResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def cancel_order(self, request: WsCancelOrderRequest = None) -> WsCancelOrderResponse:
+	async def cancel_order(self, request: WsCancelOrderRequest = None) -> Optional[WsCancelOrderResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def cancel_orders(self, request: WsCancelOrdersRequest = None) -> WsCancelOrdersResponse:
+	async def cancel_orders(self, request: WsCancelOrdersRequest = None) -> Optional[WsCancelOrdersResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def cancel_all_orders(self, request: WsCancelAllOrdersRequest = None) -> WsCancelAllOrdersResponse:
+	async def cancel_all_orders(self, request: WsCancelAllOrdersRequest = None) -> Optional[WsCancelAllOrdersResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def market_withdraw(self, request: WsMarketWithdrawRequest = None) -> WsMarketWithdrawResponse:
+	async def market_withdraw(self, request: WsMarketWithdrawRequest = None) -> Optional[WsMarketWithdrawResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def markets_withdraws(self, request: WsMarketsWithdrawsRequest = None) -> WsMarketsWithdrawsFundsResponse:
+	async def markets_withdraws(self, request: WsMarketsWithdrawsRequest = None) -> Optional[WsMarketsWithdrawsFundsResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def all_markets_withdraws(self, request: WsAllMarketsWithdrawsRequest = None) -> WsAllMarketsWithdrawsResponse:
+	async def all_markets_withdraws(self, request: WsAllMarketsWithdrawsRequest = None) -> Optional[WsAllMarketsWithdrawsResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_indicator(self, request: WsWatchIndicatorRequest = None) -> WsWatchIndicatorResponse:
+	async def watch_indicator(self, request: WsWatchIndicatorRequest = None) -> Optional[WsWatchIndicatorResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_indicators(self, request: WsWatchIndicatorsRequest = None) -> WsWatchIndicatorsResponse:
+	async def watch_indicators(self, request: WsWatchIndicatorsRequest = None) -> Optional[WsWatchIndicatorsResponse]:
 		raise NotImplemented()
 
 	@abstractmethod
-	async def watch_all_indicators(self, request: WsWatchAllIndicatorsRequest = None) -> WsWatchAllIndicatorsResponse:
+	async def watch_all_indicators(self, request: WsWatchAllIndicatorsRequest = None) -> Optional[WsWatchAllIndicatorsResponse]:
 		raise NotImplemented()
 
 
