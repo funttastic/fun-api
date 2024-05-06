@@ -85,14 +85,14 @@ class HummingbotGatewayCLOBRESTConnector(RESTConnectorBase):
 	async def get_all_tokens(self, request: RestGetAllTokensRequest = None) -> RestGetAllTokensResponse:
 		pass
 
-	async def get_market(self, options: DotMap[str, Any] = None):
-		parameters = options
+	async def get_market(self, request: RestGetMarketRequest = None) -> RestGetMarketsResponse:
+		parameters = request
 
-		response = HummingbotGateway.clob_get_markets(parameters)
+		result = HummingbotGateway.clob_get_markets(parameters)
 
-		output = response
+		response = result
 
-		return output
+		return response
 
 	async def get_markets(self, request: RestGetMarketsRequest = None) -> RestGetMarketsResponse:
 		pass

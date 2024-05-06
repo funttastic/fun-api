@@ -109,7 +109,13 @@ class CCXTRESTConnector(RESTConnectorBase):
 		pass
 
 	async def get_markets(self, request: RestGetMarketsRequest = None) -> RestGetMarketsResponse:
-		pass
+		parameters = request
+
+		result = self.exchange.fetch_markets(parameters)
+
+		response = result
+
+		return response
 
 	async def get_all_markets(self, request: RestGetAllMarketsRequest = None) -> RestGetAllMarketsResponse:
 		pass

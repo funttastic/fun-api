@@ -229,6 +229,7 @@ class Token:
 	name: TokenName
 	symbol: TokenSymbol
 	decimals: TokenDecimals
+	raw: Any
 
 
 class Market:
@@ -244,7 +245,7 @@ class Market:
 	fees: 'MarketFee'
 	programId: MarketProgramId
 	deprecated: MarketDeprecation
-	connectorMarket: ConnectorMarket
+	raw: Any
 
 
 class OrderBook:
@@ -253,7 +254,7 @@ class OrderBook:
 	asks: IMap[OrderId, 'Order']
 	bestBid: 'Order'
 	bestAsk: 'Order'
-	connectorOrderBook: ConnectorOrderBook
+	raw: Any
 
 
 class Ticker:
