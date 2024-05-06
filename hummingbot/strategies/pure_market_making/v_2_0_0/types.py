@@ -121,7 +121,7 @@ ChainName = str
 ConnectorName = str
 NetworkName = str
 Latency = int
-Leverage: int
+Leverage = int
 Limit = int
 
 
@@ -604,9 +604,12 @@ class RestGetOrdersRequest:
 	status: OrderStatus = None
 	statuses: List[OrderStatus] = None
 
+OrderMap = IMap[OrderId, Order]
+OwnerOrderMap = IMap[OwnerAddress, OrderMap]
+RestGetOrdersResponse = Union[OrderMap, OwnerOrderMap]
 
-class RestGetOrdersResponse(Union[IMap[OrderId, Order], IMap[OwnerAddress, IMap[OrderId, Order]]]):
-	pass
+# class RestGetOrdersResponse(Union[IMap[OrderId, Order], IMap[OwnerAddress, IMap[OrderId, Order]]]):
+# 	pass
 
 
 class RestGetAllOpenOrdersRequest:
@@ -1016,8 +1019,8 @@ class PriceLevel:
 
 @dataclass
 class Orderbook:
-	buys: IMap[PriceLevel]
-	sells: IMap[PriceLevel]
+	buys: IMap[str,PriceLevel]
+	sells: IMap[str,PriceLevel]
 
 
 class TradeDirection(Enum):
