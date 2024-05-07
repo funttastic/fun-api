@@ -153,7 +153,7 @@ class HummingbotClientRESTConnector(RESTConnectorBase):
 	async def market_withdraw(self, request: RestMarketWithdrawRequest = None) -> RestMarketWithdrawResponse:
 		pass
 
-	async def markets_withdraws(self, request: RestMarketsWithdrawsRequest = None) -> RestMarketsWithdrawsFundsResponse:
+	async def markets_withdraws(self, request: RestMarketsWithdrawsRequest = None) -> RestMarketsWithdrawsResponse:
 		pass
 
 	async def all_markets_withdraws(self, request: RestAllMarketsWithdrawsRequest = None) -> RestAllMarketsWithdrawsResponse:
@@ -168,78 +168,78 @@ class HummingbotClientWebSocketConnector(WebSocketConnectorBase):
 	async def initialize(self, options: DotMap[str, Any] = None):
 		await super().initialize(options)
 
-	async def watch_order_book(self, request: WsWatchOrderBookRequest = None) -> WsWatchOrderBookResponse:
+	async def watch_order_book(self, request: WsWatchOrderBookRequest = None) -> Optional[WsWatchOrderBookResponse]:
 		pass
 
-	async def watch_order_books(self, request: WsWatchOrderBooksRequest = None) -> WsWatchOrderBooksResponse:
+	async def watch_order_books(self, request: WsWatchOrderBooksRequest = None) -> Optional[WsWatchOrderBooksResponse]:
 		pass
 
-	async def watch_all_order_books(self, request: WsWatchAllOrderBooksRequest = None) -> WsWatchAllOrderBooksResponse:
+	async def watch_all_order_books(self, request: WsWatchAllOrderBooksRequest = None) -> Optional[WsWatchAllOrderBooksResponse]:
 		pass
 
-	async def watch_ticker(self, request: WsWatchTickerRequest = None) -> WsWatchTickerResponse:
+	async def watch_ticker(self, request: WsWatchTickerRequest = None) -> Optional[WsWatchTickerResponse]:
 		pass
 
-	async def watch_tickers(self, request: WsWatchTickersRequest = None) -> WsWatchTickersResponse:
+	async def watch_tickers(self, request: WsWatchTickersRequest = None) -> Optional[WsWatchTickersResponse]:
 		pass
 
-	async def watch_all_tickers(self, request: WsWatchAllTickersRequest = None) -> WsWatchAllTickersResponse:
+	async def watch_all_tickers(self, request: WsWatchAllTickersRequest = None) -> Optional[WsWatchAllTickersResponse]:
 		pass
 
-	async def watch_balance(self, request: WsWatchBalanceRequest = None) -> WsWatchBalanceResponse:
+	async def watch_balance(self, request: WsWatchBalanceRequest = None) -> Optional[WsWatchBalanceResponse]:
 		pass
 
-	async def watch_balances(self, request: WsWatchBalancesRequest = None) -> WsWatchBalancesResponse:
+	async def watch_balances(self, request: WsWatchBalancesRequest = None) -> Optional[WsWatchBalancesResponse]:
 		pass
 
-	async def watch_all_balances(self, request: WsWatchAllBalancesRequest = None) -> WsWatchAllBalancesResponse:
+	async def watch_all_balances(self, request: WsWatchAllBalancesRequest = None) -> Optional[WsWatchAllBalancesResponse]:
 		pass
 
-	async def watch_order(self, request: WsWatchOrderRequest = None) -> WsWatchOrderResponse:
+	async def watch_order(self, request: WsWatchOrderRequest = None) -> Optional[WsWatchOrderResponse]:
 		pass
 
-	async def watch_orders(self, request: WsWatchOrdersRequest = None) -> WsWatchOrdersResponse:
+	async def watch_orders(self, request: WsWatchOrdersRequest = None) -> Optional[WsWatchOrdersResponse]:
 		pass
 
-	async def watch_all_open_orders(self, request: WsWatchAllOpenOrdersRequest = None) -> WsWatchAllOpenOrdersResponse:
+	async def watch_all_open_orders(self, request: WsWatchAllOpenOrdersRequest = None) -> Optional[WsWatchAllOpenOrdersResponse]:
 		pass
 
 	async def watch_all_filled_orders(self,
-																		request: WsWatchAllFilledOrdersRequest = None) -> WsWatchAllFilledOrdersResponse:
+																		request: WsWatchAllFilledOrdersRequest = None) -> Optional[WsWatchAllFilledOrdersResponse]:
 		pass
 
-	async def watch_all_orders(self, request: WsWatchAllOrdersRequest = None) -> WsWatchAllOrdersResponse:
+	async def watch_all_orders(self, request: WsWatchAllOrdersRequest = None) -> Optional[WsWatchAllOrdersResponse]:
 		pass
 
-	async def create_order(self, request: WsCreateOrderRequest = None) -> WsCreateOrderResponse:
+	async def create_order(self, request: WsCreateOrderRequest = None) -> Optional[WsCreateOrderResponse]:
 		pass
 
-	async def create_orders(self, request: WsCreateOrdersRequest = None) -> WsCreateOrdersResponse:
+	async def create_orders(self, request: WsCreateOrdersRequest = None) -> Optional[WsCreateOrdersResponse]:
 		pass
 
-	async def cancel_order(self, request: WsCancelOrderRequest = None) -> WsCancelOrderResponse:
+	async def cancel_order(self, request: WsCancelOrderRequest = None) -> Optional[WsCancelOrderResponse]:
 		pass
 
-	async def cancel_orders(self, request: WsCancelOrdersRequest = None) -> WsCancelOrdersResponse:
+	async def cancel_orders(self, request: WsCancelOrdersRequest = None) -> Optional[WsCancelOrdersResponse]:
 		pass
 
-	async def cancel_all_orders(self, request: WsCancelAllOrdersRequest = None) -> WsCancelAllOrdersResponse:
+	async def cancel_all_orders(self, request: WsCancelAllOrdersRequest = None) -> Optional[WsCancelAllOrdersResponse]:
 		pass
 
-	async def market_withdraw(self, request: WsMarketWithdrawRequest = None) -> WsMarketWithdrawResponse:
+	async def market_withdraw(self, request: WsMarketWithdrawRequest = None) -> Optional[WsMarketWithdrawResponse]:
 		pass
 
-	async def markets_withdraws(self, request: WsMarketsWithdrawsRequest = None) -> WsMarketsWithdrawsFundsResponse:
+	async def markets_withdraws(self, request: WsMarketsWithdrawsRequest = None) -> Optional[WsMarketsWithdrawsFundsResponse]:
 		pass
 
-	async def all_markets_withdraws(self, request: WsAllMarketsWithdrawsRequest = None) -> WsAllMarketsWithdrawsResponse:
+	async def all_markets_withdraws(self, request: WsAllMarketsWithdrawsRequest = None) -> Optional[WsAllMarketsWithdrawsResponse]:
 		pass
 
-	async def watch_indicator(self, request: WsWatchIndicatorRequest = None) -> WsWatchIndicatorResponse:
+	async def watch_indicator(self, request: WsWatchIndicatorRequest = None) -> Optional[WsWatchIndicatorResponse]:
 		pass
 
-	async def watch_indicators(self, request: WsWatchIndicatorsRequest = None) -> WsWatchIndicatorsResponse:
+	async def watch_indicators(self, request: WsWatchIndicatorsRequest = None) -> Optional[WsWatchIndicatorsResponse]:
 		pass
 
-	async def watch_all_indicators(self, request: WsWatchAllIndicatorsRequest = None) -> WsWatchAllIndicatorsResponse:
+	async def watch_all_indicators(self, request: WsWatchAllIndicatorsRequest = None) -> Optional[WsWatchAllIndicatorsResponse]:
 		pass

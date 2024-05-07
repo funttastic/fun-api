@@ -1,10 +1,7 @@
-from dotmap import DotMap
-from collections import namedtuple
 from decimal import Decimal
-from typing import Any, List, Dict, Optional, Callable, Tuple, TypeVar, Union
+from dotmap import DotMap as Map
 from enum import Enum
-from dataclasses import dataclass
-from datetime import datetime
+from typing import Any, List, Optional, Union
 
 from hummingbot.strategies.pure_market_making.v_2_0_0.workers.ccxt.ccxt import CCXTWorker
 from hummingbot.strategies.pure_market_making.v_2_0_0.workers.hb_client.hb_client import HBClientWorker
@@ -36,21 +33,6 @@ class WorkerType(Enum):
 # Types and Constants
 #
 
-KujiraOrder = Any
-KujiraEvent = Any
-KujiraEventAttribute = Any
-
-FunctionType = Callable[..., Any]
-AsyncFunctionType = Callable[..., Any]
-
-IList = list
-ISet = set
-IMap = Dict
-
-BasicKujiraToken = Any
-BasicKujiraMarket = Any
-KujiraWithdraw = Any
-
 Address = str
 OwnerAddress = Address
 PayerAddress = Address
@@ -59,21 +41,21 @@ Amount = Decimal
 Fee = Decimal
 Percentage = Decimal
 Timestamp = int
-Block = int
-EncryptedWallet = str
+Mnemonic = str
+Password = str
+AccountNumber = int
 
-ConnectorMarket = Any
-ConnectorTicker = Any
-ConnectorOrderBook = Any
-ConnectorOrder = Any
+BlockNumber = int
+
+TransactionHash = str
 
 TokenId = Address
 TokenName = str
 TokenSymbol = str
 TokenDecimals = int
 
-MarketName = str
 MarketId = Address
+MarketName = str
 MarketPrecision = int
 MarketProgramId = Address
 MarketDeprecation = bool
@@ -85,13 +67,10 @@ MarketMinimumQuoteIncrement = Decimal
 TickerPrice = Price
 TickerTimestamp = Timestamp
 
-TransactionHash = str
-
 OrderId = str
 OrderClientId = str
 OrderMarketName = MarketName
 OrderMarketId = MarketId
-OrderMarket = 'Market'
 OrderOwnerAddress = OwnerAddress
 OrderPayerAddress = PayerAddress
 OrderPrice = Price
@@ -99,7 +78,6 @@ OrderAmount = Amount
 OrderFee = Fee
 OrderCreationTimestamp = Timestamp
 OrderFillingTimestamp = Timestamp
-OrderTransactionHashes = 'TransactionHashes'
 
 FeeMaker = Fee
 FeeTaker = Fee
@@ -110,19 +88,10 @@ EstimatedFeesPrice = Price
 EstimateFeesLimit = Decimal
 EstimateFeesCost = Decimal
 
-Mnemonic = str
-Password = str
-AccountNumber = int
-
-CoinGeckoSymbol = str
-CoinGeckoId = str
-
 ChainName = str
-ConnectorName = str
 NetworkName = str
-Latency = int
-Leverage = int
-Limit = int
+ConnectorName = str
+ConnectorStatus = str
 
 
 #
@@ -147,28 +116,17 @@ class OrderStatus(Enum):
 class OrderType(Enum):
 	MARKET = 'MARKET'
 	LIMIT = 'LIMIT'
-	LIMIT_MAKER = "LIMIT_MAKER"
-	IOC = 'IOC'  # Immediate or Cancel
-	POST_ONLY = 'POST_ONLY'
+	POST_ONLY = 'POST_ONLY'  # A limit order which cannot be filled while posting
+	LIMIT_MAKER = "LIMIT_MAKER"  # A limit order which can be partially filled (not completely) while posting
+	IMMEDIATE_OR_CANCEL = 'IMMEDIATE_OR_CANCEL'  # A limit order that must be filled immediately or cancelled
 
 
 class TickerSource(Enum):
-	ORDER_BOOK_SAP = 'orderBookSimpleAveragePrice'
-	ORDER_BOOK_WAP = 'orderBookWeightedAveragePrice'
-	ORDER_BOOK_VWAP = 'orderBookVolumeWeightedAveragePrice'
-	LAST_FILLED_ORDER = 'lastFilledOrder'
-	COINGECKO = 'coinGecko'
-
-
-class ConvertOrderType(Enum):
-	GET_ORDERS = 'getOrders'
-	PLACE_ORDERS = 'placeOrders'
-	CANCELLED_ORDERS = 'cancelledOrders'
-
-
-class RequestStrategy(Enum):
-	RESTful = 'RESTful'
-	Controller = 'Controller'
+	ORDER_BOOK_SAP = 'ORDER_BOOK_SIMPLE_AVERAGE_PRICE'
+	ORDER_BOOK_WAP = 'ORDER_BOOK_WEIGHTED_AVERAGE_PRICE'
+	ORDER_BOOK_VWAP = 'ORDER_BOOK_VOLUME_WEIGHTED_AVERAGE_PRICE'
+	LAST_FILLED_ORDER = 'LAST_FILLED_ORDER'
+	EXTERNAL_API = 'EXTERNAL_API'
 
 
 class RESTfulMethod(Enum):
@@ -177,51 +135,26 @@ class RESTfulMethod(Enum):
 	PUT = 'PUT'
 	PATCH = 'PATCH'
 	DELETE = 'DELETE'
+	HEAD = 'HEAD'
+	OPTIONS = 'OPTIONS'
 
 
 #
 # Interfaces and Classes
 #
 
-class Withdraw:
-	fees: Dict[str, Amount]
-	token: 'Token'
+Block = Map[str, Any]
 
 
-class Withdraws:
+class Transaction:
 	hash: TransactionHash
-	tokens: IMap[TokenId, Withdraw]
-	total: Dict[str, Amount]
-
-
-class KujiraTicker:
-	price: Price
-
-
-class TokenAmount:
-	token: 'Token'
-	amount: Amount
-
-
-class OrderFilling:
-	free: TokenAmount
-	filled: TokenAmount
-
-
-class TokenPriceInDolar:
-	token: TokenName
-	price: Price
-
-
-class KujiraOrderBookItem:
-	quote_price: str
-	offer_denom: Dict[str, str]
-	total_offer_amount: str
-
-
-class KujiraOrderBook:
-	base: List[KujiraOrderBookItem]
-	quote: List[KujiraOrderBookItem]
+	block_number: BlockNumber
+	block: Block
+	gas_used: int
+	gas_wanted: int
+	code: int
+	data: Any
+	raw: Any
 
 
 class Token:
@@ -232,28 +165,34 @@ class Token:
 	raw: Any
 
 
+class MarketFee:
+	maker: FeeMaker
+	taker: FeeTaker
+	service_provider: FeeServiceProvider
+
+
 class Market:
 	id: MarketId
 	name: MarketName
-	baseToken: Token
-	quoteToken: Token
+	base_token: Token
+	quote_token: Token
 	precision: MarketPrecision
-	minimumOrderSize: MarketMinimumOrderSize
-	minimumPriceIncrement: MarketMinimumPriceIncrement
-	minimumBaseAmountIncrement: MarketMinimumBaseIncrement
-	minimumQuoteAmountIncrement: MarketMinimumQuoteIncrement
+	minimum_order_size: MarketMinimumOrderSize
+	minimum_price_increment: MarketMinimumPriceIncrement
+	minimum_base_amount_increment: MarketMinimumBaseIncrement
+	minimum_quote_amount_increment: MarketMinimumQuoteIncrement
 	fees: 'MarketFee'
-	programId: MarketProgramId
+	program_id: MarketProgramId
 	deprecated: MarketDeprecation
 	raw: Any
 
 
 class OrderBook:
 	market: Market
-	bids: IMap[OrderId, 'Order']
-	asks: IMap[OrderId, 'Order']
-	bestBid: 'Order'
-	bestAsk: 'Order'
+	bids: Map[OrderId, 'Order']
+	asks: Map[OrderId, 'Order']
+	best_bid: 'Order'
+	best_ask: 'Order'
 	raw: Any
 
 
@@ -261,42 +200,58 @@ class Ticker:
 	market: Market
 	price: TickerPrice
 	timestamp: TickerTimestamp
-	tokens: ConnectorTicker
+	raw: Any
 
 
-class SimplifiedBalance:
+class TokenAndAmount:
+	token: 'Token'
+	amount: Amount
+
+
+class OrderFilling:
+	free: TokenAndAmount
+	filled: TokenAndAmount
+
+
+class BaseBalance:
 	free: Amount
-	lockedInOrders: Amount
+	locked_in_orders: Amount
 	unsettled: Amount
 	total: Amount
 
 
-class SimplifiedBalanceWithUSD(SimplifiedBalance):
+class BaseBalanceWithQuotation(BaseBalance):
 	quotation: Amount
 
 
-class TotalBalance(SimplifiedBalance):
+class TotalBalance(BaseBalance):
 	pass
 
 
-class TokenBalance(SimplifiedBalance):
+class BaseTokenBalance:
+	token: BaseBalance
+	usd: BaseBalanceWithQuotation
+	native_token: BaseBalanceWithQuotation
+
+
+class TokenBalance:
 	token: Token
-	inUSD: SimplifiedBalanceWithUSD
+	balances: BaseTokenBalance
 
 
 class Balances:
-	tokens: IMap[TokenId, TokenBalance]
+	tokens: Map[TokenId, TokenBalance]
 	total: TotalBalance
 
 
 class Order:
 	id: OrderId
-	clientId: OrderClientId
-	marketName: OrderMarketName
-	marketId: OrderMarketId
-	market: OrderMarket
-	ownerAddress: OrderOwnerAddress
-	payerAddress: OrderPayerAddress
+	client_id: OrderClientId
+	market_name: OrderMarketName
+	market_id: OrderMarketId
+	market: Market
+	owner_address: OrderOwnerAddress
+	payer_address: OrderPayerAddress
 	price: OrderPrice
 	amount: OrderAmount
 	side: OrderSide
@@ -304,25 +259,31 @@ class Order:
 	type: OrderType
 	fee: OrderFee
 	filling: OrderFilling
-	creationTimestamp: OrderCreationTimestamp
-	fillingTimestamp: OrderFillingTimestamp
-	hashes: OrderTransactionHashes
-	connectorOrder: ConnectorOrder
+	creation_timestamp: OrderCreationTimestamp
+	filling_timestamp: OrderFillingTimestamp
+	hashes: 'TransactionHashes'
+	raw: Any
 
 
 class TransactionHashes:
-	creation: TransactionHash
-	cancellation: TransactionHash
-	withdraw: TransactionHash
-	creations: List[TransactionHash]
-	cancellations: List[TransactionHash]
-	withdraws: List[TransactionHash]
+	creation: Optional[TransactionHash]
+	cancellation: Optional[TransactionHash]
+	withdraw: Optional[TransactionHash]
+	creations: Optional[List[TransactionHash]]
+	cancellations: Optional[List[TransactionHash]]
+	withdraws: Optional[List[TransactionHash]]
 
 
-class MarketFee:
-	maker: FeeMaker
-	taker: FeeTaker
-	serviceProvider: FeeServiceProvider
+class WithdrawItem:
+	fees: Map[str, Amount]
+	token: 'Token'
+
+
+class Withdraw:
+	hash: TransactionHash
+	tokens: Map[TokenId, WithdrawItem]
+	total: Map[str, Amount]
+	raw: Any
 
 
 class EstimatedFees:
@@ -332,72 +293,43 @@ class EstimatedFees:
 	cost: EstimateFeesCost
 
 
-class Transaction:
-	hash: TransactionHash
-	blockNumber: Block
-	gasUsed: int
-	gasWanted: int
-	code: int
-	data: Any
-
-
-class BasicWallet:
-	mnemonic: Mnemonic
-	accountNumber: AccountNumber
-	publicKey: Address
-
-
-class KujiraWalletArtifacts:
-	publicKey: Address
-	accountData: Any
-	accountNumber: AccountNumber
-	directSecp256k1HdWallet: Any
-	signingStargateClient: Any
-	signingCosmWasmClient: Any
-	finClients: IMap[MarketId, Any]
-
-
 #
 # Errors
 #
 
-class CLOBishError(Exception):
+class BaseError(Exception):
 	pass
 
 
-class TokenNotFoundError(CLOBishError):
+class TransactionNotFoundError(BaseError):
 	pass
 
 
-class MarketNotFoundError(CLOBishError):
+class TokenNotFoundError(BaseError):
 	pass
 
 
-class BalanceNotFoundError(CLOBishError):
+class MarketNotFoundError(BaseError):
 	pass
 
 
-class OrderBookNotFoundError(CLOBishError):
+class OrderBookNotFoundError(BaseError):
 	pass
 
 
-class TickerNotFoundError(CLOBishError):
+class TickerNotFoundError(BaseError):
 	pass
 
 
-class OrderNotFoundError(CLOBishError):
+class BalanceNotFoundError(BaseError):
 	pass
 
 
-class MarketWithdrawError(CLOBishError):
+class OrderNotFoundError(BaseError):
 	pass
 
 
-class TransactionNotFoundError(CLOBishError):
-	pass
-
-
-class WalletPublicKeyNotFoundError(CLOBishError):
+class WithdrawError(BaseError):
 	pass
 
 
@@ -405,28 +337,43 @@ class WalletPublicKeyNotFoundError(CLOBishError):
 # Main Rest Methods Interfaces
 #
 
+class RestGetRootRequest:
+	pass
+
+
+class RestGetRootResponse:
+	chain: ChainName
+	network: NetworkName
+	connector: ConnectorName
+	status: ConnectorStatus
+	timestamp: Timestamp
+
 
 class RestGetCurrentBlockRequest:
 	pass
 
 
 class RestGetCurrentBlockResponse:
-	pass
+	number: BlockNumber
+	block: Block
+	raw: Any
 
 
 class RestGetBlockRequest:
-	pass
+	number: BlockNumber
 
 
 class RestGetBlockResponse:
-	pass
+	number: BlockNumber
+	block: Block
+	raw: Any
 
 
 class RestGetBlocksRequest:
-	pass
+	numbers: List[BlockNumber]
 
 
-class RestGetBlocksResponse:
+class RestGetBlocksResponse(Map[BlockNumber, Block]):
 	pass
 
 
@@ -434,7 +381,7 @@ class RestGetTransactionRequest:
 	hash: TransactionHash
 
 
-class RestGetTransactionResponse:
+class RestGetTransactionResponse(Transaction):
 	pass
 
 
@@ -442,13 +389,14 @@ class RestGetTransactionsRequest:
 	hashes: List[TransactionHash]
 
 
-RestGetTransactionsResponse = IMap[TransactionHash, Transaction]
+class RestGetTransactionsResponse(Map[TransactionHash, Transaction]):
+	pass
 
 
 class RestGetTokenRequest:
-	id: TokenId = None
-	name: TokenName = None
-	symbol: TokenSymbol = None
+	id: Optional[TokenId]
+	name: Optional[TokenName]
+	symbol: Optional[TokenSymbol]
 
 
 class RestGetTokenResponse(Token):
@@ -456,12 +404,12 @@ class RestGetTokenResponse(Token):
 
 
 class RestGetTokensRequest:
-	ids: List[TokenId] = None
-	names: List[TokenName] = None
-	symbols: List[TokenSymbol] = None
+	ids: Optional[List[TokenId]]
+	names: Optional[List[TokenName]]
+	symbols: Optional[List[TokenSymbol]]
 
 
-class RestGetTokensResponse(IMap[TokenId, Token]):
+class RestGetTokensResponse(Map[TokenId, Token]):
 	pass
 
 
@@ -469,13 +417,13 @@ class RestGetAllTokensRequest:
 	pass
 
 
-class RestGetAllTokensResponse(IMap[TokenId, Token]):
+class RestGetAllTokensResponse(RestGetTokensResponse):
 	pass
 
 
 class RestGetMarketRequest:
-	id: MarketId = None
-	name: MarketName = None
+	id: Optional[MarketId]
+	name: Optional[MarketName]
 
 
 class RestGetMarketResponse(Market):
@@ -483,25 +431,25 @@ class RestGetMarketResponse(Market):
 
 
 class RestGetMarketsRequest:
-	ids: List[MarketId] = None
-	names: List[MarketName] = None
+	ids: Optional[List[MarketId]]
+	names: Optional[List[MarketName]]
 
 
-class RestGetMarketsResponse(IMap[MarketId, Market]):
+class RestGetMarketsResponse(Map[MarketId, Market]):
 	pass
 
 
-class RestGetAllMarketsRequest(RestGetMarketsRequest):
+class RestGetAllMarketsRequest:
 	pass
 
 
-class RestGetAllMarketsResponse(IMap[MarketId, Market]):
+class RestGetAllMarketsResponse(RestGetMarketsResponse):
 	pass
 
 
 class RestGetOrderBookRequest:
-	marketId: MarketId = None
-	marketName: MarketName = None
+	market_id: Optional[MarketId]
+	market_name: Optional[MarketName]
 
 
 class RestGetOrderBookResponse(OrderBook):
@@ -509,25 +457,25 @@ class RestGetOrderBookResponse(OrderBook):
 
 
 class RestGetOrderBooksRequest:
-	marketIds: List[MarketId] = None
-	marketNames: List[MarketName] = None
+	market_ids: Optional[List[MarketId]]
+	market_names: Optional[List[MarketName]]
 
 
-class RestGetOrderBooksResponse(IMap[MarketId, OrderBook]):
+class RestGetOrderBooksResponse(Map[MarketId, OrderBook]):
 	pass
 
 
-class RestGetAllOrderBooksRequest(RestGetOrderBooksRequest):
+class RestGetAllOrderBooksRequest:
 	pass
 
 
-class RestGetAllOrderBooksResponse(IMap[MarketId, OrderBook]):
+class RestGetAllOrderBooksResponse(Map[MarketId, OrderBook]):
 	pass
 
 
 class RestGetTickerRequest:
-	marketId: MarketId = None
-	marketName: MarketName = None
+	market_id: Optional[MarketId]
+	market_name: Optional[MarketName]
 
 
 class RestGetTickerResponse(Ticker):
@@ -535,26 +483,34 @@ class RestGetTickerResponse(Ticker):
 
 
 class RestGetTickersRequest:
-	marketIds: List[MarketId] = None
-	marketNames: List[MarketName] = None
+	market_ids: Optional[List[MarketId]]
+	market_names: Optional[List[MarketName]]
 
 
-class RestGetTickersResponse(IMap[MarketId, Ticker]):
+class RestGetTickersResponse(Map[MarketId, Ticker]):
 	pass
 
 
-class RestGetAllTickersRequest(RestGetTickersRequest):
+class RestGetAllTickersRequest:
 	pass
 
 
-class RestGetAllTickersResponse(IMap[MarketId, Ticker]):
+class RestGetAllTickersResponse(RestGetTickersResponse):
 	pass
+
+
+class RestAddWalletRequest:
+	mnemonic: Mnemonic
+	account_number: Optional[AccountNumber]
+
+
+RestAddWalletResponse = Address
 
 
 class RestGetBalanceRequest:
-	tokenId: TokenId
-	tokenSymbol: TokenSymbol
-	ownerAddress: OwnerAddress
+	token_id: Optional[TokenId]
+	token_symbol: Optional[TokenSymbol]
+	owner_address: OwnerAddress
 
 
 class RestGetBalanceResponse(TokenBalance):
@@ -562,9 +518,9 @@ class RestGetBalanceResponse(TokenBalance):
 
 
 class RestGetBalancesRequest:
-	tokenIds: List[TokenId] = None
-	tokenSymbols: List[TokenSymbol] = None
-	ownerAddress: OwnerAddress
+	token_ids: Optional[List[TokenId]]
+	token_symbols: Optional[List[TokenSymbol]]
+	owner_address: OwnerAddress
 
 
 class RestGetBalancesResponse(Balances):
@@ -572,22 +528,19 @@ class RestGetBalancesResponse(Balances):
 
 
 class RestGetAllBalancesRequest:
-	ownerAddress: OwnerAddress
+	owner_address: OwnerAddress
 
 
-class RestGetAllBalancesResponse(Balances):
+class RestGetAllBalancesResponse(RestGetBalancesResponse):
 	pass
 
 
 class RestGetOrderRequest:
 	id: OrderId
-	marketId: MarketId = None
-	marketName: MarketName = None
-	marketIds: List[MarketId] = None
-	marketNames: List[MarketName] = None
-	ownerAddress: OrderOwnerAddress
-	status: OrderStatus = None
-	statuses: List[OrderStatus] = None
+	market_id: Optional[MarketId]
+	market_name: Optional[MarketName]
+	owner_address: Optional[OrderOwnerAddress]
+	status: Optional[OrderStatus]
 
 
 class RestGetOrderResponse(Order):
@@ -595,60 +548,53 @@ class RestGetOrderResponse(Order):
 
 
 class RestGetOrdersRequest:
-	ids: List[OrderId] = None
-	marketId: MarketId = None
-	marketName: MarketName = None
-	marketIds: List[MarketId] = None
-	marketNames: List[MarketName] = None
-	ownerAddress: OrderOwnerAddress = None
-	ownerAddresses: List[OrderOwnerAddress] = None
-	status: OrderStatus = None
-	statuses: List[OrderStatus] = None
+	ids: Optional[List[OrderId]]
+	market_id: Optional[MarketId]
+	market_ids: Optional[List[MarketId]]
+	market_name: Optional[MarketName]
+	market_names: Optional[List[MarketName]]
+	owner_address: Optional[OrderOwnerAddress]
+	owner_addresses: Optional[List[OrderOwnerAddress]]
+	status: Optional[OrderStatus]
+	statuses: Optional[List[OrderStatus]]
 
-OrderMap = IMap[OrderId, Order]
-OwnerOrderMap = IMap[OwnerAddress, OrderMap]
-RestGetOrdersResponse = Union[OrderMap, OwnerOrderMap]
 
-# class RestGetOrdersResponse(Union[IMap[OrderId, Order], IMap[OwnerAddress, IMap[OrderId, Order]]]):
-# 	pass
+RestGetOrdersResponse = Union[Map[OrderId, Order], Map[OwnerAddress, Map[OrderId, Order]]]
 
 
 class RestGetAllOpenOrdersRequest:
 	pass
 
 
-class RestGetAllOpenOrdersResponse:
-	pass
+RestGetAllOpenOrdersResponse = RestGetOrdersResponse
 
 
 class RestGetAllFilledOrdersRequest:
 	pass
 
 
-class RestGetAllFilledOrdersResponse:
-	pass
+RestGetAllFilledOrdersResponse = RestGetOrdersResponse
 
 
 class RestGetAllOrdersRequest:
 	pass
 
 
-class RestGetAllOrdersResponse:
-	pass
+RestGetAllOrdersResponse = RestGetOrdersResponse
 
 
 class RestPlaceOrderRequest:
-	clientId: OrderClientId = None
-	marketId: MarketId = None
-	marketName: MarketName = None
-	ownerAddress: OrderOwnerAddress = None
+	client_id: Optional[OrderClientId]
+	market_id: Optional[MarketId]
+	market_name: Optional[MarketName]
+	owner_address: Optional[OrderOwnerAddress]
+	payer_address: Optional[OrderPayerAddress]
 	side: OrderSide
 	price: OrderPrice
 	amount: OrderAmount
 	type: OrderType
-	payerAddress: OrderPayerAddress = None
-	replaceIfExists: bool = None
-	waitUntilIncludedInBlock: bool = None
+	replace_if_exists: Optional[bool]
+	wait_until_included_in_block: Optional[bool]
 
 
 class RestPlaceOrderResponse(Order):
@@ -656,18 +602,18 @@ class RestPlaceOrderResponse(Order):
 
 
 class RestPlaceOrdersRequest:
-	ownerAddress: OrderOwnerAddress = None
+	owner_address: Optional[OrderOwnerAddress]
 	orders: List[RestPlaceOrderRequest]
-	waitUntilIncludedInBlock: bool = None
-	replaceIfExists: bool = None
+	replace_if_exists: Optional[bool]
+	wait_until_included_in_block: Optional[bool]
 
 
-class RestPlaceOrdersResponse(IMap[OrderId, Order]):
+class RestPlaceOrdersResponse(Map[OrderId, Order]):
 	pass
 
 
-class RestReplaceOrderRequest:
-	pass
+class RestReplaceOrderRequest(RestPlaceOrderRequest):
+	id: OrderId
 
 
 class RestReplaceOrderResponse(Order):
@@ -675,19 +621,20 @@ class RestReplaceOrderResponse(Order):
 
 
 class RestReplaceOrdersRequest:
-	pass
+	owner_address: Optional[OrderOwnerAddress]
+	orders: List[RestReplaceOrderRequest]
 
 
-class RestReplaceOrdersResponse(Order):
+class RestReplaceOrdersResponse(Map[OrderId, Order]):
 	pass
 
 
 class RestCancelOrderRequest:
-	id: OrderId
-	clientId: OrderClientId = None
-	ownerAddress: OrderOwnerAddress
-	marketId: MarketId = None
-	marketName: MarketName = None
+	id: Optional[OrderId]
+	client_id: Optional[OrderClientId]
+	owner_address: OrderOwnerAddress
+	market_id: Optional[MarketId]
+	market_name: Optional[MarketName]
 
 
 class RestCancelOrderResponse(Order):
@@ -696,55 +643,55 @@ class RestCancelOrderResponse(Order):
 
 class RestCancelOrdersRequest:
 	ids: List[OrderId]
-	clientIds: List[OrderClientId] = None
-	marketId: MarketId = None
-	marketIds: List[MarketId] = None
-	marketName: MarketName = None
-	marketNames: List[MarketName] = None
-	ownerAddress: OrderOwnerAddress = None
-	ownerAddresses: List[OrderOwnerAddress] = None
+	client_ids: Optional[List[OrderClientId]]
+	market_id: Optional[MarketId]
+	market_ids: Optional[List[MarketId]]
+	market_name: Optional[MarketName]
+	market_names: Optional[List[MarketName]]
+	owner_address: Optional[OrderOwnerAddress]
+	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-RestCancelOrdersResponse = Union[IMap[OrderId, Order], IMap[OwnerAddress, IMap[OrderId, Order]]]
+RestCancelOrdersResponse = Union[Map[OrderId, Order], Map[OwnerAddress, Map[OrderId, Order]]]
 
 
 class RestCancelAllOrdersRequest:
-	marketId: MarketId = None
-	marketName: MarketName = None
-	marketIds: List[MarketId] = None
-	marketNames: List[MarketName] = None
-	ownerAddress: OrderOwnerAddress = None
-	ownerAddresses: List[OrderOwnerAddress] = None
+	market_id: Optional[MarketId]
+	market_name: Optional[MarketName]
+	market_ids: Optional[List[MarketId]]
+	market_names: Optional[List[MarketName]]
+	owner_address: Optional[OrderOwnerAddress]
+	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
 RestCancelAllOrdersResponse = RestCancelOrdersResponse
 
 
 class RestMarketWithdrawRequest:
-	marketId: MarketId = None
-	marketName: MarketName = None
-	ownerAddress: OrderOwnerAddress = None
-	ownerAddresses: List[OrderOwnerAddress] = None
+	market_id: Optional[MarketId]
+	market_name: Optional[MarketName]
+	owner_address: Optional[OrderOwnerAddress]
+	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-RestMarketWithdrawResponse = Union[Withdraws, IMap[OwnerAddress, Withdraws]]
+RestMarketWithdrawResponse = Union[Map[MarketId, Withdraw], Map[OwnerAddress, Withdraw]]
 
 
 class RestMarketsWithdrawsRequest:
-	marketIds: List[MarketId] = None
-	marketNames: List[MarketName] = None
-	ownerAddress: OrderOwnerAddress = None
-	ownerAddresses: List[OrderOwnerAddress] = None
+	market_ids: Optional[List[MarketId]]
+	market_names: Optional[List[MarketName]]
+	owner_address: Optional[OrderOwnerAddress]
+	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-RestMarketsWithdrawsFundsResponse = Union[IMap[MarketId, Withdraws], IMap[OwnerAddress, IMap[MarketId, Withdraws]]]
+RestMarketsWithdrawsResponse = Union[Map[MarketId, Withdraw], Map[OwnerAddress, Map[MarketId, Withdraw]]]
 
 
-class RestAllMarketsWithdrawsRequest(RestMarketsWithdrawsRequest):
+class RestAllMarketsWithdrawsRequest:
 	pass
 
 
-RestAllMarketsWithdrawsResponse = RestMarketsWithdrawsFundsResponse
+RestAllMarketsWithdrawsResponse = RestMarketsWithdrawsResponse
 
 
 class RestGetEstimatedFeesRequest:
@@ -958,483 +905,3 @@ class WsAllMarketsWithdrawsRequest:
 
 class WsAllMarketsWithdrawsResponse:
 	pass
-
-#
-# Injective Interfaces
-#
-
-
-@dataclass
-class PerpetualMarketInfo:
-	hourlyFundingRateCap: str
-	hourlyInterestRate: str
-	nextFundingTimestamp: int
-	fundingInterval: int
-
-
-@dataclass
-class PerpetualMarketFunding:
-	cumulativeFunding: str
-	cumulativePrice: str
-	lastTimestamp: int
-
-
-@dataclass
-class TokenMeta:
-	pass
-
-
-@dataclass
-class BaseDerivativeMarket:
-	oracleType: str
-	marketId: str
-	marketStatus: str
-	ticker: str
-	quoteDenom: str
-	makerFeeRate: str
-	quoteToken: Optional[TokenMeta]
-	takerFeeRate: str
-	serviceProviderFee: str
-	minPriceTickSize: Optional[Union[int, str]]
-	minQuantityTickSize: Optional[Union[int, str]]
-
-
-@dataclass
-class PerpetualMarket(BaseDerivativeMarket):
-	initialMarginRatio: str
-	maintenanceMarginRatio: str
-	isPerpetual: bool
-	oracleBase: str
-	oracleQuote: str
-	oracleScaleFactor: int
-	perpetualMarketInfo: Optional[PerpetualMarketInfo] = None
-	perpetualMarketFunding: Optional[PerpetualMarketFunding] = None
-
-
-@dataclass
-class PriceLevel:
-	price: str
-	quantity: str
-	timestamp: Timestamp
-
-
-@dataclass
-class Orderbook:
-	buys: IMap[str,PriceLevel]
-	sells: IMap[str,PriceLevel]
-
-
-class TradeDirection(Enum):
-	Buy = "buy"
-	Sell = "sell"
-	Long = "long"
-	Short = "short"
-
-
-class TradeExecutionType(Enum):
-	Market = "market"
-	LimitFill = "limitFill"
-	LimitMatchRestingOrder = "limitMatchRestingOrder"
-	LimitMatchNewOrder = "limitMatchNewOrder"
-
-
-class TradeExecutionSide(Enum):
-	Maker = "maker"
-	Taker = "taker"
-
-
-@dataclass
-class FundingPayment:
-	marketId: str
-	subaccountId: str
-	amount: str
-	timestamp: int
-
-
-@dataclass
-class Position:
-	marketId: str
-	subaccountId: str
-	direction: TradeDirection
-	quantity: str
-	entryPrice: str
-	margin: str
-	liquidationPrice: str
-	markPrice: str
-	ticker: str
-	aggregateReduceOnlyQuantity: str
-	updatedAt: int
-
-
-@dataclass
-class PositionDelta:
-	tradeDirection: TradeDirection
-	executionPrice: str
-	executionQuantity: str
-	executionMargin: str
-
-
-@dataclass
-class DerivativeTrade(PositionDelta):
-	orderHash: str
-	subaccountId: str
-	tradeId: str
-	marketId: str
-	executedAt: int
-	tradeExecutionType: TradeExecutionType
-	executionSide: TradeExecutionSide
-	fee: str
-	feeRecipient: str
-	isLiquidation: bool
-	payout: str
-
-
-#
-# Gateway Common Interfaces
-#
-
-
-@dataclass
-class NetworkSelectionRequest:
-	chain = ChainName
-	network = NetworkName
-	connector = ConnectorName
-
-#
-# CLOB Interfaces
-#
-
-
-CLOBMarkets = IMap[str, any]
-
-
-@dataclass
-class ClobMarketsRequest(NetworkSelectionRequest):
-	market: MarketName = None
-
-
-@dataclass
-class ClobMarketResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	markets: CLOBMarkets
-
-
-ClobTickerRequest = ClobMarketsRequest
-ClobTickerResponse = ClobMarketResponse
-
-
-@dataclass
-class ClobOrderbookRequest(ClobMarketsRequest):
-	market: MarketName
-
-
-@dataclass
-class ClobOrderbookResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	orderbook: Orderbook
-
-
-class ClobGetOrderRequest(ClobOrderbookRequest):
-	address: Address = None
-	orderId: OrderId
-
-
-class ClobGetOrderResponse:
-	network: str
-	timestamp: int
-	latency: int
-	orders: List[IMap[str, str]] = []
-
-
-@dataclass
-class CreateOrderParam:
-	price: str
-	amount: str
-	orderType: OrderType
-	side: OrderSide
-	market: MarketName
-	clientOrderID: OrderClientId = None
-
-
-class ClobPostOrderRequest(NetworkSelectionRequest, CreateOrderParam):
-	address: Address
-
-
-@dataclass
-class ClobDeleteOrderRequestExtract:
-	market: MarketName
-	orderId: OrderId
-
-
-@dataclass
-class ClobBatchUpdateRequest(NetworkSelectionRequest):
-	address: Address
-	createOrderParams: List[CreateOrderParam] = None
-	cancelOrderParams: List[ClobDeleteOrderRequestExtract] = None
-
-
-@dataclass
-class ClobPostOrderResponse:
-	network: str
-	timestamp: int
-	latency: int
-	txHash: str
-	clientOrderID: Union[str, List[str]] = None
-
-
-ClobDeleteOrderRequest = ClobGetOrderRequest
-ClobDeleteOrderResponse = ClobPostOrderResponse
-
-PerpClobMarketRequest = ClobMarketsRequest
-
-PerpClobMarkets = Dict[str, PerpetualMarket]
-
-
-@dataclass
-class PerpClobMarketResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	markets: PerpClobMarkets
-
-
-PerpClobTickerRequest = PerpClobMarketRequest
-PerpClobTickerResponse = PerpClobMarketResponse
-
-PerpClobOrderbookRequest = ClobOrderbookRequest
-PerpClobOrderbookResponse = ClobOrderbookResponse
-
-
-@dataclass
-class PerpClobGetOrderRequest(NetworkSelectionRequest):
-	market: MarketName
-	address: Address
-	orderId: OrderId = None
-	direction: str = None  # 'buy', 'sell', 'long', 'short'
-	orderTypes: str = None  # string like 'buy,sell,stop_buy,stop_sell,take_buy,take_sell,buy_po,sell_po'
-	limit: Limit = None  # 1 or greater, otherwise it gets all orders
-
-
-class PerpClobGetOrderResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	orders: List[Dict[str, str]] = []
-
-
-@dataclass
-class CreatePerpOrderParam:
-	price: str
-	amount: str
-	orderType: OrderType
-	side: OrderSide
-	market: MarketName
-	leverage: Leverage
-
-
-@dataclass
-class PerpClobPostOrderRequest(NetworkSelectionRequest, CreatePerpOrderParam):
-	address: Address
-
-
-PerpClobPostOrderResponse = ClobPostOrderResponse
-
-
-@dataclass
-class PerpClobDeleteOrderRequest(NetworkSelectionRequest):
-	market: MarketName
-	address: Address
-	orderId: OrderId
-
-
-PerpClobDeleteOrderResponse = PerpClobPostOrderResponse
-
-
-@dataclass
-class PerpClobBatchUpdateRequest(NetworkSelectionRequest):
-	address: Address
-	createOrderParams: List[CreatePerpOrderParam] = None
-	cancelOrderParams: List[ClobDeleteOrderRequestExtract] = None
-
-
-PerpClobBatchUpdateResponse = ClobPostOrderResponse
-
-
-@dataclass
-class PerpClobFundingInfoRequest(NetworkSelectionRequest):
-	market: MarketName
-
-
-@dataclass
-class FundingInfo:
-	marketId: MarketId
-	indexPrice: str
-	markPrice: str
-	fundingRate: str
-	nextFundingTimestamp: Timestamp
-
-
-@dataclass
-class PerpClobFundingInfoResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	fundingInfo: FundingInfo
-
-
-@dataclass
-class PerpClobGetLastTradePriceRequest(NetworkSelectionRequest):
-	market: str
-
-
-@dataclass
-class PerpClobGetLastTradePriceResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	lastTradePrice: str
-
-
-@dataclass
-class PerpClobGetTradesRequest(NetworkSelectionRequest):
-	market: MarketName
-	address: Address
-	orderId: OrderId
-
-
-@dataclass
-class PerpClobGetTradesResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	trades: List[DerivativeTrade]
-
-
-@dataclass
-class PerpClobFundingPaymentsRequest(NetworkSelectionRequest):
-	address: Address
-	market: MarketName
-
-
-@dataclass
-class PerpClobFundingPaymentsResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	fundingPayments: List[FundingPayment]
-
-
-@dataclass
-class PerpClobPositionRequest(NetworkSelectionRequest):
-	markets: List[MarketName]
-	address: Address
-
-
-@dataclass
-class PerpClobPositionResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	positions: List[Position]
-
-
-#
-# Extensions
-#
-
-
-class EstimatedGasResponse:
-	gasPrice: int
-	gasPriceToken: str
-	gasLimit: int
-	gasCost: int
-
-
-class LatencyData:
-	endpoint: str
-	latency: int
-	latestBlockTime: Any
-
-
-#
-# Other interfaces
-#
-
-
-class GetRootRequest:
-	pass
-
-
-class GetRootResponse:
-	chain: ConnectorName
-	network: NetworkName
-	connector: ConnectorName
-	connection: bool
-	timestamp: Timestamp
-
-
-class GetTokenSymbolsToTokenIdsMapRequest:
-	symbols: List[TokenSymbol] = None
-
-
-class GetTokenSymbolsToTokenIdsMapResponse(IMap[TokenSymbol, TokenId]):
-	pass
-
-
-class GetKujiraTokenSymbolsToCoinGeckoTokenIdsMapResponse(IMap[TokenSymbol, Union[CoinGeckoId, None]]):
-	pass
-
-
-class GetWalletArtifactsRequest:
-	ownerAddress: OwnerAddress
-
-
-class GetWalletArtifactsResponse(KujiraWalletArtifacts):
-	pass
-
-
-class TransferFromToRequest:
-	from_: Any
-	to: OwnerAddress
-	amount: OrderAmount
-	tokenId: TokenId = None
-	tokenSymbol: TokenSymbol = None
-
-
-TransferFromToResponse = TransactionHash
-
-
-class GetWalletPublicKeyRequest:
-	mnemonic: Mnemonic
-	accountNumber: AccountNumber
-
-
-GetWalletPublicKeyResponse = Address
-
-
-class GetWalletsPublicKeysRequest:
-	pass
-
-
-GetWalletsPublicKeysResponse = List[Address]
-
-
-class EncryptWalletRequest:
-	wallet: BasicWallet
-
-
-EncryptWalletResponse = EncryptedWallet
-
-
-class DecryptWalletRequest:
-	accountAddress: OwnerAddress
-
-
-DecryptWalletResponse = BasicWallet
-
-
-RequestWrapper = Union[Any, Any]
