@@ -151,7 +151,7 @@ class RESTConnectorBase(BasicConnectorBase, ABC):
 		raise NotImplemented()
 
 	@abstractmethod
-	async def markets_withdraws(self, request: RestMarketsWithdrawsRequest = None) -> RestMarketsWithdrawsFundsResponse:
+	async def markets_withdraws(self, request: RestMarketsWithdrawsRequest = None) -> RestMarketsWithdrawsResponse:
 		raise NotImplemented()
 
 	@abstractmethod

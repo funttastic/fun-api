@@ -1,8 +1,8 @@
-from dotmap import DotMap as Map
-from decimal import Decimal
-from typing import Any, List, Optional, Union
-from enum import Enum
 from dataclasses import dataclass
+from decimal import Decimal
+from dotmap import DotMap as Map
+from enum import Enum
+from typing import Any, List, Optional, Union
 
 from hummingbot.strategies.pure_market_making.v_2_0_0.workers.ccxt.ccxt import CCXTWorker
 from hummingbot.strategies.pure_market_making.v_2_0_0.workers.hb_client.hb_client import HBClientWorker
@@ -42,21 +42,21 @@ Amount = Decimal
 Fee = Decimal
 Percentage = Decimal
 Timestamp = int
-Block = int
-EncryptedWallet = str
+Mnemonic = str
+Password = str
+AccountNumber = int
 
-ConnectorMarket = Any
-ConnectorTicker = Any
-ConnectorOrderBook = Any
-ConnectorOrder = Any
+BlockNumber = int
+
+TransactionHash = str
 
 TokenId = Address
 TokenName = str
 TokenSymbol = str
 TokenDecimals = int
 
-MarketName = str
 MarketId = Address
+MarketName = str
 MarketPrecision = int
 MarketProgramId = Address
 MarketDeprecation = bool
@@ -67,8 +67,6 @@ MarketMinimumQuoteIncrement = Decimal
 
 TickerPrice = Price
 TickerTimestamp = Timestamp
-
-TransactionHash = str
 
 OrderId = str
 OrderClientId = str
@@ -91,18 +89,10 @@ EstimatedFeesPrice = Price
 EstimateFeesLimit = Decimal
 EstimateFeesCost = Decimal
 
-Mnemonic = str
-Password = str
-AccountNumber = int
-
-CoinGeckoSymbol = str
-CoinGeckoId = str
-
 ChainName = str
-ConnectorName = str
 NetworkName = str
-Latency = int
-Limit = int
+ConnectorName = str
+ConnectorStatus = str
 
 
 #
@@ -127,28 +117,17 @@ class OrderStatus(Enum):
 class OrderType(Enum):
 	MARKET = 'MARKET'
 	LIMIT = 'LIMIT'
-	LIMIT_MAKER = "LIMIT_MAKER"
-	IOC = 'IOC'  # Immediate or Cancel
-	POST_ONLY = 'POST_ONLY'
+	POST_ONLY = 'POST_ONLY'  # A limit order which cannot be filled while posting
+	LIMIT_MAKER = "LIMIT_MAKER"  # A limit order which can be partially filled (not completely) while posting
+	IMMEDIATE_OR_CANCEL = 'IMMEDIATE_OR_CANCEL'  # A limit order that must be filled immediately or cancelled
 
 
 class TickerSource(Enum):
-	ORDER_BOOK_SAP = 'orderBookSimpleAveragePrice'
-	ORDER_BOOK_WAP = 'orderBookWeightedAveragePrice'
-	ORDER_BOOK_VWAP = 'orderBookVolumeWeightedAveragePrice'
-	LAST_FILLED_ORDER = 'lastFilledOrder'
-	COINGECKO = 'coinGecko'
-
-
-class ConvertOrderType(Enum):
-	GET_ORDERS = 'getOrders'
-	PLACE_ORDERS = 'placeOrders'
-	CANCELLED_ORDERS = 'cancelledOrders'
-
-
-class RequestStrategy(Enum):
-	RESTful = 'RESTful'
-	Controller = 'Controller'
+	ORDER_BOOK_SAP = 'ORDER_BOOK_SIMPLE_AVERAGE_PRICE'
+	ORDER_BOOK_WAP = 'ORDER_BOOK_WEIGHTED_AVERAGE_PRICE'
+	ORDER_BOOK_VWAP = 'ORDER_BOOK_VOLUME_WEIGHTED_AVERAGE_PRICE'
+	LAST_FILLED_ORDER = 'LAST_FILLED_ORDER'
+	EXTERNAL_API = 'EXTERNAL_API'
 
 
 class RESTfulMethod(Enum):
@@ -157,37 +136,26 @@ class RESTfulMethod(Enum):
 	PUT = 'PUT'
 	PATCH = 'PATCH'
 	DELETE = 'DELETE'
+	HEAD = 'HEAD'
+	OPTIONS = 'OPTIONS'
 
 
 #
 # Interfaces and Classes
 #
 
-class Withdraw:
-	fees: Map[str, Amount]
-	token: 'Token'
+Block = Map[str, Any]
 
 
-class Withdraws:
+class Transaction:
 	hash: TransactionHash
-	tokens: Map[TokenId, Withdraw]
-	total: Map[str, Amount]
+	block_number: BlockNumber
+	block: Block
+	gas_used: int
+	gas_wanted: int
+	code: int
+	data: Any
 	raw: Any
-
-
-class TokenAmount:
-	token: 'Token'
-	amount: Amount
-
-
-class OrderFilling:
-	free: TokenAmount
-	filled: TokenAmount
-
-
-class TokenPriceInDolar:
-	token: TokenName
-	price: Price
 
 
 class Token:
@@ -196,6 +164,12 @@ class Token:
 	symbol: TokenSymbol
 	decimals: TokenDecimals
 	raw: Any
+
+
+class MarketFee:
+	maker: FeeMaker
+	taker: FeeTaker
+	service_provider: FeeServiceProvider
 
 
 class Market:
@@ -227,27 +201,43 @@ class Ticker:
 	market: Market
 	price: TickerPrice
 	timestamp: TickerTimestamp
-	tokens: ConnectorTicker
+	raw: Any
 
 
-class SimplifiedBalance:
+class TokenAndAmount:
+	token: 'Token'
+	amount: Amount
+
+
+class OrderFilling:
+	free: TokenAndAmount
+	filled: TokenAndAmount
+
+
+class BaseBalance:
 	free: Amount
 	locked_in_orders: Amount
 	unsettled: Amount
 	total: Amount
 
 
-class SimplifiedBalanceWithUSD(SimplifiedBalance):
+class BaseBalanceWithQuotation(BaseBalance):
 	quotation: Amount
 
 
-class TotalBalance(SimplifiedBalance):
+class TotalBalance(BaseBalance):
 	pass
 
 
-class TokenBalance(SimplifiedBalance):
+class BaseTokenBalance:
+	token: BaseBalance
+	usd: BaseBalanceWithQuotation
+	native_token: BaseBalanceWithQuotation
+
+
+class TokenBalance:
 	token: Token
-	in_usd: SimplifiedBalanceWithUSD
+	balances: BaseTokenBalance
 
 
 class Balances:
@@ -273,22 +263,28 @@ class Order:
 	creation_timestamp: OrderCreationTimestamp
 	filling_timestamp: OrderFillingTimestamp
 	hashes: 'TransactionHashes'
-	connector_order: ConnectorOrder
+	raw: Any
 
 
 class TransactionHashes:
-	creation: TransactionHash
-	cancellation: TransactionHash
-	withdraw: TransactionHash
-	creations: List[TransactionHash]
-	cancellations: List[TransactionHash]
-	withdraws: List[TransactionHash]
+	creation: Optional[TransactionHash]
+	cancellation: Optional[TransactionHash]
+	withdraw: Optional[TransactionHash]
+	creations: Optional[List[TransactionHash]]
+	cancellations: Optional[List[TransactionHash]]
+	withdraws: Optional[List[TransactionHash]]
 
 
-class MarketFee:
-	maker: FeeMaker
-	taker: FeeTaker
-	service_provider: FeeServiceProvider
+class WithdrawItem:
+	fees: Map[str, Amount]
+	token: 'Token'
+
+
+class Withdraw:
+	hash: TransactionHash
+	tokens: Map[TokenId, WithdrawItem]
+	total: Map[str, Amount]
+	raw: Any
 
 
 class EstimatedFees:
@@ -298,62 +294,43 @@ class EstimatedFees:
 	cost: EstimateFeesCost
 
 
-class Transaction:
-	hash: TransactionHash
-	block_number: Block
-	gas_used: int
-	gas_wanted: int
-	code: int
-	data: Any
-
-
-class BasicWallet:
-	mnemonic: Mnemonic
-	account_number: AccountNumber
-	public_key: Address
-
-
 #
 # Errors
 #
 
-class CLOBishError(Exception):
+class BaseError(Exception):
 	pass
 
 
-class TokenNotFoundError(CLOBishError):
+class TransactionNotFoundError(BaseError):
 	pass
 
 
-class MarketNotFoundError(CLOBishError):
+class TokenNotFoundError(BaseError):
 	pass
 
 
-class BalanceNotFoundError(CLOBishError):
+class MarketNotFoundError(BaseError):
 	pass
 
 
-class OrderBookNotFoundError(CLOBishError):
+class OrderBookNotFoundError(BaseError):
 	pass
 
 
-class TickerNotFoundError(CLOBishError):
+class TickerNotFoundError(BaseError):
 	pass
 
 
-class OrderNotFoundError(CLOBishError):
+class BalanceNotFoundError(BaseError):
 	pass
 
 
-class MarketWithdrawError(CLOBishError):
+class OrderNotFoundError(BaseError):
 	pass
 
 
-class TransactionNotFoundError(CLOBishError):
-	pass
-
-
-class WalletPublicKeyNotFoundError(CLOBishError):
+class WithdrawError(BaseError):
 	pass
 
 
@@ -361,28 +338,43 @@ class WalletPublicKeyNotFoundError(CLOBishError):
 # Main Rest Methods Interfaces
 #
 
+class RestGetRootRequest:
+	pass
+
+
+class RestGetRootResponse:
+	chain: ChainName
+	network: NetworkName
+	connector: ConnectorName
+	status: ConnectorStatus
+	timestamp: Timestamp
+
 
 class RestGetCurrentBlockRequest:
 	pass
 
 
 class RestGetCurrentBlockResponse:
-	current_block: Block
+	number: BlockNumber
+	block: Block
+	raw: Any
 
 
 class RestGetBlockRequest:
-	pass
+	number: BlockNumber
 
 
 class RestGetBlockResponse:
-	pass
+	number: BlockNumber
+	block: Block
+	raw: Any
 
 
 class RestGetBlocksRequest:
-	pass
+	numbers: List[BlockNumber]
 
 
-class RestGetBlocksResponse:
+class RestGetBlocksResponse(Map[BlockNumber, Block]):
 	pass
 
 
@@ -508,9 +500,17 @@ class RestGetAllTickersResponse(RestGetTickersResponse):
 	pass
 
 
+class RestAddWalletRequest:
+	mnemonic: Mnemonic
+	account_number: Optional[AccountNumber]
+
+
+RestAddWalletResponse = Address
+
+
 class RestGetBalanceRequest:
-	token_id: TokenId
-	token_symbol: TokenSymbol
+	token_id: Optional[TokenId]
+	token_symbol: Optional[TokenSymbol]
 	owner_address: OwnerAddress
 
 
@@ -540,11 +540,8 @@ class RestGetOrderRequest:
 	id: OrderId
 	market_id: Optional[MarketId]
 	market_name: Optional[MarketName]
-	market_ids: Optional[List[MarketId]]
-	market_names: Optional[List[MarketName]]
-	owner_address: OrderOwnerAddress
+	owner_address: Optional[OrderOwnerAddress]
 	status: Optional[OrderStatus]
-	statuses: Optional[List[OrderStatus]]
 
 
 class RestGetOrderResponse(Order):
@@ -554,8 +551,8 @@ class RestGetOrderResponse(Order):
 class RestGetOrdersRequest:
 	ids: Optional[List[OrderId]]
 	market_id: Optional[MarketId]
-	market_name: Optional[MarketName]
 	market_ids: Optional[List[MarketId]]
+	market_name: Optional[MarketName]
 	market_names: Optional[List[MarketName]]
 	owner_address: Optional[OrderOwnerAddress]
 	owner_addresses: Optional[List[OrderOwnerAddress]]
@@ -563,16 +560,14 @@ class RestGetOrdersRequest:
 	statuses: Optional[List[OrderStatus]]
 
 
-class RestGetOrdersResponse(Map[OwnerAddress, Map[OrderId, Order]]):
-	pass
+RestGetOrdersResponse = Union[Map[OrderId, Order], Map[OwnerAddress, Map[OrderId, Order]]]
 
 
 class RestGetAllOpenOrdersRequest:
 	pass
 
 
-class RestGetAllOpenOrdersResponse(RestGetOrdersResponse):
-	pass
+RestGetAllOpenOrdersResponse = RestGetOrdersResponse
 
 
 class RestGetAllFilledOrdersRequest:
@@ -596,11 +591,11 @@ class RestPlaceOrderRequest:
 	market_id: Optional[MarketId]
 	market_name: Optional[MarketName]
 	owner_address: Optional[OrderOwnerAddress]
+	payer_address: Optional[OrderPayerAddress]
 	side: OrderSide
 	price: OrderPrice
 	amount: OrderAmount
 	type: OrderType
-	payer_address: Optional[OrderPayerAddress]
 	replace_if_exists: Optional[bool]
 	wait_until_included_in_block: Optional[bool]
 
@@ -612,8 +607,8 @@ class RestPlaceOrderResponse(Order):
 class RestPlaceOrdersRequest:
 	owner_address: Optional[OrderOwnerAddress]
 	orders: List[RestPlaceOrderRequest]
-	wait_until_included_in_block: Optional[bool]
 	replace_if_exists: Optional[bool]
+	wait_until_included_in_block: Optional[bool]
 
 
 class RestPlaceOrdersResponse(Map[OrderId, Order]):
@@ -621,7 +616,7 @@ class RestPlaceOrdersResponse(Map[OrderId, Order]):
 
 
 class RestReplaceOrderRequest(RestPlaceOrderRequest):
-	exchange_order_id: OrderId
+	id: OrderId
 
 
 class RestReplaceOrderResponse(Order):
@@ -630,7 +625,7 @@ class RestReplaceOrderResponse(Order):
 
 class RestReplaceOrdersRequest:
 	owner_address: Optional[OrderOwnerAddress]
-	orders: List[OrderId, RestPlaceOrderRequest]
+	orders: List[RestReplaceOrderRequest]
 
 
 class RestReplaceOrdersResponse(Map[OrderId, Order]):
@@ -638,7 +633,7 @@ class RestReplaceOrdersResponse(Map[OrderId, Order]):
 
 
 class RestCancelOrderRequest:
-	id: OrderId
+	id: Optional[OrderId]
 	client_id: Optional[OrderClientId]
 	owner_address: OrderOwnerAddress
 	market_id: Optional[MarketId]
@@ -660,8 +655,7 @@ class RestCancelOrdersRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-class RestCancelOrdersResponse(Map[OwnerAddress, Map[OrderId, Order]]):
-	pass
+RestCancelOrdersResponse = Union[Map[OrderId, Order], Map[OwnerAddress, Map[OrderId, Order]]]
 
 
 class RestCancelAllOrdersRequest:
@@ -673,8 +667,7 @@ class RestCancelAllOrdersRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-class RestCancelAllOrdersResponse(RestCancelOrdersResponse):
-	pass
+RestCancelAllOrdersResponse = RestCancelOrdersResponse
 
 
 class RestMarketWithdrawRequest:
@@ -684,8 +677,7 @@ class RestMarketWithdrawRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-class RestMarketWithdrawResponse(Map[OwnerAddress, Withdraws]):
-	pass
+RestMarketWithdrawResponse = Union[Map[MarketId, Withdraw], Map[OwnerAddress, Withdraw]]
 
 
 class RestMarketsWithdrawsRequest:
@@ -695,16 +687,14 @@ class RestMarketsWithdrawsRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-class RestMarketsWithdrawsFundsResponse(Map[OwnerAddress, Map[MarketId, Withdraws]]):
-	pass
+RestMarketsWithdrawsResponse = Union[Map[MarketId, Withdraw], Map[OwnerAddress, Map[MarketId, Withdraw]]]
 
 
 class RestAllMarketsWithdrawsRequest:
 	pass
 
 
-class RestAllMarketsWithdrawsResponse(RestMarketsWithdrawsFundsResponse):
-	pass
+RestAllMarketsWithdrawsResponse = RestMarketsWithdrawsResponse
 
 
 class RestGetEstimatedFeesRequest:
@@ -918,471 +908,3 @@ class WsAllMarketsWithdrawsRequest:
 
 class WsAllMarketsWithdrawsResponse:
 	pass
-
-#
-# Injective Interfaces
-#
-
-
-@dataclass
-class PerpetualMarketInfo:
-	hourly_funding_rate_cap: str
-	hourly_interest_rate: str
-	next_funding_timestamp: Timestamp
-	funding_interval: int
-
-
-@dataclass
-class PerpetualMarketFunding:
-	cumulative_funding: str
-	cumulative_price: str
-	last_timestamp: Timestamp
-
-
-@dataclass
-class TokenMeta:
-	pass
-
-
-@dataclass
-class BaseDerivativeMarket:
-	oracle_type: str
-	market_id: str
-	market_status: str
-	ticker: str
-	quote_denom: str
-	maker_fee_rate: str
-	quote_token: Optional[TokenMeta]
-	taker_fee_rate: str
-	service_provider_fee: str
-	min_price_tick_size: Optional[Union[int, str]]
-	min_quantity_tick_size: Optional[Union[int, str]]
-
-
-@dataclass
-class PerpetualMarket(BaseDerivativeMarket):
-	initial_margin_ratio: str
-	maintenance_margin_ratio: str
-	is_perpetual: bool
-	oracle_base: str
-	oracle_quote: str
-	oracle_scale_factor: int
-	perpetual_market_info: Optional[PerpetualMarketInfo]
-	perpetual_market_funding: Optional[PerpetualMarketFunding]
-
-
-@dataclass
-class PriceLevel:
-	price: str
-	quantity: str
-	timestamp: Timestamp
-
-
-@dataclass
-class InjectiveOrderBook:
-	buys: List[PriceLevel]
-	sells: List[PriceLevel]
-
-
-class TradeDirection(Enum):
-	BUY = "buy"
-	SELL = "sell"
-	LOG = "long"
-	SHORT = "short"
-
-
-class TradeExecutionType(Enum):
-	MARKET = "market"
-	LIMIT_FILL = "limitFill"
-	LIMIT_MATCH_RESTING_ORDER = "limitMatchRestingOrder"
-	LIMIT_MATCH_NEW_ORDER = "limitMatchNewOrder"
-
-
-class TradeExecutionSide(Enum):
-	MAKER = "maker"
-	TAKER = "taker"
-
-
-@dataclass
-class FundingPayment:
-	market_id: str
-	sub_account_id: str
-	amount: str
-	timestamp: Timestamp
-
-
-@dataclass
-class Position:
-	market_id: str
-	sub_account_id: str
-	direction: TradeDirection
-	quantity: str
-	entry_price: str
-	margin: str
-	liquidation_price: str
-	mark_price: str
-	ticker: str
-	aggregate_reduce_only_quantity: str
-	updated_at: Timestamp
-
-
-@dataclass
-class PositionDelta:
-	trade_direction: TradeDirection
-	execution_price: str
-	execution_quantity: str
-	execution_margin: str
-
-
-@dataclass
-class DerivativeTrade(PositionDelta):
-	order_hash: str
-	sub_account_id: str
-	trade_id: str
-	market_id: str
-	executed_at: Timestamp
-	trade_execution_type: TradeExecutionType
-	execution_side: TradeExecutionSide
-	fee: str
-	fee_recipient: str
-	is_liquidation: bool
-	payout: str
-
-
-#
-# Gateway Common Interfaces
-#
-
-
-@dataclass
-class NetworkSelectionRequest:
-	chain = ChainName
-	network = NetworkName
-	connector = ConnectorName
-
-#
-# CLOB Interfaces
-#
-
-
-CLOBMarkets = Map[str, any]
-
-
-@dataclass
-class ClobMarketsRequest(NetworkSelectionRequest):
-	market: Optional[MarketName]
-
-
-@dataclass
-class ClobMarketResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	markets: CLOBMarkets
-
-
-ClobTickerRequest = ClobMarketsRequest
-ClobTickerResponse = ClobMarketResponse
-
-
-@dataclass
-class ClobOrderbookRequest(ClobMarketsRequest):
-	market: MarketName
-
-
-@dataclass
-class ClobOrderbookResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	order_book: InjectiveOrderBook
-
-
-class ClobGetOrderRequest(ClobOrderbookRequest):
-	address: Optional[Address]
-	order_id: OrderId
-
-
-class ClobGetOrderResponse:
-	network: str
-	timestamp: int
-	latency: int
-	orders: List[Map[str, str]] = []
-
-
-@dataclass
-class CreateOrderParam:
-	price: str
-	amount: str
-	order_type: OrderType
-	side: OrderSide
-	market: MarketName
-	client_order_id: Optional[OrderClientId]
-
-
-class ClobPostOrderRequest(NetworkSelectionRequest, CreateOrderParam):
-	address: Address
-
-
-@dataclass
-class ClobDeleteOrderRequestExtract:
-	market: MarketName
-	order_id: OrderId
-
-
-@dataclass
-class ClobBatchUpdateRequest(NetworkSelectionRequest):
-	address: Address
-	create_order_params: Optional[List[CreateOrderParam]]
-	cancel_order_params: Optional[List[ClobDeleteOrderRequestExtract]]
-
-
-@dataclass
-class ClobPostOrderResponse:
-	network: str
-	timestamp: int
-	latency: int
-	txHash: str
-	client_order_id: Optional[Union[str, List[str]]]
-
-
-ClobDeleteOrderRequest = ClobGetOrderRequest
-ClobDeleteOrderResponse = ClobPostOrderResponse
-
-PerpClobMarketRequest = ClobMarketsRequest
-
-PerpClobMarkets = Map[str, PerpetualMarket]
-
-
-@dataclass
-class PerpClobMarketResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	markets: PerpClobMarkets
-
-
-PerpClobTickerRequest = PerpClobMarketRequest
-PerpClobTickerResponse = PerpClobMarketResponse
-
-PerpClobOrderbookRequest = ClobOrderbookRequest
-PerpClobOrderbookResponse = ClobOrderbookResponse
-
-
-@dataclass
-class PerpClobGetOrderRequest(NetworkSelectionRequest):
-	market: MarketName
-	address: Address
-	order_id: Optional[OrderId]
-	direction: Optional[str]  # 'buy', 'sell', 'long', 'short'
-	order_types: Optional[str]  # string like 'buy,sell,stop_buy,stop_sell,take_buy,take_sell,buy_po,sell_po'
-	limit: Optional[Limit]  # 1 or greater, otherwise it gets all orders
-
-
-class PerpClobGetOrderResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	orders: List[Map[str, str]] = []
-
-
-@dataclass
-class CreatePerpOrderParam:
-	price: str
-	amount: str
-	order_type: OrderType
-	side: OrderSide
-	market: MarketName
-	leverage: int
-
-
-@dataclass
-class PerpClobPostOrderRequest(NetworkSelectionRequest, CreatePerpOrderParam):
-	address: Address
-
-
-PerpClobPostOrderResponse = ClobPostOrderResponse
-
-
-@dataclass
-class PerpClobDeleteOrderRequest(NetworkSelectionRequest):
-	market: MarketName
-	address: Address
-	order_id: OrderId
-
-
-PerpClobDeleteOrderResponse = PerpClobPostOrderResponse
-
-
-@dataclass
-class PerpClobBatchUpdateRequest(NetworkSelectionRequest):
-	address: Address
-	create_order_params: Optional[List[CreatePerpOrderParam]]
-	cancel_order_params: Optional[List[ClobDeleteOrderRequestExtract]]
-
-
-PerpClobBatchUpdateResponse = ClobPostOrderResponse
-
-
-@dataclass
-class PerpClobFundingInfoRequest(NetworkSelectionRequest):
-	market: MarketName
-
-
-@dataclass
-class FundingInfo:
-	market_id: MarketId
-	index_price: str
-	mark_price: str
-	funding_rate: str
-	next_funding_timestamp: Timestamp
-
-
-@dataclass
-class PerpClobFundingInfoResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	funding_info: FundingInfo
-
-
-@dataclass
-class PerpClobGetLastTradePriceRequest(NetworkSelectionRequest):
-	market: MarketName
-
-
-@dataclass
-class PerpClobGetLastTradePriceResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	last_trade_price: str
-
-
-@dataclass
-class PerpClobGetTradesRequest(NetworkSelectionRequest):
-	market: MarketName
-	address: Address
-	order_id: OrderId
-
-
-@dataclass
-class PerpClobGetTradesResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	trades: List[DerivativeTrade]
-
-
-@dataclass
-class PerpClobFundingPaymentsRequest(NetworkSelectionRequest):
-	address: Address
-	market: MarketName
-
-
-@dataclass
-class PerpClobFundingPaymentsResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	funding_payments: List[FundingPayment]
-
-
-@dataclass
-class PerpClobPositionRequest(NetworkSelectionRequest):
-	markets: List[MarketName]
-	address: Address
-
-
-@dataclass
-class PerpClobPositionResponse:
-	network: NetworkName
-	timestamp: Timestamp
-	latency: Latency
-	positions: List[Position]
-
-
-#
-# Extensions
-#
-
-
-class EstimatedGasResponse:
-	gas_price: int
-	gas_price_token: str
-	gas_limit: int
-	gas_cost: int
-
-
-class LatencyData:
-	endpoint: str
-	latency: Latency
-	latest_block_time: Any
-
-
-#
-# Other interfaces
-#
-
-
-class GetRootRequest:
-	pass
-
-
-class GetRootResponse:
-	chain: ConnectorName
-	network: NetworkName
-	connector: ConnectorName
-	connection: bool
-	timestamp: Timestamp
-
-
-class GetTokenSymbolsToTokenIdsMapRequest:
-	symbols: Optional[List[TokenSymbol]]
-
-
-class GetTokenSymbolsToTokenIdsMapResponse(Map[TokenSymbol, TokenId]):
-	pass
-
-
-class TransferFromToRequest:
-	from_: Any
-	to: OwnerAddress
-	amount: OrderAmount
-	token_id: Optional[TokenId]
-	token_symbol: Optional[TokenSymbol]
-
-
-TransferFromToResponse = TransactionHash
-
-
-class GetWalletPublicKeyRequest:
-	mnemonic: Mnemonic
-	account_number: AccountNumber
-
-
-GetWalletPublicKeyResponse = Address
-
-
-class GetWalletsPublicKeysRequest:
-	pass
-
-
-GetWalletsPublicKeysResponse = List[Address]
-
-
-class EncryptWalletRequest:
-	wallet: BasicWallet
-
-
-EncryptWalletResponse = EncryptedWallet
-
-
-class DecryptWalletRequest:
-	account_address: OwnerAddress
-
-
-DecryptWalletResponse = BasicWallet
-
-
-RequestWrapper = Union[Any, Any]
