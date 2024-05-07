@@ -32,12 +32,15 @@ async def hummingbot_gateway_router(
 	if not url.startswith("/"):
 		url = f"/{url}"
 
+	if url.startswith("/hummingbot/gateway/"):
+		url = url.replace("/hummingbot/gateway/", "/")
+
 	final_url = f"""{host}:{port}{url}"""
 
 	if not headers:
-		headers = {
+		headers = DotMap({
 			"Content-Type": "application/json"
-		}
+		})
 
 	if not certificates:
 		path_prefix = properties.get_or_default(
@@ -51,9 +54,16 @@ async def hummingbot_gateway_router(
 		}, _dynamic=False)
 
 	if body:
-		payload = json.dumps(body).encode('utf-8')
+		payload = body.toDict()
+		payload = json.dumps(payload).encode('utf-8')
 	else:
 		payload = None
+
+	if headers:
+		headers = headers.toDict()
+
+	if parameters:
+		parameters = parameters.toDict()
 
 	request = {
 		"url": final_url,
