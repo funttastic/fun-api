@@ -54,16 +54,16 @@ async def hummingbot_gateway_router(
 		}, _dynamic=False)
 
 	if body:
-		payload = body.toDict()
+		payload = DotMap(body, _dynamic=False).toDict()
 		payload = json.dumps(payload).encode('utf-8')
 	else:
 		payload = None
 
 	if headers:
-		headers = headers.toDict()
+		headers = DotMap(headers, _dynamic=False).toDict()
 
 	if parameters:
-		parameters = parameters.toDict()
+		parameters = DotMap(parameters, _dynamic=False).toDict()
 
 	request = {
 		"url": final_url,
