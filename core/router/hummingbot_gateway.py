@@ -40,7 +40,7 @@ async def hummingbot_gateway_router(
 	if not headers:
 		headers = DotMap({
 			"Content-Type": "application/json"
-		})
+		}, _dynamic=False)
 
 	if not certificates:
 		path_prefix = properties.get_or_default(

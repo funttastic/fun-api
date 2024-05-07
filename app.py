@@ -372,13 +372,13 @@ async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
 async def hummingbot_gateway(request: Request, subpath=''):
 	await validate(request)
 
-	paths = DotMap(request.path_params)
-	parameters = DotMap(request.query_params)
+	paths = DotMap(request.path_params, _dynamic=False)
+	parameters = DotMap(request.query_params, _dynamic=False)
 	try:
-		body = DotMap(await request.json())
+		body = DotMap(await request.json(), _dynamic=False)
 	except:
-		body = DotMap({})
-	headers = DotMap(request.headers.raw)
+		body = DotMap({}, _dynamic=False)
+	headers = DotMap(request.headers.raw, _dynamic=False)
 
 	method = HttpMethod[request.method.upper()]
 
@@ -406,6 +406,9 @@ async def hummingbot_gateway(request: Request, subpath=''):
 				chain = body['chain']
 
 				controller.update_gateway_connections({"chain": chain, "address": publickey, "subpath": subpath})
+
+			if not response:
+				response = DotMap({}, _dynamic=False)
 
 			return JSONResponse(response.toDict())
 		else:
