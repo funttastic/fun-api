@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from decimal import Decimal
 from dotmap import DotMap as Map
 from enum import Enum
