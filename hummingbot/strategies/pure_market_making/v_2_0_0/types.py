@@ -574,16 +574,14 @@ class RestGetAllFilledOrdersRequest:
 	pass
 
 
-class RestGetAllFilledOrdersResponse(RestGetOrdersResponse):
-	pass
+RestGetAllFilledOrdersResponse = RestGetOrdersResponse
 
 
 class RestGetAllOrdersRequest:
 	pass
 
 
-class RestGetAllOrdersResponse(RestGetOrdersResponse):
-	pass
+RestGetAllOrdersResponse = RestGetOrdersResponse
 
 
 class RestPlaceOrderRequest:
