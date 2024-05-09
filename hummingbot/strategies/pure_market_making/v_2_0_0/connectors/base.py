@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dotmap import DotMap
 
 from dotmap import DotMap
 
