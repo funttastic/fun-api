@@ -1,5 +1,6 @@
 from ccxt.async_support.base.exchange import Exchange as WebSocketExchange
 from ccxt.base.exchange import Exchange as RESTExchange
+from dotmap import DotMap
 
 import ccxt
 from core.decorators import log_class_exceptions

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dotmap import DotMap
 
 from hummingbot.strategies.pure_market_making.v_2_0_0.types import *
 
