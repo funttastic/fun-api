@@ -539,11 +539,13 @@ async def start_api():
 	)
 	server = uvicorn.Server(config)
 
+	await server.serve()
+
 	if environment == constants.environments.development:
 		import pydevd_pycharm
 		pydevd_pycharm.settrace('localhost', port=30001, stdoutToServer=True, stderrToServer=True, suspend=False)
 
-	await server.serve()
+
 
 
 @app.get("/development/test")
