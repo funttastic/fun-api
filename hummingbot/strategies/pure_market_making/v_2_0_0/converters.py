@@ -38,7 +38,6 @@ def convert_ccxt_token_to_token(currency_data: Dict[str, Any]) -> Token:
 
 
 def convert_ccxt_market_to_market(raw_market_data: dict, raw_currencies_data: dict):
-	print(f"HERE: {raw_market_data}")
 	raw_currencies_data = DotMap(raw_currencies_data)
 	raw_market_data = DotMap(raw_market_data)
 

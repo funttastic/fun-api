@@ -541,7 +541,7 @@ async def start_api():
 
 	if environment == constants.environments.development:
 		import pydevd_pycharm
-		pydevd_pycharm.settrace('localhost', port=30001, stdoutToServer=True, stderrToServer=True)
+		pydevd_pycharm.settrace('localhost', port=30001, stdoutToServer=True, stderrToServer=True, suspend=False)
 
 	await server.serve()
 
