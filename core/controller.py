@@ -4,6 +4,7 @@ import os
 from dotmap import DotMap
 from typing import Any, Dict, List, AsyncGenerator
 
+
 from core.constants import constants, chains_connector_specification
 from core.logger import logger
 from core.properties import properties
@@ -12,18 +13,24 @@ from core.types import SystemStatus
 from core.utils import deep_merge
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
+from hummingbot.strategies.pure_market_making.v_2_0_0.types import *
+
 
 tasks: DotMap[str, asyncio.Task] = DotMap({
 })
 tasks._dynamic=True
+
 
 processes: DotMap[str, StrategyBase] = DotMap({
 })
 processes._dynamic=True
 
 
+
+
 def sanitize_options(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	default_strategy = Strategy.get_default()
+
 
 	output = DotMap({
 		"strategy": options.get("strategy", default_strategy.ID),
@@ -32,12 +39,17 @@ def sanitize_options(options: DotMap[str, Any]) -> DotMap[str, Any]:
 		"worker_id": options.get("worker_id", options.get("workerId", None)),
 	})
 
+
 	output.full_id = f"""{output.strategy}:{output.version}:{output.id}"""
 	output.class_reference = Strategy.from_id_and_version(output.strategy, output.version).value
 
+
 	output._dynamic = False
 
+
 	return output
+
+
 
 
 async def continuously_solve_services_status():
@@ -49,6 +61,7 @@ async def continuously_solve_services_status():
 					try:
 						status = DotMap(await strategy_status(DotMap({})), _dynamic=False)
 
+
 						if status.get("message") == "Process not running":
 							system[key] = SystemStatus.STOPPED
 						else:
@@ -58,16 +71,22 @@ async def continuously_solve_services_status():
 				else:
 					system[key] = SystemStatus.get_by_id(value)
 
+
 			current = properties.get_or_default("services.status.current", constants.services.status.default)
 			final = deep_merge(current, system)
 
+
 			properties.set("services.status.current", final)
+
 
 			await asyncio.sleep(constants.services.status.delay / 1000.0)
 		except Exception as exception:
 			logger.ignore_exception(exception)
 
+
 			pass
+
+
 
 
 async def service_status(_options: DotMap[str, Any]) -> Dict[str, Any]:
@@ -75,15 +94,19 @@ async def service_status(_options: DotMap[str, Any]) -> Dict[str, Any]:
 		if not tasks[constants.services.status.task]:
 			tasks[constants.services.status.task].start = asyncio.create_task(continuously_solve_services_status())
 
+
 		return properties.get_or_default("services.status.current", constants.services.status.default)
 	except Exception as exception:
 		raise exception
+
+
 
 
 async def service_start(options: DotMap[str, Any]):
 	try:
 		if properties.get_or_default(f"services.status.current.{options.id}", SystemStatus.UNKNOWN) in [SystemStatus.STOPPED, SystemStatus.UNKNOWN]:
 			properties.set(f"services.status.current.{options.id}", SystemStatus.STARTING)
+
 
 			if options.id == constants.id:
 				await strategy_start(DotMap({}))
@@ -92,7 +115,9 @@ async def service_start(options: DotMap[str, Any]):
 					username=properties.get("admin.username"), password=properties.get("admin.password")
 				))
 
+
 			properties.set(f"services.status.current.{options.id}", SystemStatus.RUNNING)
+
 
 			return {
 				"message": f"""Service "{options.id}" has started."""
@@ -105,17 +130,22 @@ async def service_start(options: DotMap[str, Any]):
 		raise exception
 
 
+
+
 async def service_stop(options: DotMap[str, Any]):
 	try:
 		if properties.get_or_default(f"services.status.current.{options.id}", SystemStatus.UNKNOWN) in [SystemStatus.STARTING, SystemStatus.IDLE, SystemStatus.RUNNING]:
 			properties.set(f"services.status.current.{options.id}", SystemStatus.STOPPING)
+
 
 			if options.id == constants.id:
 				await strategy_stop(DotMap({}))
 			else:
 				await execute(properties.get(f"system.commands.stop.{options.id}"))
 
+
 			properties.set(f"services.status.current.{options.id}", SystemStatus.STOPPED)
+
 
 			return {
 				"message": f"""Service "{options.id}" has stopped."""
@@ -128,8 +158,11 @@ async def service_stop(options: DotMap[str, Any]):
 		raise exception
 
 
+
+
 async def strategy_status(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)
+
 
 	try:
 		if processes.get(options.full_id):
@@ -145,16 +178,21 @@ async def strategy_status(options: DotMap[str, Any]) -> Dict[str, Any]:
 		processes[options.full_id] = None
 		tasks[options.full_id].start = None
 
+
 		raise exception
+
+
 
 
 async def strategy_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)
 
+
 	try:
 		if not processes.get(options.full_id):
 			processes[options.full_id] = options.class_reference(options.id)
 			tasks[options.full_id].start = asyncio.create_task(processes[options.full_id].start())
+
 
 			return {
 				"message": "Starting..."
@@ -170,16 +208,21 @@ async def strategy_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 		processes[options.full_id] = None
 		tasks[options.full_id].start = None
 
+
 		raise exception
+
+
 
 
 async def strategy_stop(options: DotMap[str, Any]):
 	options = sanitize_options(options)
 
+
 	try:
 		if processes.get(options.full_id):
 			tasks[options.full_id].start.cancel()
 			tasks[options.full_id].stop = asyncio.create_task(processes[options.full_id].stop())
+
 
 			return {
 				"message": "Stopping..."
@@ -193,18 +236,23 @@ async def strategy_stop(options: DotMap[str, Any]):
 			tasks[options.full_id].start.cancel()
 			await tasks[options.full_id].start
 
+
 		raise exception
 	finally:
 		processes[options.full_id] = None
 		tasks[options.full_id].start = None
 
 
+
+
 async def strategy_worker_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)
 
+
 	try:
 		if processes.get(options.full_id):
-			asyncio.create_task(processes[options.full_id].start_worker(options.worker_id))
+			await asyncio.create_task(processes[options.full_id].start_worker(options.worker_id))
+
 
 			return {
 				"message": f"Starting worker {options.worker_id} ..."
@@ -217,12 +265,16 @@ async def strategy_worker_start(options: DotMap[str, Any]) -> Dict[str, Any]:
 		raise exception
 
 
+
+
 async def strategy_worker_stop(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)
 
+
 	try:
 		if processes.get(options.full_id):
-			asyncio.create_task(processes[options.full_id].stop_worker(options.worker_id))
+			await asyncio.create_task(processes[options.full_id].stop_worker(options.worker_id))
+
 
 			return {
 				"message": f"Stopping worker {options.worker_id} ..."
@@ -235,8 +287,11 @@ async def strategy_worker_stop(options: DotMap[str, Any]) -> Dict[str, Any]:
 		raise exception
 
 
+
+
 async def strategy_worker_status(options: DotMap[str, Any]) -> Dict[str, Any]:
 	options = sanitize_options(options)
+
 
 	try:
 		if processes.get(options.full_id):
@@ -244,27 +299,36 @@ async def strategy_worker_status(options: DotMap[str, Any]) -> Dict[str, Any]:
 			status.supervisor_id = options.full_id
 			status.update(processes[options.full_id].worker_status(options.worker_id))
 
+
 			return status.toDict()
+
 
 		else:
 			return {
 				"message": f"Supervisor {options.full_id} is not running"
 			}
 
+
 	except Exception as exception:
 		raise exception
 
 
+
+
 async def websocket_log(options: Any) -> AsyncGenerator[str, None]:
 	command = str(properties.get(f"system.commands.log.{options.id}"))
+
 
 	async for line in execute_continuously(command):
 		yield line
 		await asyncio.sleep(0.1)
 
 
+
+
 def update_gateway_connections(params: Any):
 	absolute_configuration_path = os.path.expanduser(str(properties.get("hummingbot.client.configuration_path")))
+
 
 	def load(path) -> List[Dict[str, str]]:
 		if os.path.exists(path):
@@ -272,14 +336,17 @@ def update_gateway_connections(params: Any):
 				try:
 					file_content: List[Dict[str, str]] = json.load(target_file)
 
+
 					return file_content
 				except json.JSONDecodeError:
 					return []
 		return []
 
+
 	def save(path, settings: List[Dict[str, str]]):
 		with open(path, "w") as target_file:
 			json.dump(settings, target_file)
+
 
 	gateway_connections_absolute_file_path = (
 		absolute_configuration_path + "gateway_connections.json"
@@ -288,6 +355,7 @@ def update_gateway_connections(params: Any):
 	)
 	gateway_connections_content = load(gateway_connections_absolute_file_path)
 
+
 	gateway_networks_absolute_file_path = (
 		absolute_configuration_path + "gateway_network.json"
 		if absolute_configuration_path[-1] == "/"
@@ -295,12 +363,15 @@ def update_gateway_connections(params: Any):
 	)
 	gateway_network_content = load(gateway_networks_absolute_file_path)
 
+
 	connector_name = chains_connector_specification[params["chain"].upper()]["CONNECTOR"].value
 	chain = params["chain"]
+
 
 	if params["subpath"] == "wallet/add":
 		# Updating gateway_connections.json
 		new_connector_specification: List[Dict[str, str]] = []
+
 
 		for network in chains_connector_specification[params["chain"].upper()]["NETWORK"].value:
 			new_connector_specification.append({
@@ -314,9 +385,11 @@ def update_gateway_connections(params: Any):
 				"additional_prompt_values": chains_connector_specification[params["chain"].upper()]["ADDITIONAL_PROMPT_VALUES"].value
 			})
 
+
 		for spec in new_connector_specification:
 			updated: bool = False
 			network = spec["network"]
+
 
 			for i, c in enumerate(gateway_connections_content):
 				if c["connector"] == connector_name and c["chain"] == chain and c["network"] == network:
@@ -324,8 +397,10 @@ def update_gateway_connections(params: Any):
 					updated = True
 					break
 
+
 			if updated is False:
 				gateway_connections_content.append(spec)
+
 
 		# Updating gateway_networks.json
 		for chain_network in chains_connector_specification[params["chain"].upper()]["CHAIN_NETWORKS"].value:
@@ -333,7 +408,9 @@ def update_gateway_connections(params: Any):
 				"chain_network": chain_network,
 			}
 
+
 			updated: bool = False
+
 
 			for i, c in enumerate(gateway_network_content):
 				if c["chain_network"] == chain_network:
@@ -341,13 +418,17 @@ def update_gateway_connections(params: Any):
 					updated = True
 					break
 
+
 			if updated is False:
 				gateway_network_content.append(new_network_specification)
+
 
 		# Updating gateway_networks.json - Adding tokens to watch
 		tokens = chains_connector_specification[params["chain"].upper()]["TOKENS"].value
 
+
 		network_found = False
+
 
 		for chain_network in chains_connector_specification[params["chain"].upper()]["CHAIN_NETWORKS"].value:
 			for network in gateway_network_content:
@@ -362,6 +443,7 @@ def update_gateway_connections(params: Any):
 				}
 				gateway_network_content.append(new_network)
 
+
 	elif params["subpath"] == "wallet/remove":
 		# Updating gateway_connections.json
 		gateway_connections_content = [
@@ -370,28 +452,35 @@ def update_gateway_connections(params: Any):
 			)
 		]
 
+
 		# Updating gateway_networks.json
 		for chain_network in chains_connector_specification[params["chain"].upper()]["CHAIN_NETWORKS"].value:
 			for i, c in enumerate(gateway_network_content):
 				if c["chain_network"] == chain_network:
 					gateway_network_content.remove(c)
 
+
 	save(gateway_connections_absolute_file_path, gateway_connections_content)
 	save(gateway_networks_absolute_file_path, gateway_network_content)
 
 
-async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
+
+
+async def test(**kwargs):
 	from hummingbot.strategies.pure_market_making.v_2_0_0.connectors.ccxt.ccxt import CCXTConnector
+	from resources.configuration.config import BINANCE_API_KEY, BINANCE_API_SECRET
+	from pprint import pprint
+
 
 	options = DotMap({
 		"ccxt": {
 			"exchange": {
 				"id": os.environ.get("EXCHANGE_ID", "binance"),
-				"environment": os.environ.get("EXCHANGE_ENVIRONMENT", "production"),
+				"environment": os.environ.get("EXCHANGE_ENVIRONMENT", "development"),
 				"rest": {
 					"constructor": {
-						"apiKey": os.environ.get("EXCHANGE_API_KEY"),
-						"secret": os.environ.get("EXCHANGE_API_SECRET"),
+						"apiKey": os.environ.get("EXCHANGE_API_KEY", BINANCE_API_KEY),
+						"secret": os.environ.get("EXCHANGE_API_SECRET", BINANCE_API_SECRET),
 					},
 					"options": {
 						"subaccountId": os.environ.get("EXCHANGE_SUB_ACCOUNT_ID"),
@@ -399,8 +488,8 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 				},
 				"websocket": {
 					"constructor": {
-						"apiKey": os.environ.get("EXCHANGE_API_KEY"),
-						"secret": os.environ.get("EXCHANGE_API_SECRET"),
+						"apiKey": os.environ.get("EXCHANGE_API_KEY", BINANCE_API_KEY),
+						"secret": os.environ.get("EXCHANGE_API_SECRET", BINANCE_API_SECRET),
 					},
 					"options": {
 						"subaccountId": os.environ.get("EXCHANGE_SUB_ACCOUNT_ID"),
@@ -409,9 +498,58 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 			}
 		}
 	}, _dynamic=False)
+	market_ids = RestGetMarketsRequest(
+		ids=("EOS/USDC",)
+	)
+
+
+	market_id = RestGetMarketRequest(
+		id="ZRX/USDT"
+	)
+
+
+	market_names = RestGetMarketsRequest(
+		names=("BNB/USD", "ZRX/USDT:USDT", "ZRX/BNB")
+	)
+	get_token_request = RestGetTokenRequest(
+		symbol="ZIL"
+	)
+
+
+	get_tokens_request = RestGetTokensRequest(
+		ids=("ZIL", "NEAR",)
+	)
+
+
+	tickers_request = RestGetTickersRequest(
+		market_ids=("ZIL/USDT", "ZIL/TRY")
+	)
+
+
+	ticker_request = RestGetTickerRequest(
+		market_id="ZRX/USDT"
+	)
+
+
 	connector = CCXTConnector(options)
 	await connector.initialize(options)
+	# response = await connector.rest.get_all_markets()
+	# response = await connector.rest.get_markets(market_ids)
+	# response = await connector.rest.get_market(market_id)
 
-	print(await connector.rest.get_markets())
 
-	return options
+	# response = await connector.rest.get_all_tokens()
+	# response = await connector.rest.get_token(get_token_request)
+	# response = await connector.rest.get_tokens(get_tokens_request)
+
+
+	response = await connector.rest.get_all_tickers()
+	# response = await connector.rest.get_tickers(tickers_request)
+	# response = await connector.rest.get_ticker(ticker_request)
+
+
+	await connector.close()
+
+
+	return response
+

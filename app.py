@@ -553,7 +553,7 @@ async def start_api():
 @app.patch("/development/test")
 @app.head("/development/test")
 @app.options("/development/test")
-async def development_test(request: Request) -> Dict[str, Any]:
+async def development_test(request: Request):
 	await validate(request)
 
 	try:
@@ -562,8 +562,8 @@ async def development_test(request: Request) -> Dict[str, Any]:
 		body = {}
 
 	body = DotMap(body, _dynamic=False)
-
-	return await controller.test(body)
+	print(await controller.test())
+	return await controller.test()
 
 
 async def main():

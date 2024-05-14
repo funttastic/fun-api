@@ -51,7 +51,7 @@ def	test_request(token):
 		cert=(client_cert, client_key)
 	)
 	if response.status_code == 200:
-		return response.json()
+		return response
 	else:
 		return None
 
