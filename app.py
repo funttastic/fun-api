@@ -217,7 +217,7 @@ async def auth_sign_in(request: Credentials, response: Response):
 		data={"sub": credentials.username}, expires_delta=token_expiration_delta
 	)
 
-	response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax", max_age=60 * 60 * 1000, path="/", domain="localhost")
+	response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax", max_age=60 * 60 * 1000, path="/", domain="")
 
 	return {"token": token, "type": constants.authentication.jwt.token.type}
 
@@ -238,7 +238,7 @@ async def auth_refresh(request: Request, response: Response):
 		data={"sub": properties.get("admin.username")}, expires_delta=token_expiration_delta
 	)
 
-	response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax", max_age=60 * 60 * 1000, path="/", domain="localhost")
+	response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax", max_age=60 * 60 * 1000, path="/", domain="")
 
 	return {"token": token, "type": constants.authentication.jwt.token.type}
 
