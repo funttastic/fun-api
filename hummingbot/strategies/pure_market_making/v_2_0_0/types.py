@@ -1,7 +1,7 @@
 from decimal import Decimal
 from dotmap import DotMap as Map
 from enum import Enum
-from typing import Any, List, Optional, Union, Tuple
+from typing import Any, List, Optional, Union, Tuple, Literal
 from dataclasses import dataclass
 from hummingbot.strategies.pure_market_making.v_2_0_0.workers.ccxt.ccxt import CCXTWorker
 from hummingbot.strategies.pure_market_making.v_2_0_0.workers.hb_client.hb_client import HBClientWorker
@@ -76,6 +76,7 @@ MarketMinimumBaseIncrement = Decimal
 MarketMinimumQuoteIncrement = Decimal
 
 
+TickerId = str  # I created this to identify tickers
 TickerPrice = Price
 TickerTimestamp = Timestamp
 
@@ -110,6 +111,7 @@ ConnectorName = str
 ConnectorStatus = str
 
 
+OrderSide = Literal["buy", "sell"]
 
 
 #
@@ -117,33 +119,31 @@ ConnectorStatus = str
 #
 
 
-class OrderSide(Enum):
-	BUY = 'BUY'
-	SELL = 'SELL'
+class StringEnum(str, Enum):
+	def __new__(cls, value, description=''):
+		obj = str.__new__(cls, value)
+		obj._value_ = value
+		obj.description = description
+		return obj
 
 
-
-
-class OrderStatus(Enum):
+class OrderStatus(StringEnum):
 	OPEN = 'OPEN'
-	CANCELLED = 'CANCELLED'
+	CANCELED = 'CANCELED'  # renamed from CANCELLED
 	PARTIALLY_FILLED = 'PARTIALLY_FILLED'
 	FILLED = 'FILLED'
 	CREATION_PENDING = 'CREATION_PENDING'
 	CANCELLATION_PENDING = 'CANCELLATION_PENDING'
 	UNKNOWN = 'UNKNOWN'
+	CLOSED = 'CLOSED' # QUESTION:  added this to replace FILLED, is this accepted?
 
 
-
-
-class OrderType(Enum):
-	MARKET = 'MARKET'
-	LIMIT = 'LIMIT'
-	POST_ONLY = 'POST_ONLY'  # A limit order which cannot be filled while posting
-	LIMIT_MAKER = "LIMIT_MAKER"  # A limit order which can be partially filled (not completely) while posting
-	IMMEDIATE_OR_CANCEL = 'IMMEDIATE_OR_CANCEL'  # A limit order that must be filled immediately or cancelled
-
-
+class OrderType(StringEnum):
+	MARKET = "MARKET"
+	LIMIT = "LIMIT"
+	POST_ONLY = "POST_ONLY", "A limit order which cannot be filled while posting"
+	LIMIT_MAKER = "LIMIT_MAKER", "A limit order which can be partially filled (not completely) while posting"
+	IMMEDIATE_OR_CANCEL = "IMMEDIATE_OR_CANCEL", "A limit order that must be filled immediately or cancelled"
 
 
 class TickerSource(Enum):
@@ -152,8 +152,6 @@ class TickerSource(Enum):
 	ORDER_BOOK_VWAP = 'ORDER_BOOK_VOLUME_WEIGHTED_AVERAGE_PRICE'
 	LAST_FILLED_ORDER = 'LAST_FILLED_ORDER'
 	EXTERNAL_API = 'EXTERNAL_API'
-
-
 
 
 class RESTfulMethod(Enum):
@@ -166,16 +164,12 @@ class RESTfulMethod(Enum):
 	OPTIONS = 'OPTIONS'
 
 
-
-
 #
 # Interfaces and Classes
 #
 
 
 Block = Map[str, Any]
-
-
 
 
 class Transaction:
@@ -189,8 +183,6 @@ class Transaction:
 	raw: Any
 
 
-
-
 @dataclass
 class Token:
 	id: TokenId
@@ -200,15 +192,11 @@ class Token:
 	raw: Any
 
 
-
-
 @dataclass
 class MarketFee:
 	maker: FeeMaker
 	taker: FeeTaker
 	service_provider: Optional[FeeServiceProvider] = None
-
-
 
 
 @dataclass
@@ -228,107 +216,14 @@ class Market:
 	deprecated: Optional[MarketDeprecation] = None
 
 
-
-
-class OrderBook:
-	market: Market
-	bids: Map[OrderId, 'Order']
-	asks: Map[OrderId, 'Order']
-	best_bid: 'Order'
-	best_ask: 'Order'
-	raw: Any
-
-
-
-
-@dataclass
-class Ticker:
-	market: Market
-	price: TickerPrice
-	timestamp: TickerTimestamp
-	raw: Any
-
-
-
-
 class TokenAndAmount:
-	token: 'Token'
+	token: Token
 	amount: Amount
-
-
 
 
 class OrderFilling:
 	free: TokenAndAmount
 	filled: TokenAndAmount
-
-
-
-
-class BaseBalance:
-	free: Amount
-	locked_in_orders: Amount
-	unsettled: Amount
-	total: Amount
-
-
-
-
-class BaseBalanceWithQuotation(BaseBalance):
-	quotation: Amount
-
-
-
-
-class TotalBalance(BaseBalance):
-	pass
-
-
-
-
-class BaseTokenBalance:
-	token: BaseBalance
-	usd: BaseBalanceWithQuotation
-	native_token: BaseBalanceWithQuotation
-
-
-
-
-class TokenBalance:
-	token: Token
-	balances: BaseTokenBalance
-
-
-
-
-class Balances:
-	tokens: Map[TokenId, TokenBalance]
-	total: TotalBalance
-
-
-
-
-class Order:
-	id: OrderId
-	client_id: OrderClientId
-	market_name: OrderMarketName
-	market_id: OrderMarketId
-	market: Market
-	owner_address: OrderOwnerAddress
-	payer_address: OrderPayerAddress
-	price: OrderPrice
-	amount: OrderAmount
-	side: OrderSide
-	status: OrderStatus
-	type: OrderType
-	fee: OrderFee
-	filling: OrderFilling
-	creation_timestamp: OrderCreationTimestamp
-	filling_timestamp: OrderFillingTimestamp
-	hashes: 'TransactionHashes'
-	raw: Any
-
-
 
 
 class TransactionHashes:
@@ -340,13 +235,110 @@ class TransactionHashes:
 	withdraws: Optional[List[TransactionHash]]
 
 
+@dataclass
+class Order:
+	id: OrderId
+	client_id: OrderClientId
+	market_name: OrderMarketName
+	market_id: OrderMarketId
+	market: Market
+	price: OrderPrice
+	amount: OrderAmount
+	side: OrderSide
+	status: OrderStatus
+	type: OrderType
+	fee: OrderFee
+	creation_timestamp: OrderCreationTimestamp
+	raw: Any
+	filling_timestamp: Optional[OrderFillingTimestamp] = None
+
+
+class OldOrder:  # REFACTOR: REMOVE THIS
+	id: OrderId
+	client_id: OrderClientId
+	market_name: OrderMarketName
+	market_id: OrderMarketId
+	market: Market
+	#  These four are not available, how can I derive them?
+	owner_address: OrderOwnerAddress
+	payer_address: OrderPayerAddress
+	filling: OrderFilling
+	hashes: TransactionHashes
+	######################
+
+
+	price: OrderPrice
+	amount: OrderAmount
+	side: OrderSide
+	status: OrderStatus
+	type: OrderType
+	fee: OrderFee
+	creation_timestamp: OrderCreationTimestamp
+	filling_timestamp: OrderFillingTimestamp
+	raw: Any
+
+
+@dataclass
+class OrderBook:
+	market: Market
+	bids: List[Tuple[Price, Amount]]
+	asks: List[Tuple[Price, Amount]]
+	best_bid: Tuple[Price, Amount]
+	best_ask: Tuple[Price, Amount]
+	raw: Any
+
+
+class OldOrderBook:  # The Old OrderBook
+	market: Market
+	bids: Map[OrderId, 'Order']
+	asks: Map[OrderId, 'Order']
+	best_bid: 'Order'
+	best_ask: Order
+	raw: Any
+
+
+class Ticker(Map):
+	symbol: TickerId
+	market: Market
+	price: TickerPrice  # Question: IS TICKER PRICE NOT (bid + ask)/2
+	timestamp: TickerTimestamp
+	raw: Any
+
+
+class BaseBalance:
+	free: Amount
+	locked_in_orders: Amount
+	unsettled: Amount
+	total: Amount
+
+
+class BaseBalanceWithQuotation(BaseBalance):
+	quotation: Amount
+
+
+class TotalBalance(BaseBalance):
+	pass
+
+
+class BaseTokenBalance:
+	token: BaseBalance
+	usd: BaseBalanceWithQuotation
+	native_token: BaseBalanceWithQuotation
+
+
+class TokenBalance:
+	token: Token
+	balances: BaseTokenBalance
+
+
+class Balances:
+	tokens: Map[TokenId, TokenBalance]
+	total: TotalBalance
 
 
 class WithdrawItem:
 	fees: Map[str, Amount]
 	token: 'Token'
-
-
 
 
 class Withdraw:
@@ -356,15 +348,11 @@ class Withdraw:
 	raw: Any
 
 
-
-
 class EstimatedFees:
 	token: EstimatedFeesToken
 	price: EstimatedFeesPrice
 	limit: EstimateFeesLimit
 	cost: EstimateFeesCost
-
-
 
 
 #
@@ -376,54 +364,36 @@ class BaseError(Exception):
 	pass
 
 
-
-
 class TransactionNotFoundError(BaseError):
 	pass
-
-
 
 
 class TokenNotFoundError(BaseError):
 	pass
 
 
-
-
 class MarketNotFoundError(BaseError):
 	pass
-
-
 
 
 class OrderBookNotFoundError(BaseError):
 	pass
 
 
-
-
 class TickerNotFoundError(BaseError):
 	pass
-
-
 
 
 class BalanceNotFoundError(BaseError):
 	pass
 
 
-
-
 class OrderNotFoundError(BaseError):
 	pass
 
 
-
-
 class WithdrawError(BaseError):
 	pass
-
-
 
 
 #
@@ -435,8 +405,6 @@ class RestGetRootRequest:
 	pass
 
 
-
-
 class RestGetRootResponse:
 	chain: ChainName
 	network: NetworkName
@@ -445,12 +413,8 @@ class RestGetRootResponse:
 	timestamp: Timestamp
 
 
-
-
 class RestGetCurrentBlockRequest:
 	pass
-
-
 
 
 class RestGetCurrentBlockResponse:
@@ -459,12 +423,8 @@ class RestGetCurrentBlockResponse:
 	raw: Any
 
 
-
-
 class RestGetBlockRequest:
 	number: BlockNumber
-
-
 
 
 class RestGetBlockResponse:
@@ -473,42 +433,28 @@ class RestGetBlockResponse:
 	raw: Any
 
 
-
-
 class RestGetBlocksRequest:
 	numbers: List[BlockNumber]
-
-
 
 
 class RestGetBlocksResponse(Map[BlockNumber, Block]):
 	pass
 
 
-
-
 class RestGetTransactionRequest:
 	hash: TransactionHash
-
-
 
 
 class RestGetTransactionResponse(Transaction):
 	pass
 
 
-
-
 class RestGetTransactionsRequest:
 	hashes: List[TransactionHash]
 
 
-
-
 class RestGetTransactionsResponse(Map[TransactionHash, Transaction]):
 	pass
-
-
 
 
 @dataclass
@@ -518,12 +464,8 @@ class RestGetTokenRequest:
 	symbol: Optional[TokenSymbol] = None
 
 
-
-
 class RestGetTokenResponse(Token):
 	pass
-
-
 
 
 @dataclass
@@ -533,20 +475,14 @@ class RestGetTokensRequest:
 	symbols: Optional[Tuple[TokenSymbol, ...]] = None
 
 
-
-
 @dataclass
 class RestGetTokensResponse(Map[TokenId, Token]):
 	pass
 
 
-
-
 @dataclass
 class RestGetAllTokensRequest:
 	pass
-
-
 
 
 class RestGetAllTokensResponse(RestGetTokensResponse):
@@ -559,12 +495,8 @@ class RestGetMarketRequest:
 	name: Optional[MarketName] = None
 
 
-
-
 class RestGetMarketResponse(Market):
 	pass
-
-
 
 
 @dataclass
@@ -573,24 +505,16 @@ class RestGetMarketsRequest:
 	names: Optional[Tuple[MarketName, ...]] = None
 
 
-
-
 class RestGetMarketsResponse(Map[MarketId, Market]):
 	pass
-
-
 
 
 class RestGetAllMarketsRequest:
 	pass
 
 
-
-
 class RestGetAllMarketsResponse(RestGetMarketsResponse):
 	pass
-
-
 
 
 class RestGetOrderBookRequest:
@@ -598,12 +522,8 @@ class RestGetOrderBookRequest:
 	market_name: Optional[MarketName]
 
 
-
-
 class RestGetOrderBookResponse(OrderBook):
 	pass
-
-
 
 
 class RestGetOrderBooksRequest:
@@ -611,24 +531,16 @@ class RestGetOrderBooksRequest:
 	market_names: Optional[List[MarketName]]
 
 
-
-
 class RestGetOrderBooksResponse(Map[MarketId, OrderBook]):
 	pass
-
-
 
 
 class RestGetAllOrderBooksRequest:
 	pass
 
 
-
-
 class RestGetAllOrderBooksResponse(Map[MarketId, OrderBook]):
 	pass
-
-
 
 
 @dataclass
@@ -637,12 +549,16 @@ class RestGetTickerRequest:
 	market_name: Optional[MarketName] = None
 
 
+# class RestGetTickerRequest(Map):
+#
+#   def __setattr__(self, key, value):
+#      __allowed_keys = {'market_id', 'market_name'}
+#      if key not in __allowed_keys:
+#         raise AttributeError(f"'RestGetTickerRequest' object only allows attributes: {', '.join(__allowed_keys)}")
+#      super().__setattr__(key, value)
 
 
-class RestGetTickerResponse(Ticker):
-	pass
-
-
+class RestGetTickerResponse(Ticker): pass
 
 
 @dataclass
@@ -651,24 +567,16 @@ class RestGetTickersRequest:
 	market_names: Optional[Tuple[MarketName, ...]] = None
 
 
-
-
 class RestGetTickersResponse(Map[MarketId, Ticker]):
 	pass
-
-
 
 
 class RestGetAllTickersRequest:
 	pass
 
 
-
-
 class RestGetAllTickersResponse(RestGetTickersResponse):
 	pass
-
-
 
 
 class RestAddWalletRequest:
@@ -676,11 +584,7 @@ class RestAddWalletRequest:
 	account_number: Optional[AccountNumber]
 
 
-
-
 RestAddWalletResponse = Address
-
-
 
 
 class RestGetBalanceRequest:
@@ -689,12 +593,8 @@ class RestGetBalanceRequest:
 	owner_address: OwnerAddress
 
 
-
-
 class RestGetBalanceResponse(TokenBalance):
 	pass
-
-
 
 
 class RestGetBalancesRequest:
@@ -703,24 +603,16 @@ class RestGetBalancesRequest:
 	owner_address: OwnerAddress
 
 
-
-
 class RestGetBalancesResponse(Balances):
 	pass
-
-
 
 
 class RestGetAllBalancesRequest:
 	owner_address: OwnerAddress
 
 
-
-
 class RestGetAllBalancesResponse(RestGetBalancesResponse):
 	pass
-
-
 
 
 class RestGetOrderRequest:
@@ -731,12 +623,8 @@ class RestGetOrderRequest:
 	status: Optional[OrderStatus]
 
 
-
-
 class RestGetOrderResponse(Order):
 	pass
-
-
 
 
 class RestGetOrdersRequest:
@@ -751,47 +639,41 @@ class RestGetOrdersRequest:
 	statuses: Optional[List[OrderStatus]]
 
 
-
-
 RestGetOrdersResponse = Union[Map[OrderId, Order], Map[OwnerAddress, Map[OrderId, Order]]]
-
-
 
 
 class RestGetAllOpenOrdersRequest:
 	pass
 
 
-
-
 RestGetAllOpenOrdersResponse = RestGetOrdersResponse
-
-
 
 
 class RestGetAllFilledOrdersRequest:
 	pass
 
 
-
-
 RestGetAllFilledOrdersResponse = RestGetOrdersResponse
-
-
 
 
 class RestGetAllOrdersRequest:
 	pass
 
 
-
-
 RestGetAllOrdersResponse = RestGetOrdersResponse
 
 
-
-
+@dataclass
 class RestPlaceOrderRequest:
+	order_side: OrderSide
+	order_type: OrderType
+	order_price: OrderPrice
+	order_amount: OrderAmount
+	market_id: Optional[MarketId] = None
+	market_name: Optional[MarketName] = None
+
+
+class OldRestPlaceOrderRequest:  # REFACTOR: REMOVE THIS
 	client_id: Optional[OrderClientId]
 	market_id: Optional[MarketId]
 	market_name: Optional[MarketName]
@@ -802,42 +684,35 @@ class RestPlaceOrderRequest:
 	amount: OrderAmount
 	type: OrderType
 	replace_if_exists: Optional[bool]
-	wait_until_included_in_block: Optional[bool]
-
-
+	wait_until_included_in_block: Optional[bool]  # SHOULD THIS BE REMOVED
 
 
 class RestPlaceOrderResponse(Order):
 	pass
 
 
-
-
+@dataclass
 class RestPlaceOrdersRequest:
+	orders: List[RestPlaceOrderRequest]
+
+
+class OldRestPlaceOrdersRequest:
 	owner_address: Optional[OrderOwnerAddress]
 	orders: List[RestPlaceOrderRequest]
 	replace_if_exists: Optional[bool]
 	wait_until_included_in_block: Optional[bool]
 
 
-
-
 class RestPlaceOrdersResponse(Map[OrderId, Order]):
 	pass
-
-
 
 
 class RestReplaceOrderRequest(RestPlaceOrderRequest):
 	id: OrderId
 
 
-
-
 class RestReplaceOrderResponse(Order):
 	pass
-
-
 
 
 class RestReplaceOrdersRequest:
@@ -845,28 +720,18 @@ class RestReplaceOrdersRequest:
 	orders: List[RestReplaceOrderRequest]
 
 
-
-
 class RestReplaceOrdersResponse(Map[OrderId, Order]):
 	pass
 
 
-
-
 class RestCancelOrderRequest:
-	id: Optional[OrderId]
-	client_id: Optional[OrderClientId]
-	owner_address: OrderOwnerAddress
-	market_id: Optional[MarketId]
-	market_name: Optional[MarketName]
-
-
+	id: OrderId
+	market_id: Optional[MarketId] = None
+	market_name: Optional[MarketName] = None
 
 
 class RestCancelOrderResponse(Order):
 	pass
-
-
 
 
 class RestCancelOrdersRequest:
@@ -880,11 +745,7 @@ class RestCancelOrdersRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-
-
 RestCancelOrdersResponse = Union[Map[OrderId, Order], Map[OwnerAddress, Map[OrderId, Order]]]
-
-
 
 
 class RestCancelAllOrdersRequest:
@@ -896,11 +757,7 @@ class RestCancelAllOrdersRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-
-
 RestCancelAllOrdersResponse = RestCancelOrdersResponse
-
-
 
 
 class RestMarketWithdrawRequest:
@@ -910,11 +767,7 @@ class RestMarketWithdrawRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-
-
 RestMarketWithdrawResponse = Union[Map[MarketId, Withdraw], Map[OwnerAddress, Withdraw]]
-
-
 
 
 class RestMarketsWithdrawsRequest:
@@ -924,337 +777,226 @@ class RestMarketsWithdrawsRequest:
 	owner_addresses: Optional[List[OrderOwnerAddress]]
 
 
-
-
 RestMarketsWithdrawsResponse = Union[Map[MarketId, Withdraw], Map[OwnerAddress, Map[MarketId, Withdraw]]]
-
-
 
 
 class RestAllMarketsWithdrawsRequest:
 	pass
 
 
-
-
 RestAllMarketsWithdrawsResponse = RestMarketsWithdrawsResponse
-
-
 
 
 class RestGetEstimatedFeesRequest:
 	pass
 
 
-
-
 class RestGetEstimatedFeesResponse(EstimatedFees):
 	pass
-
-
 
 
 #
 # Main WebSocket Methods Interfaces
 #
 
-
-
-
 class WsWatchOrderBookRequest:
 	pass
-
-
 
 
 class WsWatchOrderBookResponse:
 	pass
 
 
-
-
 class WsWatchOrderBooksRequest:
 	pass
-
-
 
 
 class WsWatchOrderBooksResponse:
 	pass
 
 
-
-
 class WsWatchAllOrderBooksRequest:
 	pass
-
-
 
 
 class WsWatchAllOrderBooksResponse:
 	pass
 
 
-
-
 class WsWatchTickerRequest:
 	pass
-
-
 
 
 class WsWatchTickerResponse:
 	pass
 
 
-
-
 class WsWatchTickersRequest:
 	pass
-
-
 
 
 class WsWatchTickersResponse:
 	pass
 
 
-
-
 class WsWatchAllTickersRequest:
 	pass
-
-
 
 
 class WsWatchAllTickersResponse:
 	pass
 
 
-
-
 class WsWatchBalanceRequest:
 	pass
-
-
 
 
 class WsWatchBalanceResponse:
 	pass
 
 
-
-
 class WsWatchBalancesRequest:
 	pass
-
-
 
 
 class WsWatchBalancesResponse:
 	pass
 
 
-
-
 class WsWatchAllBalancesRequest:
 	pass
-
-
 
 
 class WsWatchAllBalancesResponse:
 	pass
 
 
-
-
 class WsWatchOrderRequest:
 	pass
-
-
 
 
 class WsWatchOrderResponse:
 	pass
 
 
-
-
 class WsWatchOrdersRequest:
 	pass
-
-
 
 
 class WsWatchOrdersResponse:
 	pass
 
 
-
-
 class WsWatchAllOpenOrdersRequest:
 	pass
-
-
 
 
 class WsWatchAllOpenOrdersResponse:
 	pass
 
 
-
-
 class WsWatchAllFilledOrdersRequest:
 	pass
-
-
 
 
 class WsWatchAllFilledOrdersResponse:
 	pass
 
 
-
-
 class WsWatchAllOrdersRequest:
 	pass
-
-
 
 
 class WsWatchAllOrdersResponse:
 	pass
 
 
-
-
 class WsCreateOrderRequest:
 	pass
-
-
 
 
 class WsCreateOrderResponse:
 	pass
 
 
-
-
 class WsCreateOrdersRequest:
 	pass
-
-
 
 
 class WsCreateOrdersResponse:
 	pass
 
 
-
-
 class WsCancelOrderRequest:
 	pass
-
-
 
 
 class WsCancelOrderResponse:
 	pass
 
 
-
-
 class WsCancelOrdersRequest:
 	pass
-
-
 
 
 class WsCancelOrdersResponse:
 	pass
 
 
-
-
 class WsCancelAllOrdersRequest:
 	pass
-
-
 
 
 class WsCancelAllOrdersResponse:
 	pass
 
 
-
-
 class WsWatchIndicatorRequest:
 	pass
-
-
 
 
 class WsWatchIndicatorResponse:
 	pass
 
 
-
-
 class WsWatchIndicatorsRequest:
 	pass
-
-
 
 
 class WsWatchIndicatorsResponse:
 	pass
 
 
-
-
 class WsWatchAllIndicatorsRequest:
 	pass
-
-
 
 
 class WsWatchAllIndicatorsResponse:
 	pass
 
 
-
-
 class WsMarketWithdrawRequest:
 	pass
-
-
 
 
 class WsMarketWithdrawResponse:
 	pass
 
 
-
-
 class WsMarketsWithdrawsRequest:
 	pass
-
-
 
 
 class WsMarketsWithdrawsFundsResponse:
 	pass
 
 
-
-
 class WsAllMarketsWithdrawsRequest:
 	pass
 
 
-
-
 class WsAllMarketsWithdrawsResponse:
 	pass
+
+
 

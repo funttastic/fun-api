@@ -1,7 +1,7 @@
 from ccxt.async_support.base.exchange import Exchange as WebSocketExchange
 from ccxt.base.exchange import Exchange as RESTExchange
 import ccxt.async_support as ccxt
-from core.decorators import log_class_exceptions
+from core.decorators import log_class_exceptions, automatic_retry_with_timeout
 from core.utils import deep_merge
 from hummingbot.strategies.pure_market_making.v_2_0_0.connectors.base import ConnectorBase, RESTConnectorBase, \
 	WebSocketConnectorBase
@@ -16,6 +16,7 @@ from hummingbot.strategies.pure_market_making.v_2_0_0.converters import (
 	convert_ccxt_tokens_to_tokens,
 	convert_ccxt_tickers_to_tickers,
 	convert_ccxt_markets_to_market,
+	convert_ccxt_order_response_to_response,
 	filter_markets_data_by_names_or_ids,
 	get_market_data_by_id_or_name,
 	get_token_by_id_name_or_symbol,
@@ -125,8 +126,6 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 
 		self.exchange: RESTExchange = exchange_class(constructor.toDict())
-
-
 		self.exchange.options = deep_merge(
 			self.exchange.options,
 			options.options
@@ -134,6 +133,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 
 		if options.environment != "production":
+			print("DEV MODE")
 			self.exchange.set_sandbox_mode(True)
 
 
@@ -192,7 +192,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 		return tokens
 
 
-	@retry(ExchangeRequestTimeout, tries=3)
+	@automatic_retry_with_timeout(retries=2)
 	async def get_all_tokens(self, request: RestGetAllTokensRequest = None) -> RestGetAllTokensResponse:
 		all_tokens = convert_ccxt_tokens_to_tokens(self.exchange.currencies)
 
@@ -202,10 +202,8 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 	async def get_market(self, request: RestGetMarketRequest = None) -> RestGetMarketResponse:
 		markets_data: RestGetAllMarketsResponse = await self.get_all_markets()
-		currencies = self.exchange.currencies
 		market = get_market_data_by_id_or_name(
 			markets_data,
-			currencies,
 			market_name=request.name,
 			market_id=request.id)
 
@@ -221,13 +219,11 @@ class CCXTRESTConnector(RESTConnectorBase):
 		return markets
 
 
-	@retry(ExchangeRequestTimeout, tries=3)
+	@automatic_retry_with_timeout(retries=2)
 	async def get_all_markets(self, request: RestGetAllMarketsRequest = None) -> RestGetAllMarketsResponse:
 		# TODO:
 		#  1. Filter it by allowed and disallowed market(s)
 		#  2. Add retry decorator (for network issues)
-
-
 		markets: dict = self.exchange.markets
 		currencies: dict = self.exchange.currencies
 		all_markets = convert_ccxt_markets_to_market(markets, currencies)
@@ -236,17 +232,10 @@ class CCXTRESTConnector(RESTConnectorBase):
 		return all_markets.toDict()
 
 
-	async def get_order_book(self, market_id: str = None, market_name: str = None) -> RestGetOrderBookResponse:
-		if not (market_id or market_name):
-			raise MarketNameOrIdNotProvidedError()
-		elif market_id:
-			order_book = self.exchange.fetch_order_book(market_id)
-		elif market_name:
-			order_book = self.exchange.fetch_order_book(market_name)
-		else:
-			raise OrderBookNotFoundError()
+	async def get_order_book(self, request: RestGetOrderBookRequest = None) -> RestGetOrderBookResponse:
 
 
+		order_book = await self.exchange.fetch_order_book("BTC/USDT")
 		return order_book
 
 
@@ -264,16 +253,20 @@ class CCXTRESTConnector(RESTConnectorBase):
 		# get the ids of all the market data
 		# use the ids to call get_order_books method
 		symbol = "BNBUSD_240927"
-		order_books = await self.exchange.fetch_orders(symbol=symbol)
+		symbol2 = "BTC/USDT"
+		order_books = await self.exchange.fetch_order_books()
 
 
 		return order_books
 
 
+	# @automatic_retry_with_timeout(retries=2)
 	async def get_ticker(self, request: RestGetTickerRequest = None) -> RestGetTickerResponse:
-		all_tickers = self.exchange.tickers
+		ccxt_tickers = await self.exchange.fetch_tickers()
 		ticker = get_ticker_by_market_name_or_market_id(
-			all_tickers,
+			ccxt_tickers,
+			self.exchange.markets,
+			self.exchange.currencies,
 			market_id=request.market_id,
 			market_name=request.market_name
 		)
@@ -293,7 +286,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 		return tickers
 
 
-	@retry(ExchangeRequestTimeout, tries=3)
+	@automatic_retry_with_timeout(retries=2)
 	async def get_all_tickers(self, request: RestGetAllTickersRequest = None) -> RestGetAllTickersResponse:
 		tickers_data = await self.exchange.fetch_tickers()
 		markets = await self.get_all_markets()
@@ -304,7 +297,8 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 
 	async def get_balance(self, request: RestGetBalanceRequest = None) -> RestGetBalanceResponse:
-		pass
+		balance = await self.exchange.fetch_balance()
+		return balance
 
 
 	async def get_balances(self, request: RestGetBalancesRequest = None) -> RestGetBalancesResponse:
@@ -316,16 +310,20 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 
 	async def get_order(self, request: RestGetOrderRequest = None) -> RestGetOrderResponse:
-		# TODO: FUNCTION 1
-		order = self.exchange.fetch_orders()
+		symbol = 'BTC/USDT'
+		id = '7009610'
+		order = await self.exchange.fetch_order()
 
 
-		pass
+		order
 
 
 	async def get_orders(self, request: RestGetOrdersRequest = None) -> RestGetOrdersResponse:
-		# TODO: FUNCTION 2
-		pass
+		symbol = 'BTC/USDT'
+		order = await self.exchange.fetch_orders(symbol=symbol)
+
+
+		return order
 
 
 	async def get_all_open_orders(self, request: RestGetAllOpenOrdersRequest = None) -> RestGetAllOpenOrdersResponse:
@@ -337,23 +335,41 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 
 	async def get_all_orders(self, request: RestGetAllOrdersRequest = None) -> RestGetAllOrdersResponse:
-		# TODO: FUNCTION 3
-		pass
+		all_orders_map = {}
+		ccxt_orders = await self.exchange.fetch_orders()
+		for ccxt_order in ccxt_orders:
+			ccxt_order = DotMap(ccxt_order)
+			market = await self.get_market(RestGetMarketRequest(id=ccxt_order.symbol))
+			all_orders_map[ccxt_order.id] = convert_ccxt_order_response_to_response(ccxt_order.toDict(), market)
+
+
+		return all_orders_map
 
 
 	async def place_order(self, request: RestPlaceOrderRequest = None) -> RestPlaceOrderResponse:
-		# TODO: FUNCTION 4
-		sl = self.exchange.create_order()
-		pass
+		market = await self.get_market(RestGetMarketRequest(id=request.market_id, name=request.market_name))
+		ccxt_order = await self.exchange.create_order(
+			market.id,
+			request.order_type.value,
+			request.order_side,
+			float(request.order_amount),
+			request.order_price
+		)
+		order = convert_ccxt_order_response_to_response(ccxt_order, market)
+		return order
 
 
 	async def place_orders(self, request: RestPlaceOrdersRequest = None) -> RestPlaceOrdersResponse:
-		# TODO: FUNCTION 5
-		pass
+		order_map = {}
+		for order_request in request.orders:
+			order = await self.place_order(order_request)
+			order_map[order.id] = order
+
+
+		return order_map
 
 
 	async def cancel_order(self, request: RestCancelOrderRequest = None) -> RestCancelOrderResponse:
-		# TODO: FUNCTION 6
 		pass
 
 
@@ -497,4 +513,6 @@ class CCXTWebSocketConnector(WebSocketConnectorBase):
 
 	async def watch_all_indicators(self, request: WsWatchAllIndicatorsRequest = None) -> Optional[WsWatchAllIndicatorsResponse]:
 		pass
+
+
 

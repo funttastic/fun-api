@@ -8,6 +8,7 @@ resources/databases/*
 resources/logs/
 resources/temporary/
 resources/setup/shared/
+resources/configuration/config.py
 
 *.iml
 __pycache__/

@@ -468,19 +468,21 @@ def update_gateway_connections(params: Any):
 
 async def test(**kwargs):
 	from hummingbot.strategies.pure_market_making.v_2_0_0.connectors.ccxt.ccxt import CCXTConnector
-	from resources.configuration.config import BINANCE_API_KEY, BINANCE_API_SECRET
+	from resources.configuration.config import TESTNET_FUTURES_API_KEY, TESTNET_FUTURES_API_SECRET
 	from pprint import pprint
+	PRODUCTION = "production"
+	DEVELOPMENT = "development"
 
 
 	options = DotMap({
 		"ccxt": {
 			"exchange": {
 				"id": os.environ.get("EXCHANGE_ID", "binance"),
-				"environment": os.environ.get("EXCHANGE_ENVIRONMENT", "development"),
+				"environment": os.environ.get("EXCHANGE_ENVIRONMENT", DEVELOPMENT),
 				"rest": {
 					"constructor": {
-						"apiKey": os.environ.get("EXCHANGE_API_KEY", BINANCE_API_KEY),
-						"secret": os.environ.get("EXCHANGE_API_SECRET", BINANCE_API_SECRET),
+						"apiKey": os.environ.get("EXCHANGE_API_KEY", TESTNET_FUTURES_API_KEY),
+						"secret": os.environ.get("EXCHANGE_API_SECRET", TESTNET_FUTURES_API_SECRET),
 					},
 					"options": {
 						"subaccountId": os.environ.get("EXCHANGE_SUB_ACCOUNT_ID"),
@@ -488,8 +490,8 @@ async def test(**kwargs):
 				},
 				"websocket": {
 					"constructor": {
-						"apiKey": os.environ.get("EXCHANGE_API_KEY", BINANCE_API_KEY),
-						"secret": os.environ.get("EXCHANGE_API_SECRET", BINANCE_API_SECRET),
+						"apiKey": os.environ.get("EXCHANGE_API_KEY", TESTNET_FUTURES_API_KEY),
+						"secret": os.environ.get("EXCHANGE_API_SECRET", TESTNET_FUTURES_API_SECRET),
 					},
 					"options": {
 						"subaccountId": os.environ.get("EXCHANGE_SUB_ACCOUNT_ID"),
@@ -524,10 +526,37 @@ async def test(**kwargs):
 	tickers_request = RestGetTickersRequest(
 		market_ids=("ZIL/USDT", "ZIL/TRY")
 	)
-
-
 	ticker_request = RestGetTickerRequest(
-		market_id="ZRX/USDT"
+		market_id="BTC/USDT"
+	)
+
+
+	place_order_request = RestPlaceOrderRequest(
+		market_id="BTC/USDT",
+		order_side="sell",
+		order_type=OrderType.LIMIT,
+		order_amount=Decimal(0.0005),
+		order_price=Decimal(90000)
+	)
+
+
+	place_orders_request = RestPlaceOrdersRequest(
+		orders=[
+			RestPlaceOrderRequest(
+				market_id="BTC/USDT",
+				order_side="buy",
+				order_type=OrderType.MARKET,
+				order_amount=Decimal(0.0009),
+				order_price=Decimal(7000)
+			),
+			RestPlaceOrderRequest(
+				market_id="BTC/USDT",
+				order_side="sell",
+				order_type=OrderType.LIMIT,
+				order_amount=Decimal(0.0005),
+				order_price=Decimal(90000)
+			)
+		]
 	)
 
 
@@ -543,9 +572,25 @@ async def test(**kwargs):
 	# response = await connector.rest.get_tokens(get_tokens_request)
 
 
-	response = await connector.rest.get_all_tickers()
+	# response = await connector.rest.get_all_tickers()
 	# response = await connector.rest.get_tickers(tickers_request)
 	# response = await connector.rest.get_ticker(ticker_request)
+
+
+	# TODAY
+	response = await connector.rest.place_order(place_order_request)
+	# response = await connector.rest.place_orders(place_orders_request)
+	# response = await connector.rest.get_all_orders()
+
+
+	# TODO: FUNCTIONS CURRENTLY WORKING ON
+	# response = await connector.rest.get_all_order_books()
+	# response = await connector.rest.get_order_books()
+	# response = await connector.rest.get_order_book()
+	# response = await connector.rest.cancel_order()
+	# response = await connector.rest.get_all_orders()
+	# response = await connector.rest.get_orders()
+	# response = await connector.rest.get_order()
 
 
 	await connector.close()

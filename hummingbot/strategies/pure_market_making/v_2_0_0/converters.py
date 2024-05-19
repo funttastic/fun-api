@@ -2,12 +2,12 @@ from dotmap import DotMap
 from typing import Dict, Union, Tuple, Any, Optional
 from hummingbot.strategies.pure_market_making.v_2_0_0.types import (
 	Market,
-	MarketId,
 	MarketFee,
-	MarketPrecision,
 	Token,
-	TokenId,
 	Ticker,
+	Order,
+	OrderStatus,
+	OrderType,
 )
 
 
@@ -37,7 +37,7 @@ def convert_ccxt_token_to_token(currency_data: Dict[str, Any]) -> Token:
 
 
 
-def convert_ccxt_market_to_market(raw_market_data: dict, raw_currencies_data: dict):
+def convert_ccxt_market_to_market(raw_market_data: dict, raw_currencies_data: dict) -> Market:
 	raw_currencies_data = DotMap(raw_currencies_data)
 	raw_market_data = DotMap(raw_market_data)
 
@@ -162,11 +162,10 @@ def convert_ccxt_tokens_to_tokens(currency_data: Dict[str, dict]):
 
 def get_market_data_by_id_or_name(
 	markets_data: Dict[str, Dict],
-	currencies,
 	*,
 	market_id: str = None,
 	market_name: str = None
-) -> Market:
+) -> Dict:
 	if not (market_id or market_name):
 		raise MarketNameOrIdNotProvidedError()
 	market = None
@@ -284,13 +283,17 @@ def convert_ccxt_markets_to_market(ccxt_markets: dict, ccxt_currencies: dict):
 
 
 def convert_ccxt_ticker_to_ticker(ticker: dict, market: Market):
-	ticker = DotMap(ticker)
-	return Ticker(
+	ccxt_ticker = DotMap(ticker)
+	ticker = Ticker(
+		symbol=ccxt_ticker.symbol,
 		market=market,
-		price=ticker.ask,
-		timestamp=ticker.timestamp,
-		raw=ticker.info
+		price=ccxt_ticker.ask,
+		timestamp=ccxt_ticker.timestamp,
+		raw=ccxt_ticker.info
 	)
+
+
+	return ticker
 
 
 
@@ -348,21 +351,33 @@ def filter_tickers_by_market_ids_or_market_names(
 
 def get_ticker_by_market_name_or_market_id(
 	tickers: Dict[str, Any],
+	ccxt_markets: Dict[str, Any],
+	ccxt_currencies,
 	*,
 	market_id: Optional[str] = None,
 	market_name: Optional[str] = None,
 ) -> dict:
-
-
 	if not (market_id or market_name):
 		raise TickerIdentifierNotProvidedError()
 	try:
 		ticker = None
 		if market_id:
-			ticker = convert_ccxt_ticker_to_ticker(tickers[market_id])
+			market = get_market_data_by_id_or_name(
+				markets_data=ccxt_markets,
+				market_id=market_id,
+			)
+			market = convert_ccxt_market_to_market(market, ccxt_currencies)
+			ticker = convert_ccxt_ticker_to_ticker(tickers[market_id], market=market)
+
+
 		elif market_name:
+			market = get_market_data_by_id_or_name(
+				markets_data=ccxt_markets,
+				market_id=market_id,
+			)
+			market = convert_ccxt_market_to_market(market, ccxt_currencies)
 			ticker = next(
-				convert_ccxt_ticker_to_ticker(tickers[ticker_key])
+				convert_ccxt_ticker_to_ticker(tickers[ticker_key], market=market)
 				for ticker_key, ticker_value in tickers.items()
 				if ticker_value["name"] == market_name
 			)
@@ -373,4 +388,35 @@ def get_ticker_by_market_name_or_market_id(
 
 
 	return ticker
+
+
+
+
+def get_order_status(status: str) -> OrderStatus:
+	try:
+		status_upper = status.upper()
+		return OrderStatus[status_upper]
+	except KeyError:
+		raise ValueError(f"Invalid order status: {status}")
+
+
+
+
+def convert_ccxt_order_response_to_response(ccxt_order, market):
+	ccxt_order = DotMap(ccxt_order)
+	return Order(
+		id=ccxt_order.id,
+		client_id=ccxt_order.clientOrderId,
+		market_name=market.name,
+		market_id=market.id,
+		market=market,
+		price=ccxt_order.price,
+		amount=ccxt_order.amount,
+		side=ccxt_order.side,
+		status=OrderStatus[str(ccxt_order.status).upper()],  # turn the order status to uppercase and get the enum
+		type=OrderType[str(ccxt_order.type).upper()],
+		fee=ccxt_order.fee,
+		creation_timestamp=ccxt_order.timestamp,
+		raw=ccxt_order.info
+	)
 
