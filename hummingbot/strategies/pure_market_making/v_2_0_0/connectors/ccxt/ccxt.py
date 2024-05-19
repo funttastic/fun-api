@@ -310,12 +310,12 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 
 	async def get_order(self, request: RestGetOrderRequest = None) -> RestGetOrderResponse:
-		symbol = 'BTC/USDT'
-		id = '7009610'
-		order = await self.exchange.fetch_order()
+		market = await self.get_market(RestGetMarketRequest(id=request.market_id, name=request.market_name))
+		ccxt_order = await self.exchange.fetch_order(request.id, market.id)
+		order = convert_ccxt_order_response_to_response(ccxt_order, market)
 
 
-		order
+		return order
 
 
 	async def get_orders(self, request: RestGetOrdersRequest = None) -> RestGetOrdersResponse:
@@ -335,12 +335,15 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 
 	async def get_all_orders(self, request: RestGetAllOrdersRequest = None) -> RestGetAllOrdersResponse:
+		# TODO: OPTIMIZE THIS FUNCTION TO MAKE IT FASTER, IT DOES ALOT OF COMPUTATION
 		all_orders_map = {}
-		ccxt_orders = await self.exchange.fetch_orders()
-		for ccxt_order in ccxt_orders:
-			ccxt_order = DotMap(ccxt_order)
-			market = await self.get_market(RestGetMarketRequest(id=ccxt_order.symbol))
-			all_orders_map[ccxt_order.id] = convert_ccxt_order_response_to_response(ccxt_order.toDict(), market)
+		all_markets = await self.get_all_markets()
+		for market_id, market in all_markets.items():
+			ccxt_orders = await self.exchange.fetch_orders(symbol=market_id)
+			for ccxt_order in ccxt_orders:
+				ccxt_order = DotMap(ccxt_order)
+				all_orders_map[ccxt_order.id] = convert_ccxt_order_response_to_response(ccxt_order.toDict(), market)
+				pprint(all_orders_map[ccxt_order.id])  # REFACTOR: REMOVE THIS AFTER SHOWING IT
 
 
 		return all_orders_map
@@ -370,7 +373,21 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 
 	async def cancel_order(self, request: RestCancelOrderRequest = None) -> RestCancelOrderResponse:
-		pass
+		order = await self.get_order(
+			RestGetOrderRequest(
+				id=request.id,
+				market_id=request.market_id,
+				market_name=request.market_name
+			)
+		)
+		self.exchange.cancel_order(id=order.id, symbol=order.market_id)
+
+
+		return order
+
+
+
+
 
 
 	async def cancel_orders(self, request: RestCancelOrdersRequest = None) -> RestCancelOrdersResponse:
@@ -513,6 +530,3 @@ class CCXTWebSocketConnector(WebSocketConnectorBase):
 
 	async def watch_all_indicators(self, request: WsWatchAllIndicatorsRequest = None) -> Optional[WsWatchAllIndicatorsResponse]:
 		pass
-
-
-

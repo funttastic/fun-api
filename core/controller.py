@@ -468,7 +468,7 @@ def update_gateway_connections(params: Any):
 
 async def test(**kwargs):
 	from hummingbot.strategies.pure_market_making.v_2_0_0.connectors.ccxt.ccxt import CCXTConnector
-	from resources.configuration.config import TESTNET_FUTURES_API_KEY, TESTNET_FUTURES_API_SECRET
+	from resources.configuration.config import TESTNET_BINANCE_API_KEY, TESTNET_BINANCE_API_SECRET
 	from pprint import pprint
 	PRODUCTION = "production"
 	DEVELOPMENT = "development"
@@ -481,8 +481,8 @@ async def test(**kwargs):
 				"environment": os.environ.get("EXCHANGE_ENVIRONMENT", DEVELOPMENT),
 				"rest": {
 					"constructor": {
-						"apiKey": os.environ.get("EXCHANGE_API_KEY", TESTNET_FUTURES_API_KEY),
-						"secret": os.environ.get("EXCHANGE_API_SECRET", TESTNET_FUTURES_API_SECRET),
+						"apiKey": os.environ.get("EXCHANGE_API_KEY", TESTNET_BINANCE_API_KEY),
+						"secret": os.environ.get("EXCHANGE_API_SECRET", TESTNET_BINANCE_API_SECRET),
 					},
 					"options": {
 						"subaccountId": os.environ.get("EXCHANGE_SUB_ACCOUNT_ID"),
@@ -490,8 +490,8 @@ async def test(**kwargs):
 				},
 				"websocket": {
 					"constructor": {
-						"apiKey": os.environ.get("EXCHANGE_API_KEY", TESTNET_FUTURES_API_KEY),
-						"secret": os.environ.get("EXCHANGE_API_SECRET", TESTNET_FUTURES_API_SECRET),
+						"apiKey": os.environ.get("EXCHANGE_API_KEY", TESTNET_BINANCE_API_KEY),
+						"secret": os.environ.get("EXCHANGE_API_SECRET", TESTNET_BINANCE_API_SECRET),
 					},
 					"options": {
 						"subaccountId": os.environ.get("EXCHANGE_SUB_ACCOUNT_ID"),
@@ -560,6 +560,14 @@ async def test(**kwargs):
 	)
 
 
+	get_order_request = RestGetOrderRequest(
+		id="7486548",
+		market_id="BTC/USDT"
+	)
+	cancel_order_request = RestCancelOrderRequest(
+		id="5707151",
+		market_id="ETH/USDT"
+	)
 	connector = CCXTConnector(options)
 	await connector.initialize(options)
 	# response = await connector.rest.get_all_markets()
@@ -577,17 +585,17 @@ async def test(**kwargs):
 	# response = await connector.rest.get_ticker(ticker_request)
 
 
-	# TODAY
-	response = await connector.rest.place_order(place_order_request)
+	# response = await connector.rest.place_order(place_order_request)
 	# response = await connector.rest.place_orders(place_orders_request)
 	# response = await connector.rest.get_all_orders()
+	response = await connector.rest.get_order(get_order_request)
+	# response = await connector.rest.cancel_order(cancel_order_request)
 
 
 	# TODO: FUNCTIONS CURRENTLY WORKING ON
 	# response = await connector.rest.get_all_order_books()
 	# response = await connector.rest.get_order_books()
 	# response = await connector.rest.get_order_book()
-	# response = await connector.rest.cancel_order()
 	# response = await connector.rest.get_all_orders()
 	# response = await connector.rest.get_orders()
 	# response = await connector.rest.get_order()

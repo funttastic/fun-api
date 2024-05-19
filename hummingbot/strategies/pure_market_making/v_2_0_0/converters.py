@@ -178,9 +178,9 @@ def get_market_data_by_id_or_name(
 
 		elif market_name:
 			market = next(
-				market_value
-				for market_value in markets_data.values()
-				if market_value.get("symbol") == market_name
+				_market_value
+				for _market_id, _market_value in markets_data.items()
+				if _market_value.name == market_name
 			)
 
 
@@ -392,17 +392,49 @@ def get_ticker_by_market_name_or_market_id(
 
 
 
-def get_order_status(status: str) -> OrderStatus:
-	try:
-		status_upper = status.upper()
-		return OrderStatus[status_upper]
-	except KeyError:
-		raise ValueError(f"Invalid order status: {status}")
+def get_order_status(status):
+	match str(status).casefold():
+		case "closed":
+			order_status = OrderStatus.FILLED
+		case "open":
+			order_status = OrderStatus.OPEN
+		case "creation_pending":
+			order_status = OrderStatus.CREATION_PENDING
+		case "partially_filled":
+			order_status = OrderStatus.PARTIALLY_FILLED
+		case "cancellation_pending":
+			order_status = OrderStatus.CREATION_PENDING
+		case _:
+			order_status = OrderStatus.UNKNOWN
+
+
+	return order_status
 
 
 
 
-def convert_ccxt_order_response_to_response(ccxt_order, market):
+def get_order_type(ccxt_order_type):
+	match str(ccxt_order_type).casefold():
+		case "MARKET":
+			order_type = OrderType.MARKET
+		case "LIMIT":
+			order_type = OrderType.LIMIT
+		case "POST_ONLY":
+			order_type = OrderType.POST_ONLY
+		case "LIMIT_MAKER":
+			order_type = OrderType.LIMIT_MAKER
+		case "IMMEDIATE_OR_CANCEL":
+			order_type = OrderType.IMMEDIATE_OR_CANCEL
+		case _:
+			order_type = None
+
+
+	return order_type
+
+
+
+
+def convert_ccxt_order_response_to_response(ccxt_order, market) -> Order:
 	ccxt_order = DotMap(ccxt_order)
 	return Order(
 		id=ccxt_order.id,
@@ -413,8 +445,8 @@ def convert_ccxt_order_response_to_response(ccxt_order, market):
 		price=ccxt_order.price,
 		amount=ccxt_order.amount,
 		side=ccxt_order.side,
-		status=OrderStatus[str(ccxt_order.status).upper()],  # turn the order status to uppercase and get the enum
-		type=OrderType[str(ccxt_order.type).upper()],
+		status=get_order_status(ccxt_order.status),
+		type=get_order_type(ccxt_order.type),
 		fee=ccxt_order.fee,
 		creation_timestamp=ccxt_order.timestamp,
 		raw=ccxt_order.info
