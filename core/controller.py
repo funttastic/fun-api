@@ -561,13 +561,19 @@ async def test(**kwargs):
 
 
 	get_order_request = RestGetOrderRequest(
-		id="7486548",
-		market_id="BTC/USDT"
+		id="5707151",
+		market_id="ETH/USDT"
 	)
 	cancel_order_request = RestCancelOrderRequest(
 		id="5707151",
 		market_id="ETH/USDT"
 	)
+
+
+	get_order_books_request = RestGetOrderBooksRequest(market_ids=["ETH/USDT", "BTC/USDT"])
+	get_order_book_request = RestGetOrderBookRequest(market_id="ETH/USDT")
+
+
 	connector = CCXTConnector(options)
 	await connector.initialize(options)
 	# response = await connector.rest.get_all_markets()
@@ -587,18 +593,20 @@ async def test(**kwargs):
 
 	# response = await connector.rest.place_order(place_order_request)
 	# response = await connector.rest.place_orders(place_orders_request)
+
+
 	# response = await connector.rest.get_all_orders()
-	response = await connector.rest.get_order(get_order_request)
+	# response = await connector.rest.get_order(get_order_request)
+
+
+	# TODAY
+	# response = await connector.rest.get_orders()
 	# response = await connector.rest.cancel_order(cancel_order_request)
 
 
-	# TODO: FUNCTIONS CURRENTLY WORKING ON
-	# response = await connector.rest.get_all_order_books()
-	# response = await connector.rest.get_order_books()
-	# response = await connector.rest.get_order_book()
-	# response = await connector.rest.get_all_orders()
-	# response = await connector.rest.get_orders()
-	# response = await connector.rest.get_order()
+	# response = await connector.rest.get_all_order_books() # DONT USE, THIS TAKES TOO LONG
+	# response = await connector.rest.get_order_books(get_order_books_request)
+	response = await connector.rest.get_order_book(get_order_book_request)
 
 
 	await connector.close()

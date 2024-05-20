@@ -8,6 +8,7 @@ from hummingbot.strategies.pure_market_making.v_2_0_0.types import (
 	Order,
 	OrderStatus,
 	OrderType,
+	OrderBook,
 )
 
 
@@ -451,4 +452,23 @@ def convert_ccxt_order_response_to_response(ccxt_order, market) -> Order:
 		creation_timestamp=ccxt_order.timestamp,
 		raw=ccxt_order.info
 	)
+
+
+
+
+def convert_ccxt_order_book_to_order_book(market: Market, order_book: dict) -> OrderBook | None:
+	order_book = DotMap(order_book)
+	try:
+		order_book_response = OrderBook(
+			market=market,
+			bids=order_book.bids,
+			best_bid=order_book.bids[0],
+			asks=order_book.asks,
+			best_ask=order_book.asks[0],
+			raw=order_book
+		)
+	except IndexError: order_book_response = None
+
+
+	return order_book_response
 

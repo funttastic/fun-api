@@ -17,6 +17,7 @@ from hummingbot.strategies.pure_market_making.v_2_0_0.converters import (
 	convert_ccxt_tickers_to_tickers,
 	convert_ccxt_markets_to_market,
 	convert_ccxt_order_response_to_response,
+	convert_ccxt_order_book_to_order_book,
 	filter_markets_data_by_names_or_ids,
 	get_market_data_by_id_or_name,
 	get_token_by_id_name_or_symbol,
@@ -233,34 +234,57 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 
 	async def get_order_book(self, request: RestGetOrderBookRequest = None) -> RestGetOrderBookResponse:
+		order_book = dict()
 
 
-		order_book = await self.exchange.fetch_order_book("BTC/USDT")
+		market = await self.get_market(RestGetMarketRequest(id=request.market_id, name=request.market_name))
+		ccxt_order_book = await self.exchange.fetch_order_book(symbol=market.id)
+		_order_book = convert_ccxt_order_book_to_order_book(market, ccxt_order_book)
+
+
+		if _order_book: order_book[market.id] = _order_book
+
+
 		return order_book
 
 
-	async def get_order_books(self, market_ids: list = None, market_names: list = None) -> RestGetOrderBooksResponse:
-		# use the market_ids or market_names provided to
-		# call the get_order_book_method with each id, or name
-		# store the order book in a list
-		# return the dictionary of list of order books
-		order_books = await self.get_all_order_books()
-		pass
+	async def get_order_books(self, request: RestGetOrderBooksRequest = None) -> RestGetOrderBooksResponse:
+		markets = list()
 
 
-	async def get_all_order_books(self, request: RestGetAllOrderBooksRequest = None) -> RestGetAllOrderBooksResponse:
-		# fetch all the markets data
-		# get the ids of all the market data
-		# use the ids to call get_order_books method
-		symbol = "BNBUSD_240927"
-		symbol2 = "BTC/USDT"
-		order_books = await self.exchange.fetch_order_books()
+		if not (request.market_ids or request.market_names):
+			return await self.get_all_order_books()
+		elif request.market_ids:
+			markets = [await self.get_market(RestGetMarketRequest(id=market_id)) for market_id in request.market_ids]
+		elif request.market_names:
+			markets = [await self.get_market(RestGetMarketRequest(id=market_name)) for market_name in request.market_ids]
+
+
+		order_books = dict()
+		for market in markets:
+			_order_book = await self.exchange.fetch_order_book(symbol=market.id)
+			order_book = convert_ccxt_order_book_to_order_book(market, _order_book)
+			if order_book: order_books[market.id] = order_book
 
 
 		return order_books
 
 
-	# @automatic_retry_with_timeout(retries=2)
+	async def get_all_order_books(self, request: RestGetAllOrderBooksRequest = None) -> RestGetAllOrderBooksResponse:
+		order_books = dict()
+		for symbol in self.exchange.symbols:
+			market = await self.get_market(RestGetMarketRequest(id=symbol))
+			_order_book = await self.exchange.fetch_order_book(symbol=market.id)
+			order_book = convert_ccxt_order_book_to_order_book(market, _order_book)
+
+
+			if order_book: order_books[market.id] = order_book
+
+
+		return order_books
+
+
+	@automatic_retry_with_timeout(retries=2)
 	async def get_ticker(self, request: RestGetTickerRequest = None) -> RestGetTickerResponse:
 		ccxt_tickers = await self.exchange.fetch_tickers()
 		ticker = get_ticker_by_market_name_or_market_id(
@@ -530,3 +554,4 @@ class CCXTWebSocketConnector(WebSocketConnectorBase):
 
 	async def watch_all_indicators(self, request: WsWatchAllIndicatorsRequest = None) -> Optional[WsWatchAllIndicatorsResponse]:
 		pass
+
