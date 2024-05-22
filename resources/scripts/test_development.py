@@ -1,13 +1,10 @@
-import os
-
-from pathlib import Path
-
 import requests
 import ssl
-import websocket
+from pathlib import Path
 
 username = "root"
 password = "asdf"
+ca_cert = Path("../certificates/ca_cert.pem").absolute().resolve().as_posix()
 client_cert = Path("../certificates/client_cert.pem").absolute().resolve().as_posix()
 client_key = Path("../certificates/client_key.pem").absolute().resolve().as_posix()
 
@@ -27,7 +24,7 @@ def sign_in(username, password):
 	response = requests.post(
 		url,
 		json=credentials,
-		verify=False,  # In a production environment, you should verify SSL certificates
+		verify=ca_cert,  # In a production environment, you should verify SSL certificates
 		cert=(client_cert, client_key)
 	)
 
@@ -46,11 +43,11 @@ def	test_request(token):
 		url,
 		headers=headers,
 		json={},
-		verify=False,  # In a production environment, you should verify SSL certificates
+		verify=ca_cert,  # In a production environment, you should verify SSL certificates
 		cert=(client_cert, client_key)
 	)
 	if response.status_code == 200:
-		return response.json()
+		return response
 	else:
 		return None
 
