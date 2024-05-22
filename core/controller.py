@@ -1,8 +1,10 @@
+# from decimal import Decimal
+
 import asyncio
 import json
 import os
 from dotmap import DotMap
-from typing import Any, Dict, List, AsyncGenerator
+from typing import Dict, AsyncGenerator, Any, List
 
 from core.constants import constants, chains_connector_specification
 from core.logger import logger
@@ -10,6 +12,10 @@ from core.properties import properties
 from core.system import execute, execute_continuously
 from core.types import SystemStatus
 from core.utils import deep_merge
+# from hummingbot.strategies.pure_market_making.v_2_0_0.types import RestGetMarketsRequest, RestGetMarketRequest, \
+# 	RestGetTokenRequest, RestGetTokensRequest, RestGetTickersRequest, RestGetTickerRequest, RestPlaceOrderRequest, \
+# 	OrderType, RestPlaceOrdersRequest, RestGetOrderRequest, RestCancelOrderRequest, RestGetOrderBooksRequest, \
+# 	RestGetOrderBookRequest
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.types import Strategy
 
@@ -409,9 +415,103 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 			}
 		}
 	}, _dynamic=False)
+
+	# market_id = RestGetMarketRequest(
+	# 	id="ZRX/USDT"
+	# )
+	#
+	# market_ids = RestGetMarketsRequest(
+	# 	ids=("EOS/USDC",)
+	# )
+	#
+	# market_names = RestGetMarketsRequest(
+	# 	names=("BNB/USD", "ZRX/USDT:USDT", "ZRX/BNB")
+	# )
+	#
+	# get_token_request = RestGetTokenRequest(
+	# 	symbol="ZIL"
+	# )
+	#
+	# get_tokens_request = RestGetTokensRequest(
+	# 	ids=("ZIL", "NEAR",)
+	# )
+	#
+	# tickers_request = RestGetTickersRequest(
+	# 	market_ids=("ZIL/USDT", "ZIL/TRY")
+	# )
+	# ticker_request = RestGetTickerRequest(
+	# 	market_id="BTC/USDT"
+	# )
+	#
+	# place_order_request = RestPlaceOrderRequest(
+	# 	market_id="BTC/USDT",
+	# 	order_side="sell",
+	# 	order_type=OrderType.LIMIT,
+	# 	order_amount=Decimal(0.0005),
+	# 	order_price=Decimal(90000)
+	# )
+	#
+	# place_orders_request = RestPlaceOrdersRequest(
+	# 	orders=[
+	# 		RestPlaceOrderRequest(
+	# 			market_id="BTC/USDT",
+	# 			order_side="buy",
+	# 			order_type=OrderType.MARKET,
+	# 			order_amount=Decimal(0.0009),
+	# 			order_price=Decimal(7000)
+	# 		),
+	# 		RestPlaceOrderRequest(
+	# 			market_id="BTC/USDT",
+	# 			order_side="sell",
+	# 			order_type=OrderType.LIMIT,
+	# 			order_amount=Decimal(0.0005),
+	# 			order_price=Decimal(90000)
+	# 		)
+	# 	]
+	# )
+	#
+	# get_order_request = RestGetOrderRequest(
+	# 	id="5707151",
+	# 	market_id="ETH/USDT"
+	# )
+	# cancel_order_request = RestCancelOrderRequest(
+	# 	id="5707151",
+	# 	market_id="ETH/USDT"
+	# )
+	#
+	# get_order_books_request = RestGetOrderBooksRequest(market_ids=["ETH/USDT", "BTC/USDT"])
+	# get_order_book_request = RestGetOrderBookRequest(market_id="ETH/USDT")
+
+	response: Any = None
 	connector = CCXTConnector(options)
 	await connector.initialize(options)
 
-	print(await connector.rest.get_markets())
+	# response = await connector.rest.get_all_markets()
+	# response = await connector.rest.get_markets(market_ids)
+	# response = await connector.rest.get_market(market_id)
 
-	return options
+	# response = await connector.rest.get_all_tokens()
+	# response = await connector.rest.get_token(get_token_request)
+	# response = await connector.rest.get_tokens(get_tokens_request)
+
+	# response = await connector.rest.get_all_tickers()
+	# response = await connector.rest.get_tickers(tickers_request)
+	# response = await connector.rest.get_ticker(ticker_request)
+
+	# response = await connector.rest.place_order(place_order_request)
+	# response = await connector.rest.place_orders(place_orders_request)
+
+	# response = await connector.rest.get_all_orders()
+	# response = await connector.rest.get_order(get_order_request)
+	# response = await connector.rest.get_orders()
+
+	# response = await connector.rest.cancel_order(cancel_order_request)
+
+	# response = await connector.rest.get_all_order_books()
+	# response = await connector.rest.get_order_books(get_order_books_request)
+	# response = await connector.rest.get_order_book(get_order_book_request)
+
+	await connector.close()
+
+	return response
+
