@@ -116,109 +116,293 @@ class CCXTRESTConnector(RESTConnectorBase):
 		await self.exchange.load_markets()
 
 	async def get_current_block(self, request: RestGetCurrentBlockRequest = None) -> RestGetCurrentBlockResponse:
-		pass
+		input = CCXTConvertors.rest_get_current_block_request(request)
+
+		output = await self.exchange.fetch_current_block(input)
+
+		response = CCXTConvertors.rest_get_current_block_response(output)
+
+		return response
 
 	async def get_block(self, request: RestGetBlockRequest = None) -> RestGetBlockResponse:
-		pass
+		input = CCXTConvertors.rest_get_block_request(request)
+
+		output = await self.exchange.fetch_block(input)
+
+		response = CCXTConvertors.rest_get_block_response(output)
+
+		return response
 
 	async def get_blocks(self, request: RestGetBlocksRequest = None) -> RestGetBlocksResponse:
-		pass
+		input = CCXTConvertors.rest_get_blocks_request(request)
+
+		output = await self.exchange.fetch_blocks(input)
+
+		response = CCXTConvertors.rest_get_blocks_response(output)
+
+		return response
 
 	async def get_transaction(self, request: RestGetTransactionRequest = None) -> RestGetTransactionResponse:
-		pass
+		input = CCXTConvertors.rest_get_transaction_request(request)
+
+		output = await self.exchange.fetch_transaction(input)
+
+		response = CCXTConvertors.rest_get_transaction_response(output)
+
+		return response
 
 	async def get_transactions(self, request: RestGetTransactionsRequest = None) -> RestGetTransactionsResponse:
-		pass
+		input = CCXTConvertors.rest_get_transactions_request(request)
+
+		output = await self.exchange.fetch_transactions(input)
+
+		response = CCXTConvertors.rest_get_transactions_response(output)
+
+		return response
 
 	async def get_token(self, request: RestGetTokenRequest = None) -> RestGetTokenResponse:
-		pass
+		input = CCXTConvertors.rest_get_token_request(request)
+
+		output = await self.exchange.fetch_token(input)
+
+		response = CCXTConvertors.rest_get_token_response(output)
+
+		return response
 
 	async def get_tokens(self, request: RestGetTokensRequest = None) -> RestGetTokensResponse:
-		pass
+		input = CCXTConvertors.rest_get_tokens_request(request)
+
+		output = await self.exchange.fetch_tokens(input)
+
+		response = CCXTConvertors.rest_get_tokens_response(output)
+
+		return response
 
 	async def get_all_tokens(self, request: RestGetAllTokensRequest = None) -> RestGetAllTokensResponse:
-		pass
+		input = CCXTConvertors.rest_get_all_tokens_request(request)
+
+		output = await self.exchange.fetch_all_tokens(input)
+
+		response = CCXTConvertors.rest_get_all_tokens_response(output)
+
+		return response
 
 	async def get_market(self, request: RestGetMarketRequest = None) -> RestGetMarketResponse:
-		pass
+		input = CCXTConvertors.rest_get_market_request(request)
+
+		output = await self.exchange.fetch_market(input)
+
+		response = CCXTConvertors.rest_get_market_response(output)
+
+		return response
 
 	async def get_markets(self, request: RestGetMarketsRequest = None) -> RestGetMarketsResponse:
-		pass
+		input = CCXTConvertors.rest_get_markets_request(request)
 
-	async def get_all_markets(self, request: RestGetAllMarketsRequest = None) -> RestGetAllMarketsResponse:
-		input = CCXTConvertors.rest_get_all_markets_request(request)
+		output = await self.exchange.fetch_markets(input)
 
-		output = self.exchange.fetch_markets(input)
-
-		response = CCXTConvertors.rest_get_all_markets_response(output)
+		response = CCXTConvertors.rest_get_markets_response(output)
 
 		return response
 
 	async def get_order_book(self, request: RestGetOrderBookRequest = None) -> RestGetOrderBookResponse:
-		pass
+		input = CCXTConvertors.rest_get_order_book_request(request)
+
+		output = await self.exchange.fetch_order_book(input)
+
+		response = CCXTConvertors.rest_get_order_book_response(output)
+
+		return response
 
 	async def get_order_books(self, request: RestGetOrderBooksRequest = None) -> RestGetOrderBooksResponse:
-		pass
+		input = CCXTConvertors.rest_get_order_books_request(request)
+
+		output = await self.exchange.fetch_order_books(input)
+
+		response = CCXTConvertors.rest_get_order_books_response(output)
+
+		return response
 
 	async def get_all_order_books(self, request: RestGetAllOrderBooksRequest = None) -> RestGetAllOrderBooksResponse:
-		pass
+		input = CCXTConvertors.rest_get_all_order_books_request(request)
+
+		output = await self.exchange.fetch_all_order_books(input)
+
+		response = CCXTConvertors.rest_get_all_order_books_response(output)
+
+		return response
 
 	async def get_ticker(self, request: RestGetTickerRequest = None) -> RestGetTickerResponse:
-		pass
+		input = CCXTConvertors.rest_get_ticker_request(request)
+
+		output = await self.exchange.fetch_ticker(input)
+
+		response = CCXTConvertors.rest_get_ticker_response(output)
+
+		return response
 
 	async def get_tickers(self, request: RestGetTickersRequest = None) -> RestGetTickersResponse:
-		pass
+		input = CCXTConvertors.rest_get_tickers_request(request)
+
+		output = await self.exchange.fetch_tickers(input)
+
+		response = CCXTConvertors.rest_get_tickers_response(output)
+
+		return response
 
 	async def get_all_tickers(self, request: RestGetAllTickersRequest = None) -> RestGetAllTickersResponse:
-		pass
+		input = CCXTConvertors.rest_get_all_tickers_request(request)
+
+		output = await self.exchange.fetch_all_tickers(input)
+
+		response = CCXTConvertors.rest_get_all_tickers_response(output)
+
+		return response
 
 	async def get_balance(self, request: RestGetBalanceRequest = None) -> RestGetBalanceResponse:
-		pass
+		input = CCXTConvertors.rest_get_balance_request(request)
+
+		output = await self.exchange.fetch_balance(input)
+
+		response = CCXTConvertors.rest_get_balance_response(output)
+
+		return response
 
 	async def get_balances(self, request: RestGetBalancesRequest = None) -> RestGetBalancesResponse:
-		pass
+		input = CCXTConvertors.rest_get_balances_request(request)
+
+		output = await self.exchange.fetch_balances(input)
+
+		response = CCXTConvertors.rest_get_balances_response(output)
+
+		return response
 
 	async def get_all_balances(self, request: RestGetAllBalancesRequest = None) -> RestGetAllBalancesResponse:
-		pass
+		input = CCXTConvertors.rest_get_all_balances_request(request)
+
+		output = await self.exchange.fetch_all_balances(input)
+
+		response = CCXTConvertors.rest_get_all_balances_response(output)
+
+		return response
 
 	async def get_order(self, request: RestGetOrderRequest = None) -> RestGetOrderResponse:
-		pass
+		input = CCXTConvertors.rest_get_order_request(request)
+
+		output = await self.exchange.fetch_order(input)
+
+		response = CCXTConvertors.rest_get_order_response(output)
+
+		return response
 
 	async def get_orders(self, request: RestGetOrdersRequest = None) -> RestGetOrdersResponse:
-		pass
+		input = CCXTConvertors.rest_get_orders_request(request)
+
+		output = await self.exchange.fetch_orders(input)
+
+		response = CCXTConvertors.rest_get_orders_response(output)
+
+		return response
 
 	async def get_all_open_orders(self, request: RestGetAllOpenOrdersRequest = None) -> RestGetAllOpenOrdersResponse:
-		pass
+		input = CCXTConvertors.rest_get_all_open_orders_request(request)
+
+		output = await self.exchange.fetch_all_open_orders(input)
+
+		response = CCXTConvertors.rest_get_all_open_orders_response(output)
+
+		return response
 
 	async def get_all_filled_orders(self, request: RestGetAllFilledOrdersRequest = None) -> RestGetAllFilledOrdersResponse:
-		pass
+		input = CCXTConvertors.rest_get_all_filled_orders_request(request)
+
+		output = await self.exchange.fetch_all_filled_orders(input)
+
+		response = CCXTConvertors.rest_get_all_filled_orders_response(output)
+
+		return response
 
 	async def get_all_orders(self, request: RestGetAllOrdersRequest = None) -> RestGetAllOrdersResponse:
-		pass
+		input = CCXTConvertors.rest_get_all_orders_request(request)
+
+		output = await self.exchange.fetch_all_orders(input)
+
+		response = CCXTConvertors.rest_get_all_orders_response(output)
+
+		return response
 
 	async def place_order(self, request: RestPlaceOrderRequest = None) -> RestPlaceOrderResponse:
-		pass
+		input = CCXTConvertors.rest_place_order_request(request)
+
+		output = await self.exchange.create_order(input)
+
+		response = CCXTConvertors.rest_place_order_response(output)
+
+		return response
 
 	async def place_orders(self, request: RestPlaceOrdersRequest = None) -> RestPlaceOrdersResponse:
-		pass
+		input = CCXTConvertors.rest_place_orders_request(request)
+
+		output = await self.exchange.create_orders(input)
+
+		response = CCXTConvertors.rest_place_orders_response(output)
+
+		return response
 
 	async def cancel_order(self, request: RestCancelOrderRequest = None) -> RestCancelOrderResponse:
-		pass
+		input = CCXTConvertors.rest_cancel_order_request(request)
+
+		output = await self.exchange.cancel_order(input)
+
+		response = CCXTConvertors.rest_cancel_order_response(output)
+
+		return response
 
 	async def cancel_orders(self, request: RestCancelOrdersRequest = None) -> RestCancelOrdersResponse:
-		pass
+		input = CCXTConvertors.rest_cancel_orders_request(request)
+
+		output = await self.exchange.cancel_orders(input)
+
+		response = CCXTConvertors.rest_cancel_orders_response(output)
+
+		return response
 
 	async def cancel_all_orders(self, request: RestCancelAllOrdersRequest = None) -> RestCancelAllOrdersResponse:
-		pass
+		input = CCXTConvertors.rest_cancel_all_orders_request(request)
+
+		output = await self.exchange.cancel_all_orders(input)
+
+		response = CCXTConvertors.rest_cancel_all_orders_response(output)
+
+		return response
 
 	async def market_withdraw(self, request: RestMarketWithdrawRequest = None) -> RestMarketWithdrawResponse:
-		pass
+		input = CCXTConvertors.rest_market_withdraw_request(request)
+
+		output = await self.exchange.withdraw(input)
+
+		response = CCXTConvertors.rest_market_withdraw_response(output)
+
+		return response
 
 	async def markets_withdraws(self, request: RestMarketsWithdrawsRequest = None) -> RestMarketsWithdrawsResponse:
-		pass
+		input = CCXTConvertors.rest_markets_withdraws_request(request)
+
+		output = await self.exchange.withdraws(input)
+
+		response = CCXTConvertors.rest_markets_withdraws_response(output)
+
+		return response
 
 	async def all_markets_withdraws(self, request: RestAllMarketsWithdrawsRequest = None) -> RestAllMarketsWithdrawsResponse:
-		pass
+		input = CCXTConvertors.rest_all_markets_withdraws_request(request)
+
+		output = await self.exchange.all_withdraws(input)
+
+		response = CCXTConvertors.rest_all_markets_withdraws_response(output)
+
+		return response
+
 
 
 class CCXTWebSocketConnector(WebSocketConnectorBase):
@@ -230,79 +414,240 @@ class CCXTWebSocketConnector(WebSocketConnectorBase):
 		self.exchange: WebSocketExchange = None
 
 	async def initialize(self, options: DotMap[str, Any] = None):
-		pass
+		exchange_class = getattr(ccxt, options.id)
+		constructor: DotMap[str, Any] = options.constructor
+
+		self.exchange: WebSocketExchange = exchange_class(constructor.toDict())
+
+		self.exchange.options = deep_merge(
+			self.exchange.options,
+			options.options
+		)
+
+		if options.environment != "production":
+			self.exchange.set_sandbox_mode(True)
 
 	async def watch_order_book(self, request: WsWatchOrderBookRequest = None) -> Optional[WsWatchOrderBookResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_order_book_request(request)
+
+		output = await self.exchange.watch_order_book(input)
+
+		response = CCXTConvertors.ws_watch_order_book_response(output)
+
+		return response
 
 	async def watch_order_books(self, request: WsWatchOrderBooksRequest = None) -> Optional[WsWatchOrderBooksResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_order_books_request(request)
+
+		output = await self.exchange.watch_order_books(input)
+
+		response = CCXTConvertors.ws_watch_order_books_response(output)
+
+		return response
 
 	async def watch_all_order_books(self, request: WsWatchAllOrderBooksRequest = None) -> Optional[WsWatchAllOrderBooksResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_all_order_books_request(request)
+
+		output = await self.exchange.watch_all_order_books(input)
+
+		response = CCXTConvertors.ws_watch_all_order_books_response(output)
+
+		return response
 
 	async def watch_ticker(self, request: WsWatchTickerRequest = None) -> Optional[WsWatchTickerResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_ticker_request(request)
+
+		output = await self.exchange.watch_ticker(input)
+
+		response = CCXTConvertors.ws_watch_ticker_response(output)
+
+		return response
 
 	async def watch_tickers(self, request: WsWatchTickersRequest = None) -> Optional[WsWatchTickersResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_tickers_request(request)
+
+		output = await self.exchange.watch_tickers(input)
+
+		response = CCXTConvertors.ws_watch_tickers_response(output)
+
+		return response
 
 	async def watch_all_tickers(self, request: WsWatchAllTickersRequest = None) -> Optional[WsWatchAllTickersResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_all_tickers_request(request)
+
+		output = await self.exchange.watch_all_tickers(input)
+
+		response = CCXTConvertors.ws_watch_all_tickers_response(output)
+
+		return response
 
 	async def watch_balance(self, request: WsWatchBalanceRequest = None) -> Optional[WsWatchBalanceResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_balance_request(request)
+
+		output = await self.exchange.watch_balance(input)
+
+		response = CCXTConvertors.ws_watch_balance_response(output)
+
+		return response
 
 	async def watch_balances(self, request: WsWatchBalancesRequest = None) -> Optional[WsWatchBalancesResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_balances_request(request)
+
+		output = await self.exchange.watch_balances(input)
+
+		response = CCXTConvertors.ws_watch_balances_response(output)
+
+		return response
 
 	async def watch_all_balances(self, request: WsWatchAllBalancesRequest = None) -> Optional[WsWatchAllBalancesResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_all_balances_request(request)
+
+		output = await self.exchange.watch_all_balances(input)
+
+		response = CCXTConvertors.ws_watch_all_balances_response(output)
+
+		return response
 
 	async def watch_order(self, request: WsWatchOrderRequest = None) -> Optional[WsWatchOrderResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_order_request(request)
+
+		output = await self.exchange.watch_order(input)
+
+		response = CCXTConvertors.ws_watch_order_response(output)
+
+		return response
 
 	async def watch_orders(self, request: WsWatchOrdersRequest = None) -> Optional[WsWatchOrdersResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_orders_request(request)
+
+		output = await self.exchange.watch_orders(input)
+
+		response = CCXTConvertors.ws_watch_orders_response(output)
+
+		return response
 
 	async def watch_all_open_orders(self, request: WsWatchAllOpenOrdersRequest = None) -> Optional[WsWatchAllOpenOrdersResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_all_open_orders_request(request)
+
+		output = await self.exchange.watch_all_open_orders(input)
+
+		response = CCXTConvertors.ws_watch_all_open_orders_response(output)
+
+		return response
 
 	async def watch_all_filled_orders(self, request: WsWatchAllFilledOrdersRequest = None) -> Optional[WsWatchAllFilledOrdersResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_all_filled_orders_request(request)
+
+		output = await self.exchange.watch_all_filled_orders(input)
+
+		response = CCXTConvertors.ws_watch_all_filled_orders_response(output)
+
+		return response
 
 	async def watch_all_orders(self, request: WsWatchAllOrdersRequest = None) -> Optional[WsWatchAllOrdersResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_all_orders_request(request)
+
+		output = await self.exchange.watch_all_orders(input)
+
+		response = CCXTConvertors.ws_watch_all_orders_response(output)
+
+		return response
 
 	async def create_order(self, request: WsCreateOrderRequest = None) -> Optional[WsCreateOrderResponse]:
-		pass
+		input = CCXTConvertors.ws_create_order_request(request)
+
+		output = await self.exchange.create_order(input)
+
+		response = CCXTConvertors.ws_create_order_response(output)
+
+		return response
 
 	async def create_orders(self, request: WsCreateOrdersRequest = None) -> Optional[WsCreateOrdersResponse]:
-		pass
+		input = CCXTConvertors.ws_create_orders_request(request)
+
+		output = await self.exchange.create_orders(input)
+
+		response = CCXTConvertors.ws_create_orders_response(output)
+
+		return response
 
 	async def cancel_order(self, request: WsCancelOrderRequest = None) -> Optional[WsCancelOrderResponse]:
-		pass
+		input = CCXTConvertors.ws_cancel_order_request(request)
+
+		output = await self.exchange.cancel_order(input)
+
+		response = CCXTConvertors.ws_cancel_order_response(output)
+
+		return response
 
 	async def cancel_orders(self, request: WsCancelOrdersRequest = None) -> Optional[WsCancelOrdersResponse]:
-		pass
+		input = CCXTConvertors.ws_cancel_orders_request(request)
+
+		output = await self.exchange.cancel_orders(input)
+
+		response = CCXTConvertors.ws_cancel_orders_response(output)
+
+		return response
 
 	async def cancel_all_orders(self, request: WsCancelAllOrdersRequest = None) -> Optional[WsCancelAllOrdersResponse]:
-		pass
+		input = CCXTConvertors.ws_cancel_all_orders_request(request)
+
+		output = await self.exchange.cancel_all_orders(input)
+
+		response = CCXTConvertors.ws_cancel_all_orders_response(output)
+
+		return response
 
 	async def market_withdraw(self, request: WsMarketWithdrawRequest = None) -> Optional[WsMarketWithdrawResponse]:
-		pass
+		input = CCXTConvertors.ws_market_withdraw_request(request)
+
+		output = await self.exchange.withdraw(input)
+
+		response = CCXTConvertors.ws_market_withdraw_response(output)
+
+		return response
 
 	async def markets_withdraws(self, request: WsMarketsWithdrawsRequest = None) -> Optional[WsMarketsWithdrawsFundsResponse]:
-		pass
+		input = CCXTConvertors.ws_markets_withdraws_request(request)
+
+		output = await self.exchange.withdraws(input)
+
+		response = CCXTConvertors.ws_markets_withdraws_response(output)
+
+		return response
 
 	async def all_markets_withdraws(self, request: WsAllMarketsWithdrawsRequest = None) -> Optional[WsAllMarketsWithdrawsResponse]:
-		pass
+		input = CCXTConvertors.ws_all_markets_withdraws_request(request)
+
+		output = await self.exchange.all_withdraws(input)
+
+		response = CCXTConvertors.ws_all_markets_withdraws_response(output)
+
+		return response
 
 	async def watch_indicator(self, request: WsWatchIndicatorRequest = None) -> Optional[WsWatchIndicatorResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_indicator_request(request)
+
+		output = await self.exchange.watch_indicator(input)
+
+		response = CCXTConvertors.ws_watch_indicator_response(output)
+
+		return response
 
 	async def watch_indicators(self, request: WsWatchIndicatorsRequest = None) -> Optional[WsWatchIndicatorsResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_indicators_request(request)
+
+		output = await self.exchange.watch_indicators(input)
+
+		response = CCXTConvertors.ws_watch_indicators_response(output)
+
+		return response
 
 	async def watch_all_indicators(self, request: WsWatchAllIndicatorsRequest = None) -> Optional[WsWatchAllIndicatorsResponse]:
-		pass
+		input = CCXTConvertors.ws_watch_all_indicators_request(request)
+
+		output = await self.exchange.watch_all_indicators(input)
+
+		response = CCXTConvertors.ws_watch_all_indicators_response(output)
+
+		return response
