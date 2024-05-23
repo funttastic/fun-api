@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from decimal import Decimal
 from dotmap import DotMap as Map
 from enum import Enum
@@ -146,6 +148,7 @@ class RESTfulMethod(Enum):
 Block = Map[str, Any]
 
 
+@dataclass
 class Transaction:
 	hash: TransactionHash
 	block_number: BlockNumber
@@ -157,6 +160,7 @@ class Transaction:
 	raw: Any
 
 
+@dataclass
 class Token:
 	id: TokenId
 	name: TokenName
@@ -165,12 +169,14 @@ class Token:
 	raw: Any
 
 
+@dataclass
 class MarketFee:
 	maker: FeeMaker
 	taker: FeeTaker
 	service_provider: FeeServiceProvider
 
 
+@dataclass
 class Market:
 	id: MarketId
 	name: MarketName
@@ -187,6 +193,7 @@ class Market:
 	raw: Any
 
 
+@dataclass
 class OrderBook:
 	market: Market
 	bids: Map[OrderId, 'Order']
@@ -196,6 +203,7 @@ class OrderBook:
 	raw: Any
 
 
+@dataclass
 class Ticker:
 	market: Market
 	price: TickerPrice
@@ -203,16 +211,19 @@ class Ticker:
 	raw: Any
 
 
+@dataclass
 class TokenAndAmount:
 	token: 'Token'
 	amount: Amount
 
 
+@dataclass
 class OrderFilling:
 	free: TokenAndAmount
 	filled: TokenAndAmount
 
 
+@dataclass
 class BaseBalance:
 	free: Amount
 	locked_in_orders: Amount
@@ -220,30 +231,36 @@ class BaseBalance:
 	total: Amount
 
 
+@dataclass
 class BaseBalanceWithQuotation(BaseBalance):
 	quotation: Amount
 
 
+@dataclass
 class TotalBalance(BaseBalance):
 	pass
 
 
+@dataclass
 class BaseTokenBalance:
 	token: BaseBalance
 	usd: BaseBalanceWithQuotation
 	native_token: BaseBalanceWithQuotation
 
 
+@dataclass
 class TokenBalance:
 	token: Token
 	balances: BaseTokenBalance
 
 
+@dataclass
 class Balances:
 	tokens: Map[TokenId, TokenBalance]
 	total: TotalBalance
 
 
+@dataclass
 class Order:
 	id: OrderId
 	client_id: OrderClientId
@@ -265,6 +282,7 @@ class Order:
 	raw: Any
 
 
+@dataclass
 class TransactionHashes:
 	creation: Optional[TransactionHash]
 	cancellation: Optional[TransactionHash]
@@ -274,11 +292,13 @@ class TransactionHashes:
 	withdraws: Optional[List[TransactionHash]]
 
 
+@dataclass
 class WithdrawItem:
 	fees: Map[str, Amount]
 	token: 'Token'
 
 
+@dataclass
 class Withdraw:
 	hash: TransactionHash
 	tokens: Map[TokenId, WithdrawItem]
@@ -286,6 +306,7 @@ class Withdraw:
 	raw: Any
 
 
+@dataclass
 class EstimatedFees:
 	token: EstimatedFeesToken
 	price: EstimatedFeesPrice
@@ -337,10 +358,12 @@ class WithdrawError(BaseError):
 # Main Rest Methods Interfaces
 #
 
+@dataclass
 class RestGetRootRequest:
 	pass
 
 
+@dataclass
 class RestGetRootResponse:
 	chain: ChainName
 	network: NetworkName
@@ -349,156 +372,191 @@ class RestGetRootResponse:
 	timestamp: Timestamp
 
 
+@dataclass
 class RestGetCurrentBlockRequest:
 	pass
 
 
+@dataclass
 class RestGetCurrentBlockResponse:
 	number: BlockNumber
 	block: Block
 	raw: Any
 
 
+@dataclass
 class RestGetBlockRequest:
 	number: BlockNumber
 
 
+@dataclass
 class RestGetBlockResponse:
 	number: BlockNumber
 	block: Block
 	raw: Any
 
 
+@dataclass
 class RestGetBlocksRequest:
 	numbers: List[BlockNumber]
 
 
+@dataclass
 class RestGetBlocksResponse(Map[BlockNumber, Block]):
 	pass
 
 
+@dataclass
 class RestGetTransactionRequest:
 	hash: TransactionHash
 
 
+@dataclass
 class RestGetTransactionResponse(Transaction):
 	pass
 
 
+@dataclass
 class RestGetTransactionsRequest:
 	hashes: List[TransactionHash]
 
 
+@dataclass
 class RestGetTransactionsResponse(Map[TransactionHash, Transaction]):
 	pass
 
 
+@dataclass
 class RestGetTokenRequest:
 	id: Optional[TokenId]
 	name: Optional[TokenName]
 	symbol: Optional[TokenSymbol]
 
 
+@dataclass
 class RestGetTokenResponse(Token):
 	pass
 
 
+@dataclass
 class RestGetTokensRequest:
 	ids: Optional[List[TokenId]]
 	names: Optional[List[TokenName]]
 	symbols: Optional[List[TokenSymbol]]
 
 
+@dataclass
 class RestGetTokensResponse(Map[TokenId, Token]):
 	pass
 
 
+@dataclass
 class RestGetAllTokensRequest:
 	pass
 
 
+@dataclass
 class RestGetAllTokensResponse(RestGetTokensResponse):
 	pass
 
 
+@dataclass
 class RestGetMarketRequest:
 	id: Optional[MarketId]
 	name: Optional[MarketName]
 
 
+@dataclass
 class RestGetMarketResponse(Market):
 	pass
 
 
+@dataclass
 class RestGetMarketsRequest:
 	ids: Optional[List[MarketId]]
 	names: Optional[List[MarketName]]
 
 
+@dataclass
 class RestGetMarketsResponse(Map[MarketId, Market]):
 	pass
 
 
+@dataclass
 class RestGetAllMarketsRequest:
 	pass
 
 
+@dataclass
 class RestGetAllMarketsResponse(RestGetMarketsResponse):
 	pass
 
 
+@dataclass
 class RestGetOrderBookRequest:
 	market_id: Optional[MarketId]
 	market_name: Optional[MarketName]
 
 
+@dataclass
 class RestGetOrderBookResponse(OrderBook):
 	pass
 
 
+@dataclass
 class RestGetOrderBooksRequest:
 	market_ids: Optional[List[MarketId]]
 	market_names: Optional[List[MarketName]]
 
 
+@dataclass
 class RestGetOrderBooksResponse(Map[MarketId, OrderBook]):
 	pass
 
 
+@dataclass
 class RestGetAllOrderBooksRequest:
 	pass
 
 
+@dataclass
 class RestGetAllOrderBooksResponse(Map[MarketId, OrderBook]):
 	pass
 
 
+@dataclass
 class RestGetTickerRequest:
 	market_id: Optional[MarketId]
 	market_name: Optional[MarketName]
 
 
+@dataclass
 class RestGetTickerResponse(Ticker):
 	pass
 
 
+@dataclass
 class RestGetTickersRequest:
 	market_ids: Optional[List[MarketId]]
 	market_names: Optional[List[MarketName]]
 
 
+@dataclass
 class RestGetTickersResponse(Map[MarketId, Ticker]):
 	pass
 
 
+@dataclass
 class RestGetAllTickersRequest:
 	pass
 
 
+@dataclass
 class RestGetAllTickersResponse(RestGetTickersResponse):
 	pass
 
 
+@dataclass
 class RestAddWalletRequest:
 	mnemonic: Mnemonic
 	account_number: Optional[AccountNumber]
@@ -507,34 +565,41 @@ class RestAddWalletRequest:
 RestAddWalletResponse = Address
 
 
+@dataclass
 class RestGetBalanceRequest:
 	token_id: Optional[TokenId]
 	token_symbol: Optional[TokenSymbol]
 	owner_address: OwnerAddress
 
 
+@dataclass
 class RestGetBalanceResponse(TokenBalance):
 	pass
 
 
+@dataclass
 class RestGetBalancesRequest:
 	token_ids: Optional[List[TokenId]]
 	token_symbols: Optional[List[TokenSymbol]]
 	owner_address: OwnerAddress
 
 
+@dataclass
 class RestGetBalancesResponse(Balances):
 	pass
 
 
+@dataclass
 class RestGetAllBalancesRequest:
 	owner_address: OwnerAddress
 
 
+@dataclass
 class RestGetAllBalancesResponse(RestGetBalancesResponse):
 	pass
 
 
+@dataclass
 class RestGetOrderRequest:
 	id: OrderId
 	market_id: Optional[MarketId]
@@ -543,10 +608,12 @@ class RestGetOrderRequest:
 	status: Optional[OrderStatus]
 
 
+@dataclass
 class RestGetOrderResponse(Order):
 	pass
 
 
+@dataclass
 class RestGetOrdersRequest:
 	ids: Optional[List[OrderId]]
 	market_id: Optional[MarketId]
@@ -562,6 +629,7 @@ class RestGetOrdersRequest:
 RestGetOrdersResponse = Union[Map[OrderId, Order], Map[OwnerAddress, Map[OrderId, Order]]]
 
 
+@dataclass
 class RestGetAllOpenOrdersRequest:
 	pass
 
@@ -569,6 +637,7 @@ class RestGetAllOpenOrdersRequest:
 RestGetAllOpenOrdersResponse = RestGetOrdersResponse
 
 
+@dataclass
 class RestGetAllFilledOrdersRequest:
 	pass
 
@@ -576,6 +645,7 @@ class RestGetAllFilledOrdersRequest:
 RestGetAllFilledOrdersResponse = RestGetOrdersResponse
 
 
+@dataclass
 class RestGetAllOrdersRequest:
 	pass
 
@@ -583,6 +653,7 @@ class RestGetAllOrdersRequest:
 RestGetAllOrdersResponse = RestGetOrdersResponse
 
 
+@dataclass
 class RestPlaceOrderRequest:
 	client_id: Optional[OrderClientId]
 	market_id: Optional[MarketId]
@@ -597,10 +668,12 @@ class RestPlaceOrderRequest:
 	wait_until_included_in_block: Optional[bool]
 
 
+@dataclass
 class RestPlaceOrderResponse(Order):
 	pass
 
 
+@dataclass
 class RestPlaceOrdersRequest:
 	owner_address: Optional[OrderOwnerAddress]
 	orders: List[RestPlaceOrderRequest]
@@ -608,27 +681,33 @@ class RestPlaceOrdersRequest:
 	wait_until_included_in_block: Optional[bool]
 
 
+@dataclass
 class RestPlaceOrdersResponse(Map[OrderId, Order]):
 	pass
 
 
+@dataclass
 class RestReplaceOrderRequest(RestPlaceOrderRequest):
 	id: OrderId
 
 
+@dataclass
 class RestReplaceOrderResponse(Order):
 	pass
 
 
+@dataclass
 class RestReplaceOrdersRequest:
 	owner_address: Optional[OrderOwnerAddress]
 	orders: List[RestReplaceOrderRequest]
 
 
+@dataclass
 class RestReplaceOrdersResponse(Map[OrderId, Order]):
 	pass
 
 
+@dataclass
 class RestCancelOrderRequest:
 	id: Optional[OrderId]
 	client_id: Optional[OrderClientId]
@@ -637,10 +716,12 @@ class RestCancelOrderRequest:
 	market_name: Optional[MarketName]
 
 
+@dataclass
 class RestCancelOrderResponse(Order):
 	pass
 
 
+@dataclass
 class RestCancelOrdersRequest:
 	ids: List[OrderId]
 	client_ids: Optional[List[OrderClientId]]
@@ -655,6 +736,7 @@ class RestCancelOrdersRequest:
 RestCancelOrdersResponse = Union[Map[OrderId, Order], Map[OwnerAddress, Map[OrderId, Order]]]
 
 
+@dataclass
 class RestCancelAllOrdersRequest:
 	market_id: Optional[MarketId]
 	market_name: Optional[MarketName]
@@ -667,6 +749,7 @@ class RestCancelAllOrdersRequest:
 RestCancelAllOrdersResponse = RestCancelOrdersResponse
 
 
+@dataclass
 class RestMarketWithdrawRequest:
 	market_id: Optional[MarketId]
 	market_name: Optional[MarketName]
@@ -677,6 +760,7 @@ class RestMarketWithdrawRequest:
 RestMarketWithdrawResponse = Union[Map[MarketId, Withdraw], Map[OwnerAddress, Withdraw]]
 
 
+@dataclass
 class RestMarketsWithdrawsRequest:
 	market_ids: Optional[List[MarketId]]
 	market_names: Optional[List[MarketName]]
@@ -687,6 +771,7 @@ class RestMarketsWithdrawsRequest:
 RestMarketsWithdrawsResponse = Union[Map[MarketId, Withdraw], Map[OwnerAddress, Map[MarketId, Withdraw]]]
 
 
+@dataclass
 class RestAllMarketsWithdrawsRequest:
 	pass
 
@@ -694,10 +779,12 @@ class RestAllMarketsWithdrawsRequest:
 RestAllMarketsWithdrawsResponse = RestMarketsWithdrawsResponse
 
 
+@dataclass
 class RestGetEstimatedFeesRequest:
 	pass
 
 
+@dataclass
 class RestGetEstimatedFeesResponse(EstimatedFees):
 	pass
 
@@ -707,201 +794,251 @@ class RestGetEstimatedFeesResponse(EstimatedFees):
 #
 
 
+@dataclass
 class WsWatchOrderBookRequest:
 	pass
 
 
+@dataclass
 class WsWatchOrderBookResponse:
 	pass
 
 
+@dataclass
 class WsWatchOrderBooksRequest:
 	pass
 
 
+@dataclass
 class WsWatchOrderBooksResponse:
 	pass
 
 
+@dataclass
 class WsWatchAllOrderBooksRequest:
 	pass
 
 
+@dataclass
 class WsWatchAllOrderBooksResponse:
 	pass
 
 
+@dataclass
 class WsWatchTickerRequest:
 	pass
 
 
+@dataclass
 class WsWatchTickerResponse:
 	pass
 
 
+@dataclass
 class WsWatchTickersRequest:
 	pass
 
 
+@dataclass
 class WsWatchTickersResponse:
 	pass
 
 
+@dataclass
 class WsWatchAllTickersRequest:
 	pass
 
 
+@dataclass
 class WsWatchAllTickersResponse:
 	pass
 
 
+@dataclass
 class WsWatchBalanceRequest:
 	pass
 
 
+@dataclass
 class WsWatchBalanceResponse:
 	pass
 
 
+@dataclass
 class WsWatchBalancesRequest:
 	pass
 
 
+@dataclass
 class WsWatchBalancesResponse:
 	pass
 
 
+@dataclass
 class WsWatchAllBalancesRequest:
 	pass
 
 
+@dataclass
 class WsWatchAllBalancesResponse:
 	pass
 
 
+@dataclass
 class WsWatchOrderRequest:
 	pass
 
 
+@dataclass
 class WsWatchOrderResponse:
 	pass
 
 
+@dataclass
 class WsWatchOrdersRequest:
 	pass
 
 
+@dataclass
 class WsWatchOrdersResponse:
 	pass
 
 
+@dataclass
 class WsWatchAllOpenOrdersRequest:
 	pass
 
 
+@dataclass
 class WsWatchAllOpenOrdersResponse:
 	pass
 
 
+@dataclass
 class WsWatchAllFilledOrdersRequest:
 	pass
 
 
+@dataclass
 class WsWatchAllFilledOrdersResponse:
 	pass
 
 
+@dataclass
 class WsWatchAllOrdersRequest:
 	pass
 
 
+@dataclass
 class WsWatchAllOrdersResponse:
 	pass
 
 
+@dataclass
 class WsCreateOrderRequest:
 	pass
 
 
+@dataclass
 class WsCreateOrderResponse:
 	pass
 
 
+@dataclass
 class WsCreateOrdersRequest:
 	pass
 
 
+@dataclass
 class WsCreateOrdersResponse:
 	pass
 
 
+@dataclass
 class WsCancelOrderRequest:
 	pass
 
 
+@dataclass
 class WsCancelOrderResponse:
 	pass
 
 
+@dataclass
 class WsCancelOrdersRequest:
 	pass
 
 
+@dataclass
 class WsCancelOrdersResponse:
 	pass
 
 
+@dataclass
 class WsCancelAllOrdersRequest:
 	pass
 
 
+@dataclass
 class WsCancelAllOrdersResponse:
 	pass
 
 
+@dataclass
 class WsWatchIndicatorRequest:
 	pass
 
 
+@dataclass
 class WsWatchIndicatorResponse:
 	pass
 
 
+@dataclass
 class WsWatchIndicatorsRequest:
 	pass
 
 
+@dataclass
 class WsWatchIndicatorsResponse:
 	pass
 
 
+@dataclass
 class WsWatchAllIndicatorsRequest:
 	pass
 
 
+@dataclass
 class WsWatchAllIndicatorsResponse:
 	pass
 
 
+@dataclass
 class WsMarketWithdrawRequest:
 	pass
 
 
+@dataclass
 class WsMarketWithdrawResponse:
 	pass
 
 
+@dataclass
 class WsMarketsWithdrawsRequest:
 	pass
 
 
+@dataclass
 class WsMarketsWithdrawsFundsResponse:
 	pass
 
 
+@dataclass
 class WsAllMarketsWithdrawsRequest:
 	pass
 
 
+@dataclass
 class WsAllMarketsWithdrawsResponse:
 	pass
