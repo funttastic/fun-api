@@ -8,6 +8,7 @@ from core.decorators import log_class_exceptions
 from core.utils import deep_merge
 from hummingbot.strategies.pure_market_making.v_2_0_0.connectors.base import ConnectorBase, RESTConnectorBase, \
 	WebSocketConnectorBase
+from hummingbot.strategies.pure_market_making.v_2_0_0.connectors.ccxt.convertors import CCXTConvertors
 from hummingbot.strategies.pure_market_making.v_2_0_0.types import WsCancelAllOrdersRequest, WsCancelAllOrdersResponse, \
 	WsMarketWithdrawRequest, WsMarketWithdrawResponse, WsMarketsWithdrawsRequest, WsMarketsWithdrawsFundsResponse, \
 	WsAllMarketsWithdrawsRequest, WsAllMarketsWithdrawsResponse, WsWatchIndicatorRequest, WsWatchIndicatorResponse, \
@@ -142,16 +143,16 @@ class CCXTRESTConnector(RESTConnectorBase):
 		pass
 
 	async def get_markets(self, request: RestGetMarketsRequest = None) -> RestGetMarketsResponse:
-		parameters = request
-
-		result = self.exchange.fetch_markets(parameters)
-
-		response = result
-
-		return response
+		pass
 
 	async def get_all_markets(self, request: RestGetAllMarketsRequest = None) -> RestGetAllMarketsResponse:
-		pass
+		input = CCXTConvertors.rest_get_all_markets_request(request)
+
+		output = self.exchange.fetch_markets(input)
+
+		response = CCXTConvertors.rest_get_all_markets_response(output)
+
+		return response
 
 	async def get_order_book(self, request: RestGetOrderBookRequest = None) -> RestGetOrderBookResponse:
 		pass

@@ -38,8 +38,7 @@ CCXTRestGetAllMarketsRequest = Any
 CCXTRestGetAllMarketsResponse = Any
 
 
-@ThreadSafeSingleton
-class CCXTConvertors(object):
+class CCXTConvertors:
 
 	@staticmethod
 	def rest_cancel_all_orders_request(input: RestCancelAllOrdersRequest) -> Any:
