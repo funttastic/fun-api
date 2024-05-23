@@ -17,7 +17,7 @@ from core.properties import properties
 from core.types import SystemStatus
 from core.utils import deep_merge
 from core.utils import dump
-from hummingbot.gateway import Gateway
+from hummingbot.hummingbot_gateway import HummingbotGateway
 from hummingbot.strategies.pure_market_making.v_1_0_0.worker import Worker
 from hummingbot.strategies.strategy_base import StrategyBase
 from hummingbot.strategies.worker_base import WorkerBase
@@ -324,7 +324,7 @@ class Supervisor(StrategyBase):
 				if use_cache and self._balances is not None:
 					response = self._balances
 				else:
-					response = await Gateway.kujira_get_balances(request)
+					response = await HummingbotGateway.kujira_get_balances(request)
 
 					self._balances = DotMap(copy.deepcopy(response), _dynamic=False)
 
@@ -348,7 +348,7 @@ class Supervisor(StrategyBase):
 		finally:
 			self.log(INFO, "end")
 
-	def _get_summary(self) -> str:
+	def _get_summary(self) -> str | None:
 		summary = ""
 
 		workers_initialized = True
@@ -357,7 +357,7 @@ class Supervisor(StrategyBase):
 				workers_initialized = False
 
 		if not workers_initialized:
-			return
+			return None
 
 		active_workers = []
 		stopped_workers = []
@@ -365,7 +365,7 @@ class Supervisor(StrategyBase):
 
 		for (worker_id, worker) in self._workers.items():
 			allowed_workers.append(worker._client_id)
-			if self._tasks.workers.get(worker_id) and worker.get_status().status == "running":
+			if self._tasks.workers.get(worker_id) and worker.get_status().status == SystemStatus.RUNNING:
 				active_workers.append(worker_id)
 			else:
 				stopped_workers.append(worker_id)
@@ -405,18 +405,18 @@ class Supervisor(StrategyBase):
 			self.state.balances.total.total += worker.state.balances.total.total
 
 		if self.state.wallets.initial_value <= 0:
-			return
+			return None
 
 		self.state.wallets.previous_initial_pnl = Decimal(round(
-			100 * ((self.state.wallets.previous_value / self.state.wallets.initial_value) - 1),
+			100 * (self.safe_division(self.state.wallets.previous_value, self.state.wallets.initial_value) - 1),
 			DEFAULT_PRECISION
 		))
 		self.state.wallets.current_initial_pnl = Decimal(round(
-			100 * ((self.state.wallets.current_value / self.state.wallets.initial_value) - 1),
+			100 * (self.safe_division(self.state.wallets.current_value, self.state.wallets.initial_value) - 1),
 			DEFAULT_PRECISION
 		))
 		self.state.wallets.current_previous_pnl = Decimal(round(
-			100 * ((self.state.wallets.current_value / self.state.wallets.previous_value) - 1),
+			100 * (self.safe_division(self.state.wallets.current_value, self.state.wallets.previous_value) - 1),
 			DEFAULT_PRECISION
 		))
 		self.state.wallets.current_initial_pnl_in_usd = Decimal(round(
@@ -469,29 +469,29 @@ class Supervisor(StrategyBase):
 
 	def _get_new_state(self) -> DotMap[str, Any]:
 		return DotMap({
-				"configurations": {
-					"tick_interval": None,
-					"run_only_once": None
-				},
-				"active_workers": [],
-				"balances": DotMap({
-					"total": {
-						"free": DECIMAL_ZERO,
-						"lockedInOrders": DECIMAL_ZERO,
-						"unsettled": DECIMAL_ZERO,
-						"total": DECIMAL_ZERO,
-					}
-				}, _dynamic=False),
-				"wallets": {
-					"initial_value": DECIMAL_ZERO,
-					"previous_value": DECIMAL_ZERO,
-					"current_value": DECIMAL_ZERO,
-					"previous_initial_pnl": DECIMAL_ZERO,
-					"current_initial_pnl": DECIMAL_ZERO,
-					"current_previous_pnl": DECIMAL_ZERO,
-					"current_initial_pnl_in_usd": DECIMAL_ZERO,
-				},
-			}, _dynamic=False)
+			"configurations": {
+				"tick_interval": None,
+				"run_only_once": None
+			},
+			"active_workers": [],
+			"balances": DotMap({
+				"total": {
+					"free": DECIMAL_ZERO,
+					"lockedInOrders": DECIMAL_ZERO,
+					"unsettled": DECIMAL_ZERO,
+					"total": DECIMAL_ZERO,
+				}
+			}, _dynamic=False),
+			"wallets": {
+				"initial_value": DECIMAL_ZERO,
+				"previous_value": DECIMAL_ZERO,
+				"current_value": DECIMAL_ZERO,
+				"previous_initial_pnl": DECIMAL_ZERO,
+				"current_initial_pnl": DECIMAL_ZERO,
+				"current_previous_pnl": DECIMAL_ZERO,
+				"current_initial_pnl_in_usd": DECIMAL_ZERO,
+			},
+		}, _dynamic=False)
 
 	def _recreate_state(self):
 		self.state = self._get_new_state()
@@ -540,10 +540,8 @@ class Supervisor(StrategyBase):
 	def _print_summary_and_save_state(self):
 		summary = self._get_summary()
 
-		if not summary or summary is None:
-			summary = "Summary not ready."
-		else:
+		if summary:
 			self._save_state()
 
-		self.log(INFO, summary)
-		self.telegram_log(INFO, summary)
+			self.log(INFO, summary)
+			self.telegram_log(INFO, summary)

@@ -1,0 +1,2 @@
+class HummingbotClient:
+	pass

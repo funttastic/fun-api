@@ -4,6 +4,7 @@ annotated-types==0.6.0
 anyio==4.2.0
 asyncio==3.4.3
 attrs==23.2.0
+ccxt==4.3.4
 certifi==2023.11.17
 cffi==1.16.0
 charset-normalizer==3.3.2
@@ -36,7 +37,7 @@ pycparser==2.21
 pycryptodome==3.20.0
 pydantic==2.5.3
 pydantic_core==2.14.6
-pydevd_pycharm==241.14494.200
+pydevd_pycharm==233.11799.298
 pyOpenSSL==23.3.0
 python-dateutil==2.8.2
 python-jose==3.3.0

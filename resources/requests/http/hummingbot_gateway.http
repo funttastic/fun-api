@@ -1,4 +1,4 @@
-GET https://{{host}}:{{port}}/
+GET https://{{host}}:{{port}}/hummingbot/gateway/
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -6,7 +6,7 @@ Content-Type: application/json
 
 ###
 
-GET https://{{host}}:{{port}}/clob/markets?chain=kujira&network=testnet&connector=kujira&market=KUJI-DEMO
+GET https://{{host}}:{{port}}/hummingbot/gateway/clob/markets?chain=kujira&network=testnet&connector=kujira&market=KUJI-DEMO
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -14,7 +14,7 @@ Content-Type: application/json
 
 ###
 
-POST https://{{host}}:{{port}}/chain/balances
+POST https://{{host}}:{{port}}/hummingbot/gateway/chain/balances
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -27,7 +27,7 @@ Content-Type: application/json
 
 ###
 
-POST https://{{host}}:{{port}}/clob/orders
+POST https://{{host}}:{{port}}/hummingbot/gateway/clob/orders
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -45,7 +45,7 @@ Content-Type: application/json
 
 ###
 
-POST https://{{host}}:{{port}}/hummingbot/gateway/wallet/add
+POST https://{{host}}:{{port}}/hummingbot/gateway/hummingbot/gateway/wallet/add
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -59,7 +59,7 @@ Content-Type: application/json
 
 ###
 
-DELETE https://{{host}}:{{port}}/hummingbot/gateway/wallet/remove
+DELETE https://{{host}}:{{port}}/hummingbot/gateway/hummingbot/gateway/wallet/remove
 Authorization: Bearer {{token}}
 Content-Type: application/json
 

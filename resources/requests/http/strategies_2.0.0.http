@@ -1,0 +1,35 @@
+GET https://{{host}}:{{port}}/strategy/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "strategy": "pure_market_making",
+  "version": "2.0.0",
+  "id": "id"
+}
+
+###
+
+POST https://{{host}}:{{port}}/strategy/start
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+	"strategy": "pure_market_making",
+	"version": "2.0.0",
+	"id": "id"
+}
+
+###
+
+POST https://{{host}}:{{port}}/strategy/stop
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+	"strategy": "pure_market_making",
+	"version": "2.0.0",
+	"id": "id"
+}
+
+###

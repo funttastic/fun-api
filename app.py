@@ -217,7 +217,7 @@ async def auth_sign_in(request: Credentials, response: Response):
 		data={"sub": credentials.username}, expires_delta=token_expiration_delta
 	)
 
-	response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax", max_age=60 * 60 * 1000, path="/", domain="localhost")
+	response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax", max_age=60 * 60 * 1000, path="/", domain="")
 
 	return {"token": token, "type": constants.authentication.jwt.token.type}
 
@@ -238,7 +238,7 @@ async def auth_refresh(request: Request, response: Response):
 		data={"sub": properties.get("admin.username")}, expires_delta=token_expiration_delta
 	)
 
-	response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax", max_age=60 * 60 * 1000, path="/", domain="localhost")
+	response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax", max_age=60 * 60 * 1000, path="/", domain="")
 
 	return {"token": token, "type": constants.authentication.jwt.token.type}
 
@@ -372,17 +372,17 @@ async def strategy_worker_stop(request: Request) -> Dict[str, Any]:
 async def hummingbot_gateway(request: Request, subpath=''):
 	await validate(request)
 
-	paths = DotMap(request.path_params)
-	parameters = DotMap(request.query_params)
+	paths = DotMap(request.path_params, _dynamic=False)
+	parameters = DotMap(request.query_params, _dynamic=False)
 	try:
-		body = DotMap(await request.json())
+		body = DotMap(await request.json(), _dynamic=False)
 	except:
-		body = DotMap({})
-	headers = DotMap(request.headers)
+		body = DotMap({}, _dynamic=False)
+	headers = DotMap(request.headers.raw, _dynamic=False)
 
 	method = HttpMethod[request.method.upper()]
 
-	response, response_status_code = await hummingbot_gateway_router(
+	response = await hummingbot_gateway_router(
 		method=method,
 		url=subpath,
 		paths=paths,
@@ -393,7 +393,7 @@ async def hummingbot_gateway(request: Request, subpath=''):
 	)
 
 	try:
-		if (response or response is not None) and response_status_code == 200:
+		if response is not None:
 			subpath = request.path_params['subpath']
 
 			if subpath == "wallet/add":
@@ -406,6 +406,9 @@ async def hummingbot_gateway(request: Request, subpath=''):
 				chain = body['chain']
 
 				controller.update_gateway_connections({"chain": chain, "address": publickey, "subpath": subpath})
+
+			if not response:
+				response = DotMap({}, _dynamic=False)
 
 			return JSONResponse(response.toDict())
 		else:
@@ -438,11 +441,11 @@ async def hummingbot_client(request: Request, subpath=''):
 		body = DotMap(await request.json())
 	except:
 		body = DotMap({})
-	headers = DotMap(request.headers)
+	headers = DotMap(request.headers.raw)
 
 	method = HttpMethod[request.method.upper()]
 
-	response, response_status_code = await hummingbot_client_router(
+	response = await hummingbot_client_router(
 		method=method,
 		url=subpath,
 		paths=paths,
@@ -536,11 +539,31 @@ async def start_api():
 	)
 	server = uvicorn.Server(config)
 
-	await server.serve()
-
 	if environment == constants.environments.development:
 		import pydevd_pycharm
-		pydevd_pycharm.settrace('localhost', port=30001, stdoutToServer=True, stderrToServer=True, suspend=False)
+		pydevd_pycharm.settrace('localhost', port=30001, stdoutToServer=True, stderrToServer=True)
+
+	await server.serve()
+
+
+@app.get("/development/test")
+@app.post("/development/test")
+@app.put("/development/test")
+@app.delete("/development/test")
+@app.patch("/development/test")
+@app.head("/development/test")
+@app.options("/development/test")
+async def development_test(request: Request) -> Dict[str, Any]:
+	await validate(request)
+
+	try:
+		body = await request.json()
+	except JSONDecodeError:
+		body = {}
+
+	body = DotMap(body, _dynamic=False)
+
+	return await controller.test(body)
 
 
 async def main():

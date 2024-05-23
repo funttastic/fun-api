@@ -19,14 +19,14 @@ from core.utils import dump, deep_merge
 from hummingbot.constants import DECIMAL_NAN, DEFAULT_PRECISION, alignment_column, DECIMAL_INFINITY
 from hummingbot.constants import KUJIRA_NATIVE_TOKEN, DECIMAL_ZERO, FLOAT_ZERO, FLOAT_INFINITY
 from hummingbot.hummingbot_gateway import HummingbotGateway
-from hummingbot.strategies.worker_base import WorkerBase
+from hummingbot.strategies.worker_base import WorkerBase as MainWorkerBase
 from hummingbot.types import OrderStatus, OrderType, OrderSide, PriceStrategy, MiddlePriceStrategy, Order
 from hummingbot.utils import calculate_middle_price, format_currency, format_lines, format_line, format_percentage, \
 	parse_order_book
 
 
 @log_class_exceptions
-class Worker(WorkerBase):
+class WorkerBase(MainWorkerBase):
 	CATEGORY = "worker"
 
 	def __init__(self, parent: Any, client_id: str):
@@ -1340,8 +1340,8 @@ class Worker(WorkerBase):
 			groups: array[array[str]] = [[]]
 			for order in orders:
 				groups[0].append(order.id)
-				# groups[1].append(str(order.type).lower())
-				# groups[2].append(order.marketName)
+			# groups[1].append(str(order.type).lower())
+			# groups[2].append(order.marketName)
 
 			canceled_orders_summary = format_lines(groups)
 
@@ -1461,7 +1461,7 @@ class Worker(WorkerBase):
 		)
 
 		return summary
-	
+
 	def _hot_reload(self):
 		import importlib
 		module = importlib.reload(importlib.import_module(self.__module__))
@@ -1540,67 +1540,67 @@ class Worker(WorkerBase):
 
 	def _get_new_state(self) -> DotMap[str, Any]:
 		return DotMap({
-				"configurations": {
-					"order_type": None,
-					"price_strategy": None,
-					"middle_price_strategy": None,
-					"use_adjusted_price": None
+			"configurations": {
+				"order_type": None,
+				"price_strategy": None,
+				"middle_price_strategy": None,
+				"use_adjusted_price": None
+			},
+			"balances": DotMap({}, _dynamic=False),
+			"orders": {
+				"new": DotMap({}, _dynamic=False),
+				"open": DotMap({}, _dynamic=False),
+				"canceled": DotMap({}, _dynamic=False),
+				"filled": DotMap({}, _dynamic=False),
+			},
+			"gas_payed": {
+				"token": KUJIRA_NATIVE_TOKEN,
+				"token_amounts": {
+					"creation": DECIMAL_ZERO,
+					"cancellation": DECIMAL_ZERO,
+					"withdrawing": {
+						"native": DECIMAL_ZERO,
+						"base": DECIMAL_ZERO,
+						"quote": DECIMAL_ZERO
+					},
+					"total": DECIMAL_ZERO
 				},
-				"balances": DotMap({}, _dynamic=False),
-				"orders": {
-					"new": DotMap({}, _dynamic=False),
-					"open": DotMap({}, _dynamic=False),
-					"canceled": DotMap({}, _dynamic=False),
-					"filled": DotMap({}, _dynamic=False),
-				},
-				"gas_payed": {
-					"token": KUJIRA_NATIVE_TOKEN,
-					"token_amounts": {
-						"creation": DECIMAL_ZERO,
-						"cancellation": DECIMAL_ZERO,
-						"withdrawing": {
-							"native": DECIMAL_ZERO,
-							"base": DECIMAL_ZERO,
-							"quote": DECIMAL_ZERO
-						},
+				"usd_amounts": {
+					"creation": DECIMAL_ZERO,
+					"cancellation": DECIMAL_ZERO,
+					"withdrawing": {
+						"base": DECIMAL_ZERO,
+						"quote": DECIMAL_ZERO,
 						"total": DECIMAL_ZERO
 					},
-					"usd_amounts": {
-						"creation": DECIMAL_ZERO,
-						"cancellation": DECIMAL_ZERO,
-						"withdrawing": {
-							"base": DECIMAL_ZERO,
-							"quote": DECIMAL_ZERO,
-							"total": DECIMAL_ZERO
-						},
-						"total": DECIMAL_ZERO,
-					}
-				},
-				"wallet": {
-					"initial_value": DECIMAL_ZERO,
-					"previous_value": DECIMAL_ZERO,
-					"current_value": DECIMAL_ZERO,
+					"total": DECIMAL_ZERO,
+				}
+			},
+			"wallet": {
+				"initial_value": DECIMAL_ZERO,
+				"previous_value": DECIMAL_ZERO,
+				"current_value": DECIMAL_ZERO,
+				"previous_initial_pnl": DECIMAL_ZERO,
+				"current_initial_pnl": DECIMAL_ZERO,
+				"current_previous_pnl": DECIMAL_ZERO,
+				"current_initial_pnl_in_usd": DECIMAL_ZERO,
+			},
+			"token": {
+				"base": {
+					"initial_price": DECIMAL_ZERO,
+					"previous_price": DECIMAL_ZERO,
+					"current_price": DECIMAL_ZERO,
 					"previous_initial_pnl": DECIMAL_ZERO,
 					"current_initial_pnl": DECIMAL_ZERO,
 					"current_previous_pnl": DECIMAL_ZERO,
-					"current_initial_pnl_in_usd": DECIMAL_ZERO,
 				},
-				"token": {
-					"base": {
-						"initial_price": DECIMAL_ZERO,
-						"previous_price": DECIMAL_ZERO,
-						"current_price": DECIMAL_ZERO,
-						"previous_initial_pnl": DECIMAL_ZERO,
-						"current_initial_pnl": DECIMAL_ZERO,
-						"current_previous_pnl": DECIMAL_ZERO,
-					},
-				},
-				"price": {
-					"used_price": DECIMAL_ZERO,
-					"ticker_price": DECIMAL_ZERO,
-					"last_filled_order_price": DECIMAL_ZERO,
-				}
-			}, _dynamic=False)
+			},
+			"price": {
+				"used_price": DECIMAL_ZERO,
+				"ticker_price": DECIMAL_ZERO,
+				"last_filled_order_price": DECIMAL_ZERO,
+			}
+		}, _dynamic=False)
 
 	def _recreate_state(self):
 		self.state = self._get_new_state()
