@@ -1,13 +1,43 @@
+import ccxt.async_support as ccxt
 from ccxt.async_support.base.exchange import Exchange as WebSocketExchange
 from ccxt.base.exchange import Exchange as RESTExchange
 from dotmap import DotMap
+from typing import Any, Optional
 
-import ccxt
 from core.decorators import log_class_exceptions
 from core.utils import deep_merge
 from hummingbot.strategies.pure_market_making.v_2_0_0.connectors.base import ConnectorBase, RESTConnectorBase, \
 	WebSocketConnectorBase
-from hummingbot.strategies.pure_market_making.v_2_0_0.types import *
+from hummingbot.strategies.pure_market_making.v_2_0_0.types import WsCancelAllOrdersRequest, WsCancelAllOrdersResponse, \
+	WsMarketWithdrawRequest, WsMarketWithdrawResponse, WsMarketsWithdrawsRequest, WsMarketsWithdrawsFundsResponse, \
+	WsAllMarketsWithdrawsRequest, WsAllMarketsWithdrawsResponse, WsWatchIndicatorRequest, WsWatchIndicatorResponse, \
+	WsWatchIndicatorsRequest, WsWatchIndicatorsResponse, WsWatchAllIndicatorsRequest, WsWatchAllIndicatorsResponse, \
+	WsCancelOrdersResponse, WsCancelOrdersRequest, WsCancelOrderResponse, WsCancelOrderRequest, WsCreateOrdersRequest, \
+	WsCreateOrdersResponse, WsCreateOrderResponse, WsCreateOrderRequest, WsWatchAllOrdersRequest, \
+	WsWatchAllOrdersResponse, WsWatchOrderBookRequest, WsWatchOrderBookResponse, WsWatchOrderBooksRequest, \
+	WsWatchOrderBooksResponse, WsWatchAllOrderBooksRequest, WsWatchAllOrderBooksResponse, WsWatchTickerRequest, \
+	WsWatchTickerResponse, WsWatchTickersRequest, WsWatchTickersResponse, WsWatchAllTickersRequest, \
+	WsWatchAllTickersResponse, WsWatchBalanceRequest, WsWatchBalanceResponse, WsWatchBalancesRequest, \
+	WsWatchBalancesResponse, WsWatchAllBalancesRequest, WsWatchAllBalancesResponse, WsWatchOrderResponse, \
+	WsWatchOrderRequest, WsWatchOrdersRequest, WsWatchOrdersResponse, WsWatchAllOpenOrdersRequest, \
+	WsWatchAllOpenOrdersResponse, WsWatchAllFilledOrdersRequest, WsWatchAllFilledOrdersResponse, \
+	RestAllMarketsWithdrawsResponse, RestAllMarketsWithdrawsRequest, RestMarketsWithdrawsResponse, \
+	RestMarketsWithdrawsRequest, RestMarketWithdrawResponse, RestMarketWithdrawRequest, RestCancelAllOrdersResponse, \
+	RestCancelAllOrdersRequest, RestCancelOrdersResponse, RestCancelOrdersRequest, RestGetOrderRequest, \
+	RestCancelOrderResponse, RestCancelOrderRequest, RestPlaceOrdersResponse, RestPlaceOrdersRequest, \
+	RestGetMarketRequest, RestPlaceOrderResponse, RestPlaceOrderRequest, RestGetAllOrdersRequest, \
+	RestGetAllFilledOrdersResponse, RestGetAllFilledOrdersRequest, RestGetAllOpenOrdersResponse, \
+	RestGetAllOpenOrdersRequest, RestGetOrdersResponse, RestGetOrdersRequest, RestGetOrderResponse, \
+	RestGetAllBalancesResponse, RestGetAllBalancesRequest, RestGetBalancesResponse, RestGetBalancesRequest, \
+	RestGetBalanceResponse, RestGetBalanceRequest, RestGetAllTickersResponse, RestGetAllTickersRequest, \
+	RestGetTickersResponse, RestGetTickersRequest, RestGetTickerResponse, RestGetTickerRequest, \
+	RestGetAllOrderBooksResponse, RestGetAllOrderBooksRequest, RestGetOrderBooksResponse, RestGetOrderBooksRequest, \
+	RestGetOrderBookResponse, RestGetOrderBookRequest, RestGetAllMarketsResponse, RestGetAllMarketsRequest, \
+	RestGetAllOrdersResponse, RestGetMarketsResponse, RestGetMarketsRequest, RestGetMarketResponse, \
+	RestGetAllTokensResponse, RestGetAllTokensRequest, RestGetTokensResponse, RestGetTokensRequest, \
+	RestGetTokenResponse, RestGetTokenRequest, RestGetTransactionsResponse, RestGetTransactionsRequest, \
+	RestGetTransactionResponse, RestGetTransactionRequest, RestGetBlocksResponse, RestGetBlocksRequest, \
+	RestGetBlockResponse, RestGetBlockRequest, RestGetCurrentBlockResponse, RestGetCurrentBlockRequest
 
 
 @log_class_exceptions
@@ -81,6 +111,8 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 		if options.environment != "production":
 			self.exchange.set_sandbox_mode(True)
+
+		await self.exchange.load_markets()
 
 	async def get_current_block(self, request: RestGetCurrentBlockRequest = None) -> RestGetCurrentBlockResponse:
 		pass
