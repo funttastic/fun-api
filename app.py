@@ -539,9 +539,9 @@ async def start_api():
 	)
 	server = uvicorn.Server(config)
 
-	if environment == constants.environments.development:
-		import pydevd_pycharm
-		pydevd_pycharm.settrace('localhost', port=30001, stdoutToServer=True, stderrToServer=True)
+	# if environment == constants.environments.development:
+	# 	import pydevd_pycharm
+	# 	pydevd_pycharm.settrace('localhost', port=30001, stdoutToServer=True, stderrToServer=True)
 
 	await server.serve()
 
@@ -554,7 +554,7 @@ async def start_api():
 @app.head("/development/test")
 @app.options("/development/test")
 async def development_test(request: Request) -> Dict[str, Any]:
-	await validate(request)
+	# await validate(request)
 
 	try:
 		body = await request.json()
