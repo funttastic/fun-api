@@ -53,16 +53,16 @@ async def hummingbot_gateway_router(
 			"certificate_authority_certificate": os.path.abspath(f"""{path_prefix}/{properties.get("hummingbot.gateway.certificates.path.certificate_authority_certificate")}""")
 		}, _dynamic=False)
 
-	if body:
+	if body is not None:
 		payload = DotMap(body, _dynamic=False).toDict()
 		payload = json.dumps(payload).encode('utf-8')
 	else:
 		payload = None
 
-	if headers:
+	if headers is not None:
 		headers = DotMap(headers, _dynamic=False).toDict()
 
-	if parameters:
+	if parameters is not None:
 		parameters = DotMap(parameters, _dynamic=False).toDict()
 
 	request = {
