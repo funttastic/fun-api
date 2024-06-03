@@ -378,7 +378,7 @@ async def hummingbot_gateway(request: Request, subpath=''):
 		body = DotMap(await request.json(), _dynamic=False)
 	except:
 		body = DotMap({}, _dynamic=False)
-	headers = DotMap(request.headers.raw, _dynamic=False)
+	headers = DotMap(dict(request.headers), _dynamic=False)
 
 	method = HttpMethod[request.method.upper()]
 
@@ -441,7 +441,7 @@ async def hummingbot_client(request: Request, subpath=''):
 		body = DotMap(await request.json())
 	except:
 		body = DotMap({})
-	headers = DotMap(request.headers.raw)
+	headers = DotMap(dict(request.headers))
 
 	method = HttpMethod[request.method.upper()]
 
