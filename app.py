@@ -528,7 +528,7 @@ async def start_api():
 		"app:app",
 		host=host,
 		port=port,
-		log_level=logging.DEBUG,
+		log_level=properties.get_or_default("logging.level", logging.DEBUG),
 		#reload=debug,
 		# app_dir=os.path.dirname(__file__),
 		ssl_certfile=certificates.server_certificate,
