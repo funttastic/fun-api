@@ -69,8 +69,8 @@ system:
       hb-gateway: 'source ~/.bashrc && stop_hb_gateway'
     log:
       all:
-        front: 'source ~/.bashrc && log_back_all'
-        back: 'source ~/.bashrc && log_front_all'
+        front: 'source ~/.bashrc && log_front_all'
+        back: 'source ~/.bashrc && log_back_all'
         all: 'source ~/.bashrc && log_all'
       fun-client:
         front: 'source ~/.bashrc && log_front_fun_client'
