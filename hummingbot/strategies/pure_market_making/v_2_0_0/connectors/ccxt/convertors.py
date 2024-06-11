@@ -91,9 +91,8 @@ class CCXTConvertors:
 		return output
 
 	@staticmethod
-	def rest_get_all_markets_request(input: RestGetAllMarketsRequest) -> CCXTRestGetAllMarketsRequest:
-		output = input
-		return output
+	def rest_get_all_markets_request(_input: RestGetAllMarketsRequest) -> CCXTRestGetAllMarketsRequest:
+		return None
 
 	@staticmethod
 	def rest_get_all_markets_response(input: CCXTRestGetAllMarketsResponse) -> RestGetAllMarketsResponse:
@@ -202,22 +201,30 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_market_request(input: RestGetMarketRequest) -> Any:
-		output = input
+		output = RestGetMarketsRequest(
+			ids=[input.id],
+			names=[input.name]
+		)
+
 		return output
 
 	@staticmethod
 	def rest_get_market_response(input: Any) -> RestGetMarketResponse:
-		output = input
+		input: RestGetMarketsResponse = input
+		output = input.values().get(0, None)
+
 		return output
 
 	@staticmethod
 	def rest_get_markets_request(input: RestGetMarketsRequest) -> Any:
 		output = input
+
 		return output
 
 	@staticmethod
 	def rest_get_markets_response(input: Any) -> RestGetMarketsResponse:
 		output = input
+
 		return output
 
 	@staticmethod

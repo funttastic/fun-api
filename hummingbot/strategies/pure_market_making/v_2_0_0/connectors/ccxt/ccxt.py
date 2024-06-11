@@ -190,7 +190,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_market(self, request: RestGetMarketRequest = None) -> RestGetMarketResponse:
 		input = CCXTConvertors.rest_get_market_request(request)
 
-		output = await self.exchange.fetch_market(input)
+		output = await self.get_markets(input)
 
 		response = CCXTConvertors.rest_get_market_response(output)
 
@@ -199,9 +199,23 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_markets(self, request: RestGetMarketsRequest = None) -> RestGetMarketsResponse:
 		input = CCXTConvertors.rest_get_markets_request(request)
 
-		output = await self.exchange.fetch_markets(input)
+		all_markets = await self.get_all_markets(input)
+
+		output = RestGetMarketsResponse()
+		for market_id, market in all_markets.items():
+			if market_id in request.ids:
+				output[market_id] = market
 
 		response = CCXTConvertors.rest_get_markets_response(output)
+
+		return response
+
+	async def get_all_markets(self, request: RestGetAllMarketsRequest = None) -> RestGetAllMarketsResponse:
+		input = CCXTConvertors.rest_get_all_markets_request(request)
+
+		output = await self.exchange.fetch_markets(input)
+
+		response = CCXTConvertors.rest_get_all_markets_response(output)
 
 		return response
 
@@ -280,7 +294,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_all_balances(self, request: RestGetAllBalancesRequest = None) -> RestGetAllBalancesResponse:
 		input = CCXTConvertors.rest_get_all_balances_request(request)
 
-		output = await self.exchange.fetch_all_balances(input)
+		output = await self.exchange.fetch_balance(input)
 
 		response = CCXTConvertors.rest_get_all_balances_response(output)
 

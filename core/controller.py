@@ -491,8 +491,12 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# response = await connector.rest.get_market(market_id)
 
 	# response = await connector.rest.get_all_tokens()
-	# response = await connector.rest.get_token(get_token_request)
 	# response = await connector.rest.get_tokens(get_tokens_request)
+	# response = await connector.rest.get_token(get_token_request)
+
+	# response = await connector.rest.get_all_order_books()
+	# response = await connector.rest.get_order_books(get_order_books_request)
+	# response = await connector.rest.get_order_book(get_order_book_request)
 
 	# response = await connector.rest.get_all_tickers()
 	# response = await connector.rest.get_tickers(tickers_request)
@@ -507,9 +511,7 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 
 	# response = await connector.rest.cancel_order(cancel_order_request)
 
-	# response = await connector.rest.get_all_order_books()
-	# response = await connector.rest.get_order_books(get_order_books_request)
-	# response = await connector.rest.get_order_book(get_order_book_request)
+
 
 	await connector.close()
 
