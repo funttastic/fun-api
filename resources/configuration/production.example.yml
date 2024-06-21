@@ -10,7 +10,7 @@ server:
       token: true
       certificate: true
 logging:
-  level: 30 # 30 -> WARNING
+  level: 20 # 20 -> INFO
 #  levels: [10, 20, 30, 40, 50]
   use_telegram: false
 #  directory: resources/logs
