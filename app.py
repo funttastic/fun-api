@@ -1,3 +1,4 @@
+import traceback
 from json import JSONDecodeError
 
 import asyncio
@@ -127,6 +128,8 @@ async def validate_token(request: Request | WebSocket) -> bool:
 
 		return True
 	except Exception as exception:
+		logger.log(logging.DEBUG, traceback.format_exc())
+
 		return False
 
 
