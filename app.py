@@ -235,7 +235,7 @@ async def auth_refresh(request: Request, response: Response):
 
 	token_expiration_delta = datetime.timedelta(minutes=constants.authentication.jwt.token.expiration)
 	token = create_jwt_token(
-		data={"sub": properties.get("admin.username")}, expires_delta=token_expiration_delta
+		data={"sub": str(properties.get("admin.username"))}, expires_delta=token_expiration_delta
 	)
 
 	response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax", max_age=60 * 60 * 1000, path="/", domain="")
