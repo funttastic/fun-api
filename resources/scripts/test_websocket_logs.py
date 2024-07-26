@@ -6,10 +6,12 @@ import requests
 import ssl
 import websocket
 
+host = os.environ.get("HOST")
+port = os.environ.get("PORT")
 username = os.environ.get("USERNAME")
 password = os.environ.get("PASSWORD")
-client_cert = Path("../certificates/client_cert.pem").absolute().resolve().as_posix()
-client_key = Path("../certificates/client_key.pem").absolute().resolve().as_posix()
+client_cert = Path(os.path.dirname(os.path.abspath(__file__)), "../certificates/client_cert.pem").absolute().resolve().as_posix()
+client_key = Path(os.path.dirname(os.path.abspath(__file__)), "../certificates/client_key.pem").absolute().resolve().as_posix()
 
 ssl_defaults = ssl.get_default_verify_paths()
 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -20,7 +22,11 @@ target_id = "all.all"
 
 
 def sign_in(username, password):
-	url = "https://localhost:30001/auth/signIn"
+	# Without NGINX
+	# url = f"https://{host}:{port}/auth/signIn"
+
+	# With NGINX
+	url = f"https://{host}:{port}/api/auth/signIn"
 
 	credentials = {"username": username, "password": password}
 
@@ -58,7 +64,12 @@ def on_open(ws):
 if __name__ == "__main__":
 	token = sign_in(username, password)
 
-	url = "wss://localhost:30001/ws/log"
+	# # Without NGINX
+	# url = f"wss://{host}:{port}/ws/log"
+
+	# With NGINX
+	url = f"wss://{host}:{port}/api/ws/log"
+
 	websocket.enableTrace(True)
 
 	header = [
