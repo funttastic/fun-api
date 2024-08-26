@@ -71,7 +71,8 @@ async def hummingbot_gateway_router(
 		"params": parameters,
 		"data": payload,
 		"cert": (certificates.client_certificate, certificates.client_private_key),
-		"verify": certificates.certificate_authority_certificate
+		"verify": certificates.certificate_authority_certificate,
+		"timeout": 60
 	}
 
 	response = getattr(requests, method.value)(**request)
