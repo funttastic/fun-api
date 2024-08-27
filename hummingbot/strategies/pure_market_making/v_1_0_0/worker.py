@@ -717,7 +717,8 @@ class Worker(WorkerBase):
 					"network": self._configuration.network,
 					"connector": self._configuration.connector,
 					"ownerAddress": self._wallet_address,
-					"tokenIds": [KUJIRA_NATIVE_TOKEN.id, self._base_token.id, self._quote_token.id]
+					"tokenIds": list({KUJIRA_NATIVE_TOKEN.id, self._base_token.id, self._quote_token.id}),
+					"marketId": self._market.id
 				}
 
 				self.log(DEBUG, f"""gateway.kujira_get_balances: request:\n{dump(request)}""")
@@ -1461,7 +1462,7 @@ class Worker(WorkerBase):
 		)
 
 		return summary
-	
+
 	def _hot_reload(self):
 		import importlib
 		module = importlib.reload(importlib.import_module(self.__module__))
