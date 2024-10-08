@@ -12,3 +12,4 @@ resources/setup/shared/
 *.iml
 __pycache__/
 .idea
+.DS_Store

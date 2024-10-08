@@ -201,7 +201,8 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 		all_markets = await self.get_all_markets(input)
 
-		output = RestGetMarketsResponse()
+		output = DotMap()
+
 		for market_id, market in all_markets.items():
 			if market_id in request.ids:
 				output[market_id] = market
@@ -303,7 +304,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_order(self, request: RestGetOrderRequest = None) -> RestGetOrderResponse:
 		input = CCXTConvertors.rest_get_order_request(request)
 
-		output = await self.exchange.fetch_order(input)
+		output = await self.exchange.fetch_order(id=input.id, symbol=input.symbol)
 
 		response = CCXTConvertors.rest_get_order_response(output)
 
@@ -312,7 +313,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_orders(self, request: RestGetOrdersRequest = None) -> RestGetOrdersResponse:
 		input = CCXTConvertors.rest_get_orders_request(request)
 
-		output = await self.exchange.fetch_orders(input)
+		output = await self.exchange.fetch_orders(symbol=input.symbol)
 
 		response = CCXTConvertors.rest_get_orders_response(output)
 
@@ -321,7 +322,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_all_open_orders(self, request: RestGetAllOpenOrdersRequest = None) -> RestGetAllOpenOrdersResponse:
 		input = CCXTConvertors.rest_get_all_open_orders_request(request)
 
-		output = await self.exchange.fetch_all_open_orders(input)
+		output = await self.exchange.fetch_open_orders(input)
 
 		response = CCXTConvertors.rest_get_all_open_orders_response(output)
 

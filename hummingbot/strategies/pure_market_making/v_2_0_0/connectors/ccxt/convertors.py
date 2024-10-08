@@ -1,3 +1,4 @@
+from dotmap import DotMap
 from typing import Any
 
 from singleton.singleton import ThreadSafeSingleton
@@ -96,7 +97,9 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_all_markets_response(input: CCXTRestGetAllMarketsResponse) -> RestGetAllMarketsResponse:
-		output = input
+		output = {}
+		for item in input:
+			output[item['symbol']] = item
 		return output
 
 	@staticmethod
@@ -209,9 +212,8 @@ class CCXTConvertors:
 		return output
 
 	@staticmethod
-	def rest_get_market_response(input: Any) -> RestGetMarketResponse:
-		input: RestGetMarketsResponse = input
-		output = input.values().get(0, None)
+	def rest_get_market_response(input: RestGetMarketsResponse) -> RestGetMarketResponse:
+		output = next(iter(input.values()), None)
 
 		return output
 
@@ -223,7 +225,7 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_markets_response(input: Any) -> RestGetMarketsResponse:
-		output = input
+		output = input.toDict()
 
 		return output
 
@@ -249,17 +251,26 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_orders_request(input: RestGetOrdersRequest) -> Any:
-		output = input
+		output = DotMap(
+			symbol=input.market_id
+		)
+
 		return output
 
 	@staticmethod
 	def rest_get_orders_response(input: Any) -> RestGetOrdersResponse:
-		output = input
-		return output
+		output = DotMap(
+			orders=input
+		)
+		return output.toDict()
 
 	@staticmethod
 	def rest_get_order_request(input: RestGetOrderRequest) -> Any:
-		output = input
+		output = DotMap(
+			id=input.id,
+			symbol=input.market_id
+		)
+
 		return output
 
 	@staticmethod

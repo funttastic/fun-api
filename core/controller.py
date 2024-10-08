@@ -628,11 +628,13 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	}, _dynamic=False)
 
 	# market_id = RestGetMarketRequest(
-	# 	id="ZRX/USDT"
+	# 	id="ETH/BTC",
+	# 	name=None,
 	# )
 	#
 	# market_ids = RestGetMarketsRequest(
-	# 	ids=("EOS/USDC",)
+	# 	ids=("EOS/USDC", "ETH/BTC"),
+	# 	names=None,
 	# )
 	#
 	# market_names = RestGetMarketsRequest(
@@ -681,9 +683,24 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# 	]
 	# )
 	#
+	# get_orders_request = RestGetOrdersRequest(
+	# 	ids=None,
+	# 	market_id="ETH/USDT",
+	# 	market_ids=None,
+	# 	market_name=None,
+	# 	market_names=None,
+	# 	owner_address=None,
+	# 	owner_addresses=None,
+	# 	status=None,
+	# 	statuses=None,
+	# )
+	#
 	# get_order_request = RestGetOrderRequest(
 	# 	id="5707151",
-	# 	market_id="ETH/USDT"
+	# 	market_id="ETH/USDT",
+	# 	market_name=None,
+	# 	owner_address=None,
+	# 	status=None,
 	# )
 	# cancel_order_request = RestCancelOrderRequest(
 	# 	id="5707151",
@@ -697,10 +714,12 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	connector = CCXTConnector(options)
 	await connector.initialize(options)
 
+	# done
 	# response = await connector.rest.get_all_markets()
 	# response = await connector.rest.get_markets(market_ids)
 	# response = await connector.rest.get_market(market_id)
-
+	#
+	# not implemented in ccxt exchange
 	# response = await connector.rest.get_all_tokens()
 	# response = await connector.rest.get_tokens(get_tokens_request)
 	# response = await connector.rest.get_token(get_token_request)
@@ -716,9 +735,11 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# response = await connector.rest.place_order(place_order_request)
 	# response = await connector.rest.place_orders(place_orders_request)
 
+	# not implemented in ccxt exchange
 	# response = await connector.rest.get_all_orders()
+	# done
 	# response = await connector.rest.get_order(get_order_request)
-	# response = await connector.rest.get_orders()
+	# response = await connector.rest.get_orders(get_orders_request)
 
 	# response = await connector.rest.cancel_order(cancel_order_request)
 
