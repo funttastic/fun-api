@@ -1,8 +1,10 @@
+import json
 import ccxt.async_support as ccxt
 from ccxt.async_support.base.exchange import Exchange as WebSocketExchange
 from ccxt.base.exchange import Exchange as RESTExchange
 from dotmap import DotMap
 from typing import Any, Optional
+from ccxt.base.errors import OrderNotFound
 
 from core.decorators import log_class_exceptions
 from core.utils import deep_merge
@@ -304,11 +306,27 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_order(self, request: RestGetOrderRequest = None) -> RestGetOrderResponse:
 		input = CCXTConvertors.rest_get_order_request(request)
 
-		output = await self.exchange.fetch_order(id=input.id, symbol=input.symbol)
+		try:
+			output = await self.exchange.fetch_order(id=input.id, symbol=input.symbol)
 
-		response = CCXTConvertors.rest_get_order_response(output)
+			response = CCXTConvertors.rest_get_order_response(output)
 
-		return response
+			return response
+		except OrderNotFound as e:
+			error_to_dict = json.loads(e.args[0].split(' ', 1)[1])
+
+			response = DotMap(
+				code=error_to_dict['code'],
+				msg=error_to_dict['msg'],
+			)
+
+			return response.toDict()
+		except Exception as e:
+			response = DotMap(
+				msg=str(e),
+			)
+
+			return response.toDict()
 
 	async def get_orders(self, request: RestGetOrdersRequest = None) -> RestGetOrdersResponse:
 		input = CCXTConvertors.rest_get_orders_request(request)
