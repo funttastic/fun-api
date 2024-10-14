@@ -165,7 +165,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_token(self, request: RestGetTokenRequest = None) -> RestGetTokenResponse:
 		input = CCXTConvertors.rest_get_token_request(request)
 
-		output = await self.exchange.fetch_token(input)
+		output = await self.get_tokens(input)
 
 		response = CCXTConvertors.rest_get_token_response(output)
 
@@ -174,7 +174,13 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_tokens(self, request: RestGetTokensRequest = None) -> RestGetTokensResponse:
 		input = CCXTConvertors.rest_get_tokens_request(request)
 
-		output = await self.exchange.fetch_tokens(input)
+		all_tokens = await self.get_all_tokens(input)
+
+		output = DotMap()
+
+		for token_id, token in all_tokens.items():
+			if token_id in request.ids or token_id in request.symbols:
+				output[token_id] = token
 
 		response = CCXTConvertors.rest_get_tokens_response(output)
 
@@ -183,7 +189,10 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_all_tokens(self, request: RestGetAllTokensRequest = None) -> RestGetAllTokensResponse:
 		input = CCXTConvertors.rest_get_all_tokens_request(request)
 
-		output = await self.exchange.fetch_all_tokens(input)
+		output = await self.exchange.fetch_currencies(input)
+
+		if not output:
+			return RestGetAllTokensResponse()
 
 		response = CCXTConvertors.rest_get_all_tokens_response(output)
 

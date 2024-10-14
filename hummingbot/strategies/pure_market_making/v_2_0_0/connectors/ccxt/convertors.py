@@ -300,12 +300,18 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_token_request(input: RestGetTokenRequest) -> Any:
-		output = input
+		output = RestGetTokensRequest(
+			ids=[input.id],
+			names=[input.name],
+			symbols=[input.symbol],
+		)
+
 		return output
 
 	@staticmethod
 	def rest_get_token_response(input: Any) -> RestGetTokenResponse:
-		output = input
+		output = next(iter(input.values()), None)
+
 		return output
 
 	@staticmethod
@@ -315,7 +321,7 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_tokens_response(input: Any) -> RestGetTokensResponse:
-		output = input
+		output = input.toDict()
 		return output
 
 	@staticmethod
