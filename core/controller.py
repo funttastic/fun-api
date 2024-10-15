@@ -656,10 +656,12 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# )
 	#
 	# tickers_request = RestGetTickersRequest(
-	# 	market_ids=("ZIL/USDT", "ZIL/TRY")
+	# 	market_ids=["ZIL/USDT", "ZIL/TRY"],
+	# 	market_names=None,
 	# )
 	# ticker_request = RestGetTickerRequest(
-	# 	market_id="BTC/USDT"
+	# 	market_id="BTC/USDT",
+	# 	market_name=None,
 	# )
 	#
 	# place_order_request = RestPlaceOrderRequest(
@@ -720,18 +722,21 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	connector = CCXTConnector(options)
 	await connector.initialize(options)
 
+	# done
 	# response = await connector.rest.get_all_markets()
 	# response = await connector.rest.get_markets(market_ids)
 	# response = await connector.rest.get_market(market_id)
-	#
+
+	# done
 	# response = await connector.rest.get_all_tokens()
 	# response = await connector.rest.get_tokens(get_tokens_request)
 	# response = await connector.rest.get_token(get_token_request)
 
-	# response = await connector.rest.get_all_order_books()
+	response = await connector.rest.get_all_order_books()
 	# response = await connector.rest.get_order_books(get_order_books_request)
 	# response = await connector.rest.get_order_book(get_order_book_request)
 
+	# done
 	# response = await connector.rest.get_all_tickers()
 	# response = await connector.rest.get_tickers(tickers_request)
 	# response = await connector.rest.get_ticker(ticker_request)
@@ -741,7 +746,7 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 
 	# not implemented in ccxt exchange
 	# response = await connector.rest.get_all_orders()
-	#
+	# done
 	# response = await connector.rest.get_order(get_order_request)
 	# response = await connector.rest.get_orders(get_orders_request)
 

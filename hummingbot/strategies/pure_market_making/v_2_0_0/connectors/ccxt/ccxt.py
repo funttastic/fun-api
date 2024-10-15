@@ -270,7 +270,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_tickers(self, request: RestGetTickersRequest = None) -> RestGetTickersResponse:
 		input = CCXTConvertors.rest_get_tickers_request(request)
 
-		output = await self.exchange.fetch_tickers(input)
+		output = await self.get_all_tickers(input)
 
 		response = CCXTConvertors.rest_get_tickers_response(output)
 
@@ -279,7 +279,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_all_tickers(self, request: RestGetAllTickersRequest = None) -> RestGetAllTickersResponse:
 		input = CCXTConvertors.rest_get_all_tickers_request(request)
 
-		output = await self.exchange.fetch_all_tickers(input)
+		output = await self.exchange.fetch_tickers(input)
 
 		response = CCXTConvertors.rest_get_all_tickers_response(output)
 

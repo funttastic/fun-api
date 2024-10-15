@@ -280,7 +280,7 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_ticker_request(input: RestGetTickerRequest) -> Any:
-		output = input
+		output = input.market_id
 		return output
 
 	@staticmethod
@@ -290,7 +290,7 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_tickers_request(input: RestGetTickersRequest) -> Any:
-		output = input
+		output = input.market_ids
 		return output
 
 	@staticmethod
