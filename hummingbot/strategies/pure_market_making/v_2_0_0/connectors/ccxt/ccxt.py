@@ -1,9 +1,8 @@
-import json
 import ccxt.async_support as ccxt
 from ccxt.async_support.base.exchange import Exchange as WebSocketExchange
 from ccxt.base.exchange import Exchange as RESTExchange
 from dotmap import DotMap
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 from ccxt.base.errors import OrderNotFound
 
 from core.decorators import log_class_exceptions
@@ -243,7 +242,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_order_books(self, request: RestGetOrderBooksRequest = None) -> RestGetOrderBooksResponse:
 		input = CCXTConvertors.rest_get_order_books_request(request)
 
-		output = await self.exchange.fetch_order_books(input)
+		output = await self.get_all_order_books(input)
 
 		response = CCXTConvertors.rest_get_order_books_response(output)
 
@@ -252,7 +251,16 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_all_order_books(self, request: RestGetAllOrderBooksRequest = None) -> RestGetAllOrderBooksResponse:
 		input = CCXTConvertors.rest_get_all_order_books_request(request)
 
-		output = await self.exchange.fetch_all_order_books(input)
+		if input:
+			symbols = input
+		else:
+			symbols = await self.get_all_markets()
+
+		output = DotMap()
+
+		for market_id in symbols:
+			order_book = await self.exchange.fetch_order_book(market_id)
+			output[market_id] = order_book
 
 		response = CCXTConvertors.rest_get_all_order_books_response(output)
 
@@ -312,7 +320,7 @@ class CCXTRESTConnector(RESTConnectorBase):
 
 		return response
 
-	async def get_order(self, request: RestGetOrderRequest = None) -> RestGetOrderResponse:
+	async def get_order(self, request: RestGetOrderRequest = None) -> RestGetOrderResponse | Dict:
 		input = CCXTConvertors.rest_get_order_request(request)
 
 		try:
@@ -321,26 +329,15 @@ class CCXTRESTConnector(RESTConnectorBase):
 			response = CCXTConvertors.rest_get_order_response(output)
 
 			return response
-		except OrderNotFound as e:
-			error_to_dict = json.loads(e.args[0].split(' ', 1)[1])
-
-			response = DotMap(
-				code=error_to_dict['code'],
-				msg=error_to_dict['msg'],
-			)
-
-			return response.toDict()
 		except Exception as e:
-			response = DotMap(
-				msg=str(e),
-			)
+			response = CCXTConvertors.handle_error_response(e)
 
-			return response.toDict()
+			return response
 
 	async def get_orders(self, request: RestGetOrdersRequest = None) -> RestGetOrdersResponse:
 		input = CCXTConvertors.rest_get_orders_request(request)
 
-		output = await self.exchange.fetch_orders(symbol=input.symbol)
+		output = await self.get_all_orders(input)
 
 		response = CCXTConvertors.rest_get_orders_response(output)
 
@@ -367,7 +364,21 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def get_all_orders(self, request: RestGetAllOrdersRequest = None) -> RestGetAllOrdersResponse:
 		input = CCXTConvertors.rest_get_all_orders_request(request)
 
-		output = await self.exchange.fetch_all_orders(input)
+		if input:
+			symbols = input
+		else:
+			symbols = await self.get_all_markets()
+
+		output = DotMap()
+
+		for symbol in symbols:
+			# list with all orders
+			order = await self.exchange.fetch_orders(symbol)
+			output[symbol] = order
+
+			# list with an order
+			# order = await self.exchange.fetch_orders(symbol=symbol, limit=1)
+			# output[symbol] = order
 
 		response = CCXTConvertors.rest_get_all_orders_response(output)
 

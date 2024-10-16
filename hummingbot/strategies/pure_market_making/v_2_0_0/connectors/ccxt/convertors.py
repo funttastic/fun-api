@@ -1,5 +1,6 @@
 from dotmap import DotMap
-from typing import Any
+from typing import Any, Dict
+import json
 
 from singleton.singleton import ThreadSafeSingleton
 
@@ -97,10 +98,12 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_all_markets_response(input: CCXTRestGetAllMarketsResponse) -> RestGetAllMarketsResponse:
-		output = {}
+		output = DotMap()
+
 		for item in input:
 			output[item['symbol']] = item
-		return output
+
+		return output.toDict()
 
 	@staticmethod
 	def rest_get_all_open_orders_request(input: RestGetAllOpenOrdersRequest) -> Any:
@@ -119,7 +122,7 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_all_order_books_response(input: Any) -> RestGetAllOrderBooksResponse:
-		output = input
+		output = input.toDict()
 		return output
 
 	@staticmethod
@@ -129,7 +132,7 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_all_orders_response(input: Any) -> RestGetAllOrdersResponse:
-		output = input
+		output = input.toDict()
 		return output
 
 	@staticmethod
@@ -231,7 +234,7 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_order_books_request(input: RestGetOrderBooksRequest) -> Any:
-		output = input
+		output = input.market_ids
 		return output
 
 	@staticmethod
@@ -241,7 +244,7 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_order_book_request(input: RestGetOrderBookRequest) -> Any:
-		output = input
+		output = input.market_id
 		return output
 
 	@staticmethod
@@ -251,18 +254,13 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_get_orders_request(input: RestGetOrdersRequest) -> Any:
-		output = DotMap(
-			symbol=input.market_id
-		)
-
+		output = input.market_ids
 		return output
 
 	@staticmethod
 	def rest_get_orders_response(input: Any) -> RestGetOrdersResponse:
-		output = DotMap(
-			orders=input
-		)
-		return output.toDict()
+		output = input
+		return output
 
 	@staticmethod
 	def rest_get_order_request(input: RestGetOrderRequest) -> Any:
@@ -633,3 +631,30 @@ class CCXTConvertors:
 	def ws_watch_tickers_response(input: Any) -> WsWatchTickersResponse:
 		output = input
 		return output
+
+	@staticmethod
+	def handle_error_response(input: Exception) -> Dict:
+		error_message = input.args[0].split(' ', 1)[1]
+
+		try:
+			error_to_dict = json.loads(error_message)
+
+			if 'code' in error_to_dict and 'msg' in error_to_dict:
+				output = DotMap(
+					code=error_to_dict['code'],
+					msg=error_to_dict['msg'],
+				)
+
+				return output.toDict()
+			else:
+				output = DotMap(
+					msg=error_message,
+				)
+
+				return output.toDict()
+		except json.JSONDecodeError:
+			output = DotMap(
+				msg=error_message,
+			)
+
+			return output.toDict()

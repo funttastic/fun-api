@@ -631,7 +631,6 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# 	id="ETH/BTC",
 	# 	name=None,
 	# )
-	#
 	# market_ids = RestGetMarketsRequest(
 	# 	ids=("EOS/USDC", "ETH/BTC"),
 	# 	names=None,
@@ -640,14 +639,12 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# market_names = RestGetMarketsRequest(
 	# 	names=("BNB/USD", "ZRX/USDT:USDT", "ZRX/BNB")
 	# )
-	#
 	# get_token_request = RestGetTokenRequest(
 	# 	# symbol="ZIL",
 	# 	id=None,
 	# 	name=None,
 	# 	symbol="BRL",
 	# )
-	#
 	# get_tokens_request = RestGetTokensRequest(
 	# 	# ids=("ZIL", "NEAR",),
 	# 	ids=("TBTC", "BRL",),
@@ -671,7 +668,6 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# 	order_amount=Decimal(0.0005),
 	# 	order_price=Decimal(90000)
 	# )
-	#
 	# place_orders_request = RestPlaceOrdersRequest(
 	# 	orders=[
 	# 		RestPlaceOrderRequest(
@@ -693,8 +689,9 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	#
 	# get_orders_request = RestGetOrdersRequest(
 	# 	ids=None,
-	# 	market_id="ETH/USDT",
-	# 	market_ids=None,
+	# 	market_id=None,
+	# 	market_ids=["ETH/USDT", "BTC/USDT"],
+	# 	# market_ids=["tBTCtUSDC",  "tBONKtUSDC"],
 	# 	market_name=None,
 	# 	market_names=None,
 	# 	owner_address=None,
@@ -702,21 +699,28 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# 	status=None,
 	# 	statuses=None,
 	# )
-	#
 	# get_order_request = RestGetOrderRequest(
 	# 	id="5707151",
 	# 	market_id="ETH/USDT",
+	# 	# market_id="tBONKtUSDC",
 	# 	market_name=None,
 	# 	owner_address=None,
 	# 	status=None,
 	# )
+	#
 	# cancel_order_request = RestCancelOrderRequest(
 	# 	id="5707151",
 	# 	market_id="ETH/USDT"
 	# )
 	#
-	# get_order_books_request = RestGetOrderBooksRequest(market_ids=["ETH/USDT", "BTC/USDT"])
-	# get_order_book_request = RestGetOrderBookRequest(market_id="ETH/USDT")
+	# get_order_books_request = RestGetOrderBooksRequest(
+	# 	market_ids=["ETH/USDT", "BTC/USDT"],
+	# 	market_names=None,
+	# )
+	# get_order_book_request = RestGetOrderBookRequest(
+	# 	market_id="ETH/USDT",
+	# 	market_name=None,
+	# )
 
 	response: Any = None
 	connector = CCXTConnector(options)
@@ -732,7 +736,8 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# response = await connector.rest.get_tokens(get_tokens_request)
 	# response = await connector.rest.get_token(get_token_request)
 
-	response = await connector.rest.get_all_order_books()
+	# done
+	# response = await connector.rest.get_all_order_books()
 	# response = await connector.rest.get_order_books(get_order_books_request)
 	# response = await connector.rest.get_order_book(get_order_book_request)
 
@@ -744,11 +749,10 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# response = await connector.rest.place_order(place_order_request)
 	# response = await connector.rest.place_orders(place_orders_request)
 
-	# not implemented in ccxt exchange
-	# response = await connector.rest.get_all_orders()
 	# done
-	# response = await connector.rest.get_order(get_order_request)
+	# response = await connector.rest.get_all_orders()
 	# response = await connector.rest.get_orders(get_orders_request)
+	# response = await connector.rest.get_order(get_order_request)
 
 	# response = await connector.rest.cancel_order(cancel_order_request)
 
