@@ -364,7 +364,14 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_place_order_request(input: RestPlaceOrderRequest) -> Any:
-		output = input
+		output = DotMap(
+			symbol=input.market_id,
+			type=input.type,
+			side=input.side,
+			amount=input.amount,
+			price=input.price,
+		)
+
 		return output
 
 	@staticmethod
@@ -374,12 +381,15 @@ class CCXTConvertors:
 
 	@staticmethod
 	def rest_place_orders_request(input: RestPlaceOrdersRequest) -> Any:
-		output = input
+		output = input.orders
 		return output
 
 	@staticmethod
 	def rest_place_orders_response(input: Any) -> RestPlaceOrdersResponse:
-		output = input
+		output = DotMap(
+			new_orders=input,
+		).toDict()
+
 		return output
 
 	@staticmethod
@@ -643,18 +653,18 @@ class CCXTConvertors:
 				output = DotMap(
 					code=error_to_dict['code'],
 					msg=error_to_dict['msg'],
-				)
+				).toDict()
 
-				return output.toDict()
+				return output
 			else:
 				output = DotMap(
 					msg=error_message,
-				)
+				).toDict()
 
-				return output.toDict()
+				return output
 		except json.JSONDecodeError:
 			output = DotMap(
 				msg=error_message,
-			)
+			).toDict()
 
-			return output.toDict()
+			return output

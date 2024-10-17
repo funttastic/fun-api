@@ -3,7 +3,6 @@ from ccxt.async_support.base.exchange import Exchange as WebSocketExchange
 from ccxt.base.exchange import Exchange as RESTExchange
 from dotmap import DotMap
 from typing import Any, Optional, Dict
-from ccxt.base.errors import OrderNotFound
 
 from core.decorators import log_class_exceptions
 from core.utils import deep_merge
@@ -387,7 +386,13 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def place_order(self, request: RestPlaceOrderRequest = None) -> RestPlaceOrderResponse:
 		input = CCXTConvertors.rest_place_order_request(request)
 
-		output = await self.exchange.create_order(input)
+		output = await self.exchange.create_order(
+			symbol= str(input.symbol),
+			type=input.type,
+			side=input.side,
+			amount=input.amount,
+			price=input.price
+		)
 
 		response = CCXTConvertors.rest_place_order_response(output)
 
@@ -396,7 +401,11 @@ class CCXTRESTConnector(RESTConnectorBase):
 	async def place_orders(self, request: RestPlaceOrdersRequest = None) -> RestPlaceOrdersResponse:
 		input = CCXTConvertors.rest_place_orders_request(request)
 
-		output = await self.exchange.create_orders(input)
+		output = []
+
+		for order in input:
+			new_order = await self.place_order(order)
+			output.append(new_order)
 
 		response = CCXTConvertors.rest_place_orders_response(output)
 

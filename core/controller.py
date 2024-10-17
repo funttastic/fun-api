@@ -662,29 +662,50 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# )
 	#
 	# place_order_request = RestPlaceOrderRequest(
+	# 	client_id=None,
 	# 	market_id="BTC/USDT",
-	# 	order_side="sell",
-	# 	order_type=OrderType.LIMIT,
-	# 	order_amount=Decimal(0.0005),
-	# 	order_price=Decimal(90000)
+	# 	market_name=None,
+	# 	owner_address=None,
+	# 	payer_address=None,
+	# 	side=OrderSide.SELL.value,
+	# 	price=Decimal(90000),
+	# 	amount=Decimal(0.0005),
+	# 	type=OrderType.LIMIT.value,
+	# 	replace_if_exists=None,
+	# 	wait_until_included_in_block=None,
 	# )
 	# place_orders_request = RestPlaceOrdersRequest(
+	# 	owner_address=None,
 	# 	orders=[
 	# 		RestPlaceOrderRequest(
+	# 			client_id=None,
 	# 			market_id="BTC/USDT",
-	# 			order_side="buy",
-	# 			order_type=OrderType.MARKET,
-	# 			order_amount=Decimal(0.0009),
-	# 			order_price=Decimal(7000)
+	# 			market_name=None,
+	# 			owner_address=None,
+	# 			payer_address=None,
+	# 			side=OrderSide.BUY.value,
+	# 			price=Decimal(7000),
+	# 			amount=Decimal(0.0009),
+	# 			type=OrderType.MARKET.value,
+	# 			replace_if_exists=None,
+	# 			wait_until_included_in_block=None,
 	# 		),
 	# 		RestPlaceOrderRequest(
+	# 			client_id=None,
 	# 			market_id="BTC/USDT",
-	# 			order_side="sell",
-	# 			order_type=OrderType.LIMIT,
-	# 			order_amount=Decimal(0.0005),
-	# 			order_price=Decimal(90000)
-	# 		)
-	# 	]
+	# 			market_name=None,
+	# 			owner_address=None,
+	# 			payer_address=None,
+	# 			side=OrderSide.SELL.value,
+	# 			price=Decimal(90000),
+	# 			amount=Decimal(0.0005),
+	# 			type=OrderType.LIMIT.value,
+	# 			replace_if_exists=None,
+	# 			wait_until_included_in_block=None,
+	# 		),
+	# 	],
+	# 	replace_if_exists=None,
+	# 	wait_until_included_in_block=None,
 	# )
 	#
 	# get_orders_request = RestGetOrdersRequest(
@@ -700,8 +721,9 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# 	statuses=None,
 	# )
 	# get_order_request = RestGetOrderRequest(
-	# 	id="5707151",
-	# 	market_id="ETH/USDT",
+	# 	# id="5707151",
+	# 	id="7626209",
+	# 	market_id="BTC/USDT",
 	# 	# market_id="tBONKtUSDC",
 	# 	market_name=None,
 	# 	owner_address=None,
@@ -746,6 +768,7 @@ async def test(options: DotMap[str, Any]) -> DotMap[str, Any]:
 	# response = await connector.rest.get_tickers(tickers_request)
 	# response = await connector.rest.get_ticker(ticker_request)
 
+	# done
 	# response = await connector.rest.place_order(place_order_request)
 	# response = await connector.rest.place_orders(place_orders_request)
 

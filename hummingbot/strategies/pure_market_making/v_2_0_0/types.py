@@ -660,10 +660,10 @@ class RestPlaceOrderRequest:
 	market_name: Optional[MarketName]
 	owner_address: Optional[OrderOwnerAddress]
 	payer_address: Optional[OrderPayerAddress]
-	side: OrderSide
+	side: OrderSide or str
 	price: OrderPrice
 	amount: OrderAmount
-	type: OrderType
+	type: OrderType or str
 	replace_if_exists: Optional[bool]
 	wait_until_included_in_block: Optional[bool]
 
